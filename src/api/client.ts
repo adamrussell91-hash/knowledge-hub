@@ -4,3 +4,4 @@ async function apiFetch<T>(path: string): Promise<T> { const response = await fe
 export const listPages = () => apiFetch<PageManifestEntry[]>("/pages");
 export const getPage = (id: string) => apiFetch<Page>(`/pages/${encodeURIComponent(id)}`);
 export const searchPages = (query: string) => apiFetch<PageManifestEntry[]>(`/search?q=${encodeURIComponent(query)}`);
+export const getAttachmentUrl = (pageId: string, attachmentId: string) => apiFetch<{ url: string }>(`/attachments/${encodeURIComponent(pageId)}/${encodeURIComponent(attachmentId)}`);

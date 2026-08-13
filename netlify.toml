@@ -41,6 +41,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/attachments/*"
+  to = "/.netlify/functions/attachments-get"
+  status = 200
+
+[[redirects]]
   from = "/api/lesson-alchemist"
   to = "/.netlify/functions/lesson-alchemist"
   status = 200
