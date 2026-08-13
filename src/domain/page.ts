@@ -6,6 +6,7 @@ export const AttachmentSchema = z.object({
   r2_key: z.string(),
   filename: z.string(),
   content_type: z.string(),
+  source_path: z.string().optional(),
 });
 
 export type Attachment = z.infer<typeof AttachmentSchema>;
