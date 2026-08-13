@@ -9,3 +9,38 @@
   targetPort = 5173
   port = 8888
   publish = "dist"
+
+[[redirects]]
+  from = "/api/auth-login"
+  to = "/.netlify/functions/auth-login"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth-logout"
+  to = "/.netlify/functions/auth-logout"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth-session"
+  to = "/.netlify/functions/auth-session"
+  status = 200
+
+[[redirects]]
+  from = "/api/pages"
+  to = "/.netlify/functions/pages-list"
+  status = 200
+
+[[redirects]]
+  from = "/api/pages/*"
+  to = "/.netlify/functions/pages-get"
+  status = 200
+
+[[redirects]]
+  from = "/api/search"
+  to = "/.netlify/functions/search"
+  status = 200
+
+[[redirects]]
+  from = "/api/lesson-alchemist"
+  to = "/.netlify/functions/lesson-alchemist"
+  status = 200
