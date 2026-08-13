@@ -1,0 +1,6 @@
+node_modules/
+migrated/
+tests/
+playwright-report/
+test-results/
+*.tsbuildinfo
