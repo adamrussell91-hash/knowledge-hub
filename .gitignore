@@ -4,3 +4,5 @@ dist/
 playwright-report/
 test-results/
 *.tsbuildinfo
+migrated/pages-dry-run.json
+migrated/data-repo/
