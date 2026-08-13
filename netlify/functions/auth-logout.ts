@@ -1,0 +1,1 @@
+import type { Handler } from "@netlify/functions"; import { cors } from "./_lib/cors"; export const handler: Handler = async () => ({ statusCode: 200, headers: { ...cors(), "Set-Cookie": "kh_session=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0" }, body: JSON.stringify({ ok: true }) });

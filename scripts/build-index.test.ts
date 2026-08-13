@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { buildIndex } from "./build-index";
+describe("buildIndex", () => it("keeps page metadata and vectors together", async () => { const pages = [{ id: "p", title: "T", body: "# T\n\nExcerpt", area: "notes" as const, tags: [], attachments: [], source_notion_id: "p", source_notion_url: "https://notion.so/p", created_at: "2024-01-01T00:00:00.000Z", updated_at: "2024-01-01T00:00:00.000Z", schema_version: 1 as const }]; await expect(buildIndex(pages, async () => [[1, 2]])).resolves.toEqual([{ pageId: "p", title: "T", excerpt: "Excerpt", vector: [1, 2] }]); }));

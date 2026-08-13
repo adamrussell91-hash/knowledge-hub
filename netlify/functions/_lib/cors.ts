@@ -1,0 +1,1 @@
+export function cors(origin = process.env.SITE_ORIGIN): Record<string, string> { return origin ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true", Vary: "Origin" } : {}; }
