@@ -1,0 +1,30 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "knowledge-hub-research",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "TEACHING_HUB_ORIGIN": "https://teaching-hub.adam-russell.com"
+  },
+  "r2_buckets": [
+    {
+      "binding": "ARCHIVE",
+      "bucket_name": "knowledge-hub-archive"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RESEARCH_SESSION",
+        "class_name": "ResearchSession"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ResearchSession"]
+    }
+  ]
+}
