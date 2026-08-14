@@ -168,7 +168,7 @@ export const handler: Handler = async event => {
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const message = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 2000,
       messages: [{ role: "user", content: buildAlchemistPrompt({ lessonText, retrieved }) }],
     });
