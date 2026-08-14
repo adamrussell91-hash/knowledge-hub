@@ -7,7 +7,12 @@ import type { ResearchResult } from "./schema";
 import { synthesizeWithAnthropic } from "./synthesize";
 
 export type KernelEnv = {
-  ARCHIVE: { get: (key: string) => Promise<{ text: () => Promise<string> } | null> };
+  ARCHIVE: {
+    get: (key: string) => Promise<{
+      text: () => Promise<string>;
+      arrayBuffer: () => Promise<ArrayBuffer>;
+    } | null>;
+  };
   ANTHROPIC_API_KEY: string;
   EMBEDDINGS_API_KEY: string;
   GITHUB_DATA_REPO?: string;
@@ -17,6 +22,11 @@ export type KernelEnv = {
 async function r2Text(env: KernelEnv, key: string) {
   const object = await env.ARCHIVE.get(key);
   return object ? object.text() : null;
+}
+
+async function r2Bytes(env: KernelEnv, key: string) {
+  const object = await env.ARCHIVE.get(key);
+  return object ? object.arrayBuffer() : null;
 }
 
 async function githubPage(env: KernelEnv, pageId: string): Promise<PageBody | null> {
@@ -35,7 +45,10 @@ async function githubPage(env: KernelEnv, pageId: string): Promise<PageBody | nu
 function roundDeps(env: KernelEnv) {
   return {
     retrieve: async (query: string) => {
-      const corpus = await loadCorpusCached(key => r2Text(env, key));
+      const corpus = await loadCorpusCached({
+        text: key => r2Text(env, key),
+        bytes: key => r2Bytes(env, key),
+      });
       const queryVector = env.EMBEDDINGS_API_KEY ? await embedQuery(query, env.EMBEDDINGS_API_KEY) : null;
       return hybridRetrieve({
         query,

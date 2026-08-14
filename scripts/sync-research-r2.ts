@@ -2,12 +2,14 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Page } from "../src/domain/page";
+import { packVectorIndex } from "../src/research/vectorPack";
 import { createDataRepo } from "../netlify/functions/_lib/dataRepo";
 import type { IndexEntry } from "./build-index";
 import { loadDotEnv, loadLocalStagedPages } from "./loadLocalPages";
 
 export const researchObjectKeys = {
-  index: "research/index.json",
+  vectors: "research/vectors.bin",
+  indexMeta: "research/index-meta.json",
   manifest: "research/manifest.json",
   page: (pageId: string) => `research/pages/${pageId}.json`,
 };
@@ -35,11 +37,7 @@ export function slimIndex(index: IndexEntry[]) {
 async function main() {
   await loadDotEnv();
   const execute = process.argv.includes("--execute");
-  console.log("Loading pages…");
-  const pages =
-    (await loadLocalStagedPages((done, total) => {
-      console.log(`Loaded ${done}/${total} local pages`);
-    })) ?? (await createDataRepo().listPages());
+  const vectorsOnly = process.argv.includes("--vectors-only");
   const indexPath = path.join(process.cwd(), "migrated", "index.json");
   let index: IndexEntry[] = [];
   try {
@@ -47,11 +45,34 @@ async function main() {
   } catch {
     console.log("No migrated/index.json — vector half will be empty until npm run build-index");
   }
-  const objects = [
-    { key: researchObjectKeys.index, body: JSON.stringify(slimIndex(index)) },
-    { key: researchObjectKeys.manifest, body: JSON.stringify(researchManifestFromPages(pages)) },
-    ...pages.map(page => ({ key: researchObjectKeys.page(page.id), body: JSON.stringify(page) })),
-  ];
+  const packed = index.length ? packVectorIndex(slimIndex(index)) : null;
+  const objects: { key: string; body: string | Uint8Array; contentType: string }[] = [];
+  if (packed) {
+    objects.push(
+      { key: researchObjectKeys.vectors, body: packed.bytes, contentType: "application/octet-stream" },
+      { key: researchObjectKeys.indexMeta, body: JSON.stringify(packed.meta), contentType: "application/json" },
+    );
+  }
+  let pages: Page[] = [];
+  if (!vectorsOnly) {
+    console.log("Loading pages…");
+    pages =
+      (await loadLocalStagedPages((done, total) => {
+        console.log(`Loaded ${done}/${total} local pages`);
+      })) ?? (await createDataRepo().listPages());
+    objects.push({
+      key: researchObjectKeys.manifest,
+      body: JSON.stringify(researchManifestFromPages(pages)),
+      contentType: "application/json",
+    });
+    objects.push(
+      ...pages.map(page => ({
+        key: researchObjectKeys.page(page.id),
+        body: JSON.stringify(page),
+        contentType: "application/json",
+      })),
+    );
+  }
   if (!execute) {
     console.log(
       JSON.stringify(
@@ -60,7 +81,9 @@ async function main() {
           pages: pages.length,
           indexEntries: index.length,
           objects: objects.length,
+          packedBytes: packed?.bytes.byteLength ?? 0,
           execute: "npm run sync-research-r2 -- --execute",
+          vectorsOnly: "npm run sync-research-r2 -- --execute --vectors-only",
         },
         null,
         2,
@@ -91,7 +114,7 @@ async function main() {
             Bucket: bucket,
             Key: item.key,
             Body: item.body,
-            ContentType: "application/json",
+            ContentType: item.contentType,
           }),
         ),
       ),

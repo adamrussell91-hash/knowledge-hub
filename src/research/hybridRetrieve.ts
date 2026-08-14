@@ -3,7 +3,7 @@ import { lexicalRetrieve, type LexicalDoc } from "../lib/lexicalRetrieve";
 export type VectorDoc = {
   pageId: string;
   title: string;
-  vector: number[];
+  vector: ArrayLike<number>;
 };
 
 export type Candidate = {
@@ -15,10 +15,19 @@ export type Candidate = {
 
 const RRF_K = 60;
 
-function cosine(left: number[], right: number[]) {
-  const dot = left.reduce((sum, value, index) => sum + value * (right[index] ?? 0), 0);
-  const magnitude = (values: number[]) => Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
-  const divisor = magnitude(left) * magnitude(right);
+function cosine(left: ArrayLike<number>, right: ArrayLike<number>) {
+  const n = Math.min(left.length, right.length);
+  let dot = 0;
+  let leftMag = 0;
+  let rightMag = 0;
+  for (let i = 0; i < n; i++) {
+    const a = left[i] ?? 0;
+    const b = right[i] ?? 0;
+    dot += a * b;
+    leftMag += a * a;
+    rightMag += b * b;
+  }
+  const divisor = Math.sqrt(leftMag) * Math.sqrt(rightMag);
   return divisor ? dot / divisor : 0;
 }
 
