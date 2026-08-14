@@ -1,7 +1,10 @@
 [build]
-  command = "npm run build"
-  publish = "dist"
+  command = "echo 'API only — the site is GitHub Pages'"
+  publish = "netlify/public"
   functions = "netlify/handlers"
+
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "SITE_ORIGIN"
 
 [dev]
   framework = "#custom"

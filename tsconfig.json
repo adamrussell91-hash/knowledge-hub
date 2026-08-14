@@ -13,5 +13,6 @@
     "strict": true,
     "types": ["vitest/globals", "vite/client"]
   },
-  "include": ["src", "netlify", "scripts", "tests", "vite.config.ts", "playwright.config.ts"]
+  "include": ["src", "netlify", "scripts", "tests", "vite.config.ts", "playwright.config.ts"],
+  "exclude": ["node_modules", "dist", "migrated"]
 }
