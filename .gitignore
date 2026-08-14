@@ -2,9 +2,11 @@ node_modules/
 .netlify/
 dist/
 .env
+.DS_Store
 playwright-report/
 test-results/
 *.tsbuildinfo
+.wrangler/
 migrated/pages-dry-run.json
 migrated/pages-dry-run-*.json
 migrated/lexical-corpus.json

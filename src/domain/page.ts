@@ -5,6 +5,7 @@ export const AttachmentSchema = z.object({
   kind: z.enum(["image", "pdf", "file"]),
   r2_key: z.string(),
   filename: z.string(),
+  label: z.string().optional(),
   content_type: z.string(),
   source_path: z.string().optional(),
 });

@@ -1,1 +1,139 @@
-:root { --cotton:#f5f1e9; --paper:#fbf8f2; --ink:#13233a; --ink-2:#17375e; --muted:#6b7788; --line:rgba(25,47,74,.10); --blue:#d9e8f6; --sage:#dce8df; --gold:#f1e2b6; --peach:#f2dfd0; --lilac:#e8e0f1; --glass:rgba(255,255,255,.64); --shadow:0 18px 48px rgba(39,55,74,.10), inset 0 1px 0 rgba(255,255,255,.96); --radius-shell:28px; --radius-card:20px; --radius-control:13px; } * { box-sizing:border-box; } body { margin:0; min-height:100vh; font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:radial-gradient(760px 540px at 4% 0%,rgba(207,223,241,.62),transparent 70%),radial-gradient(720px 500px at 98% 8%,rgba(237,216,197,.50),transparent 72%),linear-gradient(145deg,#f4f0e8,#fbf8f2 48%,#f3efe6); } .glass { background:linear-gradient(145deg,rgba(255,255,255,.80),rgba(255,255,255,.52)); border:1px solid rgba(255,255,255,.92); box-shadow:var(--shadow); backdrop-filter:blur(22px) saturate(115%); }
+/* Knowledge Hub — Warm Cotton tokens (Teaching Hub family) */
+:root {
+  color-scheme: light;
+
+  --warm-white: #fbf8f2;
+  --cotton: #f5f1e9;
+  --paper: #fbf8f2;
+  --depth: #0a1536;
+  --marine: #142b51;
+  --navy: #17375e;
+  --navy-2: #244f7c;
+  --orca: #424860;
+  --ink: #13233a;
+  --ink-2: #17375e;
+  --muted: #6b7788;
+  --faint: #8a94a0;
+  --line: rgba(25, 47, 74, 0.1);
+  --wave: #376fb7;
+
+  --blue: #d9e8f6;
+  --blue-ink: #315875;
+  --sage: #dce8df;
+  --sage-ink: #44604e;
+  --gold: #f1e2b6;
+  --gold-ink: #6c581f;
+  --peach: #f2dfd0;
+  --peach-ink: #77503a;
+  --lilac: #e8e0f1;
+  --lilac-ink: #5d4d72;
+
+  --glass: rgba(255, 255, 255, 0.7);
+  --glass-strong: rgba(255, 255, 255, 0.8);
+  --shadow: 0 18px 48px rgba(39, 55, 74, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  --elev-2: 0 1px 2px rgba(20, 35, 70, 0.05), 0 2px 6px rgba(20, 35, 70, 0.06);
+  --elev-3: var(--shadow);
+
+  --on-dark: rgba(255, 255, 255, 0.92);
+  --on-dark-muted: rgba(255, 255, 255, 0.66);
+  --on-dark-line: rgba(255, 255, 255, 0.16);
+  --on-dark-hover: rgba(255, 255, 255, 0.1);
+
+  --danger: #9b2c2c;
+
+  --font-ui: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.3125rem;
+  --text-xl: 2rem;
+  --text-2xl: 2.625rem;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-tight: -0.045em;
+  --tracking-caps: 0.1em;
+
+  --leading-tight: 1.15;
+  --leading-normal: 1.55;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.875rem;
+  --radius-md: 1.25rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 1.75rem;
+  --radius-shell: 28px;
+  --radius-card: 20px;
+  --radius-control: 13px;
+
+  --rail-width: 5.75rem;
+  --measure: 68ch;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  isolation: isolate;
+  font-family: var(--font-ui);
+  font-synthesis: none;
+  color: var(--ink);
+  background-color: var(--cotton);
+  background-image:
+    radial-gradient(760px 540px at 4% 0%, rgba(207, 223, 241, 0.62), transparent 70%),
+    radial-gradient(720px 500px at 98% 8%, rgba(237, 216, 197, 0.5), transparent 72%),
+    radial-gradient(620px 440px at 78% 92%, rgba(218, 231, 221, 0.46), transparent 72%),
+    linear-gradient(145deg, #f4f0e8, #fbf8f2 48%, #f3efe6);
+  line-height: var(--leading-normal);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(22, 55, 94, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22, 55, 94, 0.018) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), transparent 70%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.glass,
+.glass-panel {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.52));
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: var(--elev-3);
+  backdrop-filter: blur(22px) saturate(115%);
+  -webkit-backdrop-filter: blur(22px) saturate(115%);
+}

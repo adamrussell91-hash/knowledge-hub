@@ -1,9 +1,478 @@
-import "./tokens.css"; import "./style.css"; import type { Page, PageManifestEntry } from "./domain/page"; import { getAttachmentUrl, getPage, listPages, searchPages } from "./api/client";
-const app = document.querySelector<HTMLDivElement>("#app")!; let entries: PageManifestEntry[] = []; let activeArea: "all" | "university" | "notes" = "all";
-const escape = (text: string) => text.replace(/[&<>"]/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" })[char]!);
-function layout(content: string) { app.innerHTML = `<div class="shell"><aside class="rail glass"><p class="brand">Knowledge<br>Hub</p><nav class="nav"><button data-area="all" class="${activeArea === "all" ? "active" : ""}">Archive</button><button data-area="university" class="${activeArea === "university" ? "active" : ""}">University</button><button data-area="notes" class="${activeArea === "notes" ? "active" : ""}">Notes</button><button data-view="graph">Graph</button></nav></aside><main class="main"><header class="topbar"><div><p class="eyebrow">Private archive</p><h1>${activeArea === "all" ? "Archive" : activeArea[0].toUpperCase() + activeArea.slice(1)}</h1></div></header>${content}</main></div>`; app.querySelectorAll<HTMLButtonElement>("[data-area]").forEach(button => button.onclick = () => { activeArea = button.dataset.area as typeof activeArea; renderList(entries); }); app.querySelector<HTMLButtonElement>("[data-view=graph]")!.onclick = renderGraph; }
-function renderList(items: PageManifestEntry[]) { const visible = activeArea === "all" ? items : items.filter(item => item.area === activeArea); layout(`<input class="search" placeholder="Search..." aria-label="Search archive"><section class="cards">${visible.map(item => `<button class="card" data-id="${item.id}"><p class="tag">${item.area} · ${item.tags.join(", ")}</p><h2>${escape(item.title)}</h2><p>${escape(item.excerpt)}</p></button>`).join("") || "<p>No matching pages.</p>"}</section>`); app.querySelectorAll<HTMLButtonElement>("[data-id]").forEach(button => button.onclick = () => openPage(button.dataset.id!)); app.querySelector<HTMLInputElement>(".search")!.oninput = async event => { const query = (event.target as HTMLInputElement).value; const results = query ? await searchPages(query) : entries; renderList(results); const input = app.querySelector<HTMLInputElement>(".search")!; input.value = query; input.focus(); }; }
-async function openPage(id: string) { const page = await getPage(id); const attachments = page.attachments.length ? `<section class="attachments"><h3>Attachments</h3>${page.attachments.map(attachment => `<button data-attachment="${attachment.id}">${escape(attachment.filename)}</button>`).join("")}</section>` : ""; layout(`<article class="reader"><button data-back>← Archive</button><p class="eyebrow">${page.area} · ${page.tags.join(", ")}</p><h2>${escape(page.title)}</h2>${page.body.split(/\n\n+/).map((part, index) => index ? `<p>${escape(part.replace(/^#+\s*/, ""))}</p>` : "").join("")}${attachments}</article>`); app.querySelector<HTMLButtonElement>("[data-back]")!.onclick = () => renderList(entries); app.querySelectorAll<HTMLButtonElement>("[data-attachment]").forEach(button => button.onclick = async () => { const { url } = await getAttachmentUrl(page.id, button.dataset.attachment!); window.location.assign(url); }); }
-function renderGraph() { layout(`<svg class="graph" viewBox="0 0 900 600" aria-label="Archive graph">${entries.map((entry, index) => { const x = 120 + (index % 4) * 220; const y = 150 + Math.floor(index / 4) * 220; return `<g class="node" data-id="${entry.id}"><circle cx="${x}" cy="${y}" r="24" fill="${entry.area === "university" ? "#d9e8f6" : "#dce8df"}" stroke="#17375e"/><text x="${x}" y="${y + 48}" text-anchor="middle" font-size="13">${escape(entry.title.slice(0, 24))}</text></g>`; }).join("")}</svg>`); app.querySelectorAll<SVGGElement>(".node").forEach(node => node.onclick = () => openPage(node.dataset.id!)); }
-async function authenticate() { app.innerHTML = `<form class="login glass"><p class="eyebrow">Private archive</p><h1>Knowledge Hub</h1><p>Sign in to browse University and Notes.</p><input placeholder="Passphrase" type="password" required><button>Sign in</button><p class="error" hidden></p></form>`; app.querySelector("form")!.onsubmit = async event => { event.preventDefault(); const passphrase = app.querySelector<HTMLInputElement>("input")!.value; const response = await fetch(`${import.meta.env.VITE_API_BASE ?? "/api"}/auth-login`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passphrase }) }); if (!response.ok) { const error = app.querySelector<HTMLParagraphElement>(".error")!; error.hidden = false; error.textContent = "That passphrase didn’t work."; return; } await boot(); }; }
-async function boot() { try { entries = await listPages(); renderList(entries); } catch { authenticate(); } } boot();
+import "./tokens.css";
+import "./style.css";
+import type { Attachment, Page, PageManifestEntry } from "./domain/page";
+import {
+  USE_LOCAL_DATA,
+  getAttachmentUrl,
+  getPage,
+  listPages,
+  login,
+  logout,
+  runAlchemist,
+  searchPages,
+  type AlchemistConnection,
+} from "./api/client";
+import { escapeHtml, showToast } from "./lib/dom";
+import { renderMarkdown } from "./lib/markdown";
+import { archiveEmptyHtml } from "./archive/emptyList";
+import { buildArchiveGraph, topicKeywords } from "./archive/keywordGraph";
+import { mountForceGraph } from "./archive/forceGraph";
+
+type AreaFilter = "all" | "university" | "notes";
+type View = "list" | "graph" | "page" | "alchemist";
+
+const app = document.querySelector<HTMLDivElement>("#app")!;
+const ROW_HEIGHT = 68;
+const OVERSCAN = 8;
+
+let entries: PageManifestEntry[] = [];
+let visible: PageManifestEntry[] = [];
+let area: AreaFilter = "all";
+let view: View = "list";
+let query = "";
+let keywordFilter = "";
+let activePage: Page | null = null;
+let listScrollTop = 0;
+let graphTeardown: (() => void) | null = null;
+let alchemistLesson = "";
+let alchemistBusy = false;
+let alchemistError = "";
+let alchemistConnections: AlchemistConnection[] = [];
+let alchemistMode = "";
+
+const icons = {
+  archive: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z"/><path d="M9 7V5h6v2"/><path d="M8 12h8"/></svg>`,
+  graph: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="6" r="2.2"/><circle cx="18" cy="14" r="2.2"/><path d="M8 11l3-3M13.5 8l3 4"/></svg>`,
+  university: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10l9-5 9 5-9 5-9-5z"/><path d="M7 12.5V17c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/></svg>`,
+  notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>`,
+  alchemist: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l-1 4H9L8 3z"/><path d="M9 7l-3 12h12l-3-12"/><path d="M10 12h4"/></svg>`,
+};
+
+function kindBadge(attachment: Attachment) {
+  if (attachment.kind === "pdf") return "PDF";
+  if (attachment.kind === "image") {
+    const extension = attachment.filename.split(".").pop()?.toUpperCase();
+    return extension && extension.length <= 4 ? extension : "IMG";
+  }
+  const extension = attachment.filename.split(".").pop()?.toUpperCase();
+  return extension && extension.length <= 4 ? extension : "FILE";
+}
+
+function cardMeta(item: PageManifestEntry) {
+  return topicKeywords(item.tags)[0] ?? "";
+}
+
+function titleForArea() {
+  if (keywordFilter) return keywordFilter;
+  if (area === "university") return "University";
+  if (area === "notes") return "Notes";
+  return "Archive";
+}
+
+function renderAttachments(page: Page) {
+  if (!page.attachments.length) return "";
+  return `<section class="attachments" aria-label="Attachments">
+    <h3>Attachments</h3>
+    <p class="attachments__hint">${
+      USE_LOCAL_DATA
+        ? "Linked files for this note. Downloads need the live API; UI preview is local-only."
+        : "Linked from this note. Downloads use a short-lived signed URL from private storage."
+    }</p>
+    <div class="file-list">
+      ${page.attachments
+        .map(
+          attachment => `<button class="file" type="button" data-attachment="${escapeHtml(attachment.id)}">
+            <span class="file-icon ${attachment.kind}">${kindBadge(attachment)}</span>
+            <span>
+              <span class="file-name">${escapeHtml(attachment.filename)}</span>
+              ${attachment.label ? `<span class="file-gloss">${escapeHtml(attachment.label)}</span>` : ""}
+            </span>
+            <span class="file-action">Download →</span>
+          </button>`,
+        )
+        .join("")}
+    </div>
+  </section>`;
+}
+
+function shell(main: string) {
+  if (graphTeardown) {
+    graphTeardown();
+    graphTeardown = null;
+  }
+  app.innerHTML = `<div class="app-shell">
+    <aside class="rail" aria-label="Knowledge Hub">
+      <p class="rail__brand">Knowledge<br>Hub</p>
+      <nav class="rail__nav">
+        <button class="rail__btn ${view === "list" && area === "all" && !keywordFilter ? "is-active" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
+        <button class="rail__btn ${area === "university" && view === "list" ? "is-active" : ""}" data-nav="university" type="button">${icons.university}<span>Uni</span></button>
+        <button class="rail__btn ${area === "notes" && view === "list" ? "is-active" : ""}" data-nav="notes" type="button">${icons.notes}<span>Notes</span></button>
+        <button class="rail__btn ${view === "graph" ? "is-active" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
+        <button class="rail__btn ${view === "alchemist" ? "is-active" : ""}" data-nav="alchemist" type="button">${icons.alchemist}<span>Alchemist</span></button>
+      </nav>
+      ${
+        USE_LOCAL_DATA
+          ? ""
+          : `<button class="rail__logout" data-logout type="button">Sign out</button>`
+      }
+    </aside>
+    <main class="canvas">${main}</main>
+  </div>`;
+
+  app.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach(button => {
+    button.onclick = () => {
+      const next = button.dataset.nav!;
+      if (next === "graph") {
+        view = "graph";
+        activePage = null;
+        render();
+        return;
+      }
+      if (next === "alchemist") {
+        view = "alchemist";
+        activePage = null;
+        render();
+        return;
+      }
+      area = next as AreaFilter;
+      keywordFilter = "";
+      view = "list";
+      activePage = null;
+      listScrollTop = 0;
+      void refreshVisible().then(render);
+    };
+  });
+
+  app.querySelector<HTMLButtonElement>("[data-logout]")?.addEventListener("click", async () => {
+    await logout();
+    entries = [];
+    visible = [];
+    activePage = null;
+    renderLogin();
+  });
+}
+
+async function refreshVisible() {
+  const source = query ? await searchPages(query) : entries;
+  visible = source.filter(item => {
+    if (area !== "all" && item.area !== area) return false;
+    if (keywordFilter && !topicKeywords(item.tags).includes(keywordFilter)) return false;
+    return true;
+  });
+}
+
+function rowHtml(item: PageManifestEntry) {
+  const meta = cardMeta(item);
+  return `<button class="card" type="button" data-id="${escapeHtml(item.id)}" style="height:${ROW_HEIGHT}px">
+    <p class="card__meta">${meta ? escapeHtml(meta) : "—"}</p>
+    <div>
+      <h2 class="card__title">${escapeHtml(item.title)}</h2>
+      <p class="card__excerpt">${escapeHtml(item.excerpt)}</p>
+    </div>
+  </button>`;
+}
+
+function bindListRows(root: ParentNode) {
+  root.querySelectorAll<HTMLButtonElement>("[data-id]").forEach(button => {
+    button.onclick = () => void openPage(button.dataset.id!);
+  });
+}
+
+function renderVirtualList(viewport: HTMLElement) {
+  const total = visible.length;
+  const viewportHeight = viewport.clientHeight || 560;
+  const start = Math.max(0, Math.floor(listScrollTop / ROW_HEIGHT) - OVERSCAN);
+  const end = Math.min(total, Math.ceil((listScrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN);
+  const offset = start * ROW_HEIGHT;
+  const windowItems = visible.slice(start, end);
+
+  viewport.innerHTML = `<div class="list-spacer" style="height:${Math.max(total * ROW_HEIGHT, total ? 0 : 120)}px">
+    <div class="list-window" style="transform:translateY(${offset}px)">
+      ${
+        windowItems.map(rowHtml).join("") ||
+        archiveEmptyHtml({
+          area,
+          notesInArchive: entries.some(item => item.area === "notes"),
+        })
+      }
+    </div>
+  </div>`;
+  bindListRows(viewport);
+}
+
+function renderList() {
+  shell(`
+    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · reading migrated data · no Netlify deploy</p>` : ""}
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Private archive${keywordFilter ? " · keyword" : ""}</p>
+        <h1>${escapeHtml(titleForArea())}</h1>
+      </div>
+      <div class="viewbar">
+        <button class="viewbar__btn is-active" type="button">List</button>
+        <button class="viewbar__btn" data-jump-graph type="button">Graph</button>
+      </div>
+    </header>
+    <div class="toolbar">
+      <input class="search" value="${escapeHtml(query)}" placeholder="Search titles, tags, excerpts…" aria-label="Search archive" />
+      <div class="filters">
+        <button class="filter-chip ${area === "all" && !keywordFilter ? "is-active" : ""}" data-filter="all" type="button">All</button>
+        <button class="filter-chip ${area === "university" ? "is-active" : ""}" data-filter="university" type="button">University</button>
+        <button class="filter-chip ${area === "notes" ? "is-active" : ""}" data-filter="notes" type="button">Notes</button>
+        ${
+          keywordFilter
+            ? `<button class="filter-chip is-active" data-clear-keyword type="button">Clear “${escapeHtml(keywordFilter)}”</button>`
+            : ""
+        }
+      </div>
+    </div>
+    <p class="list-count">${visible.length.toLocaleString()} notes</p>
+    <div class="cards list-viewport" aria-label="Archive list"></div>
+  `);
+
+  app.querySelector<HTMLButtonElement>("[data-jump-graph]")!.onclick = () => {
+    view = "graph";
+    render();
+  };
+  app.querySelectorAll<HTMLButtonElement>("[data-filter]").forEach(button => {
+    button.onclick = () => {
+      area = button.dataset.filter as AreaFilter;
+      keywordFilter = "";
+      listScrollTop = 0;
+      void refreshVisible().then(render);
+    };
+  });
+  app.querySelector<HTMLButtonElement>("[data-clear-keyword]")?.addEventListener("click", () => {
+    keywordFilter = "";
+    listScrollTop = 0;
+    void refreshVisible().then(render);
+  });
+
+  const input = app.querySelector<HTMLInputElement>(".search")!;
+  input.oninput = async event => {
+    query = (event.target as HTMLInputElement).value;
+    listScrollTop = 0;
+    await refreshVisible();
+    render();
+    const next = app.querySelector<HTMLInputElement>(".search")!;
+    next.value = query;
+    next.focus();
+    next.setSelectionRange(query.length, query.length);
+  };
+
+  const viewport = app.querySelector<HTMLElement>(".list-viewport")!;
+  viewport.scrollTop = listScrollTop;
+  renderVirtualList(viewport);
+  viewport.onscroll = () => {
+    listScrollTop = viewport.scrollTop;
+    renderVirtualList(viewport);
+  };
+}
+
+function renderGraph() {
+  const model = buildArchiveGraph(entries);
+
+  shell(`
+    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · major → minor → notes · click major to focus · click minor + for notes · double-click for list</p>` : ""}
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Private archive</p>
+        <h1>Keyword graph</h1>
+      </div>
+      <div class="viewbar">
+        <button class="viewbar__btn" data-jump-list type="button">List</button>
+        <button class="viewbar__btn is-active" type="button">Graph</button>
+      </div>
+    </header>
+    <div class="graph-wrap">
+      <div class="graph-toolbar glass-panel">${model.majorCount} majors · ${model.minorCount} sub-themes · backbone co-occurrence · expand minors for notes</div>
+      <div class="graph-stage"></div>
+    </div>
+  `);
+
+  app.querySelector<HTMLButtonElement>("[data-jump-list]")!.onclick = () => {
+    view = "list";
+    render();
+  };
+
+  const stage = app.querySelector<HTMLElement>(".graph-stage")!;
+  graphTeardown = mountForceGraph(stage, model, {
+    onKeywordFilter: keyword => {
+      keywordFilter = keyword;
+      area = "all";
+      query = "";
+      view = "list";
+      listScrollTop = 0;
+      void refreshVisible().then(render);
+    },
+    onPageClick: pageId => {
+      void openPage(pageId);
+    },
+  });
+}
+
+async function openPage(id: string) {
+  activePage = await getPage(id);
+  view = "page";
+  render();
+}
+
+function renderAlchemist() {
+  const modeLabel =
+    alchemistMode === "local"
+      ? "Local lexical retrieval"
+      : alchemistMode === "synthesis"
+        ? "Claude synthesis"
+        : alchemistMode === "retrieval"
+          ? "Retrieval only (no Anthropic key)"
+          : alchemistMode === "empty"
+            ? "No candidates"
+            : "Paste a lesson to find non-obvious archive links";
+
+  shell(`
+    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · lexical retrieval over your archive · full Claude synthesis needs the live Alchemist API</p>` : ""}
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Lesson Alchemist</p>
+        <h1>Cross-domain connections</h1>
+      </div>
+    </header>
+    <section class="alchemist">
+      <form class="alchemist__form glass-panel">
+        <label for="lesson-input">Lesson text</label>
+        <textarea id="lesson-input" rows="8" placeholder="Paste a lesson outline, learning intention, or topic…">${escapeHtml(alchemistLesson)}</textarea>
+        <div class="alchemist__actions">
+          <button type="submit" ${alchemistBusy ? "disabled" : ""}>${alchemistBusy ? "Finding links…" : "Find connections"}</button>
+          <p class="alchemist__mode">${escapeHtml(modeLabel)}</p>
+        </div>
+        ${alchemistError ? `<p class="alchemist__error">${escapeHtml(alchemistError)}</p>` : ""}
+      </form>
+      <div class="alchemist__results" aria-live="polite">
+        ${
+          alchemistConnections.length
+            ? alchemistConnections
+                .map(
+                  item => `<article class="alchemist-card glass-panel">
+                    <p class="alchemist-card__icon">${escapeHtml(item.icon)}</p>
+                    <h2>${escapeHtml(item.summary)}</h2>
+                    <p class="alchemist-card__why">${escapeHtml(item.whyNonObvious)}</p>
+                    <p class="alchemist-card__excerpt">${escapeHtml(item.sourceExcerpt)}</p>
+                    <button type="button" data-open-page="${escapeHtml(item.sourcePageId)}">Open “${escapeHtml(item.sourcePageTitle)}” →</button>
+                  </article>`,
+                )
+                .join("")
+            : `<p class="empty">Connections will appear here.</p>`
+        }
+      </div>
+    </section>
+  `);
+
+  app.querySelector("form")!.onsubmit = async event => {
+    event.preventDefault();
+    const textarea = app.querySelector<HTMLTextAreaElement>("#lesson-input")!;
+    alchemistLesson = textarea.value;
+    alchemistBusy = true;
+    alchemistError = "";
+    render();
+    try {
+      const result = await runAlchemist(alchemistLesson);
+      alchemistConnections = result.connections;
+      alchemistMode = result.mode;
+    } catch (error) {
+      alchemistConnections = [];
+      alchemistMode = "";
+      alchemistError = error instanceof Error ? error.message : "Alchemist failed";
+    } finally {
+      alchemistBusy = false;
+      render();
+    }
+  };
+
+  app.querySelectorAll<HTMLButtonElement>("[data-open-page]").forEach(button => {
+    button.onclick = () => void openPage(button.dataset.openPage!);
+  });
+}
+
+function renderPage(page: Page) {
+  const topics = topicKeywords(page.tags);
+  const chips = topics
+    .slice(0, 6)
+    .map(tag => `<span class="chip">${escapeHtml(tag)}</span>`)
+    .join("");
+
+  shell(`
+    <article class="reader">
+      <button class="reader__back" data-back type="button">← Archive</button>
+      <p class="eyebrow">${topics[0] ? escapeHtml(topics[0]) : "Note"}</p>
+      <h1 class="reader__title">${escapeHtml(page.title)}</h1>
+      <div class="reader__meta">${chips}</div>
+      <div class="reader__body">${renderMarkdown(page.body)}</div>
+      ${renderAttachments(page)}
+    </article>
+  `);
+
+  app.querySelector<HTMLButtonElement>("[data-back]")!.onclick = () => {
+    activePage = null;
+    view = "list";
+    render();
+  };
+  app.querySelectorAll<HTMLButtonElement>("[data-attachment]").forEach(button => {
+    button.onclick = async () => {
+      try {
+        const { url } = await getAttachmentUrl(page.id, button.dataset.attachment!);
+        window.location.assign(url);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Download unavailable");
+      }
+    };
+  });
+}
+
+function render() {
+  if (view === "page" && activePage) return renderPage(activePage);
+  if (view === "graph") return renderGraph();
+  if (view === "alchemist") return renderAlchemist();
+  return renderList();
+}
+
+function renderLogin() {
+  app.innerHTML = `<div class="login">
+    <form class="login__card glass-panel">
+      <p class="eyebrow">Private archive</p>
+      <h1>Knowledge Hub</h1>
+      <p>Sign in to browse University and Notes.</p>
+      <input placeholder="Passphrase" type="password" required autocomplete="current-password" />
+      <button type="submit">Sign in</button>
+      <p class="login__error" hidden></p>
+    </form>
+  </div>`;
+  app.querySelector("form")!.onsubmit = async event => {
+    event.preventDefault();
+    const passphrase = app.querySelector<HTMLInputElement>("input")!.value;
+    const ok = await login(passphrase);
+    if (!ok) {
+      const error = app.querySelector<HTMLParagraphElement>(".login__error")!;
+      error.hidden = false;
+      error.textContent = "That passphrase didn’t work.";
+      return;
+    }
+    await boot();
+  };
+}
+
+async function boot() {
+  try {
+    entries = await listPages();
+    await refreshVisible();
+    view = "list";
+    render();
+  } catch {
+    if (USE_LOCAL_DATA) {
+      app.innerHTML = `<div class="login"><div class="login__card glass-panel"><h1>Local data missing</h1><p>Run the migrator first, then restart <code>npm run dev</code>.</p></div></div>`;
+      return;
+    }
+    renderLogin();
+  }
+}
+
+boot();
