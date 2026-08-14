@@ -1,8 +1,21 @@
-import { defineConfig } from "vite";
+import { readFileSync } from "node:fs";
+import { defineConfig, type Plugin } from "vite";
 import { localDataPlugin } from "./vite.localData";
 
+function markdownAsString(): Plugin {
+  return {
+    name: "markdown-as-string",
+    enforce: "pre",
+    load(id) {
+      const file = id.split("?")[0] ?? id;
+      if (!file.endsWith(".md")) return;
+      return `export default ${JSON.stringify(readFileSync(file, "utf8"))};`;
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [localDataPlugin()],
+  plugins: [markdownAsString(), localDataPlugin()],
   server: {
     watch: { ignored: ["**/migrated/**"] },
   },

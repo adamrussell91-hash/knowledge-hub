@@ -14,6 +14,16 @@ describe("buildSynthesisPrompt", () => {
     expect(prompt).toContain("complicates");
     expect(prompt).toContain("p1");
   });
+
+  it("speaks as Clementine and still demands JSON only", () => {
+    const prompt = buildSynthesisPrompt({
+      query: "Is CBT stoic?",
+      sources: [{ pageId: "p1", title: "Notes", excerpt: "Epictetus" }],
+    });
+    expect(prompt).toContain("Professor Clementine Haig");
+    expect(prompt).toContain("Return only JSON");
+    expect(prompt).not.toContain("You are a research assistant");
+  });
 });
 
 describe("parseSynthesisJson", () => {

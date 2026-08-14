@@ -1,3 +1,5 @@
+import { assembleClementinePrompt } from "../clementine/assemble";
+import { university, voice } from "../clementine/pack";
 import { ResearchFindingSchema, type ResearchFinding } from "./schema";
 
 export type SynthesisOutput = {
@@ -27,9 +29,11 @@ export function buildSynthesisPrompt(input: {
   const context = input.documentContext?.trim()
     ? `\nDocument / working thesis:\n${input.documentContext.trim()}\n`
     : "";
-  return `You are a research assistant over a personal knowledge archive. Retrieve is already done; your job is critical analysis, not more search.
-
-Query:
+  return assembleClementinePrompt({
+    voice,
+    job: university,
+    surface: `You are filing a research brief over a personal knowledge archive. Retrieve is already done; your job is critical analysis, not more search. Return only JSON. Do not break JSON to make a joke. Diagnose, then prescribe, in analysis, gaps, and followUpQueries. No waffle; no fake warmth.`,
+    payload: `Query:
 ${input.query}
 ${context}
 Candidate archive excerpts:
@@ -51,7 +55,8 @@ Return only JSON with this shape:
   "followUpQueries": ["1-3 targeted archive queries that would cover those gaps"]
 }
 
-Only cite sources listed above. Prefer supports / complicates / extends over related. If nothing is genuinely useful, return empty findings and explain the gaps.`;
+Only cite sources listed above. Prefer supports / complicates / extends over related. If nothing is genuinely useful, return empty findings and explain the gaps.`,
+  });
 }
 
 export function parseSynthesisJson(raw: string): SynthesisOutput {

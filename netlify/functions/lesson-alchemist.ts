@@ -1,3 +1,5 @@
+import { assembleClementinePrompt } from "../../src/clementine/assemble";
+import { loadPromptFile } from "../../src/clementine/loadFromDisk";
 import type { Handler } from "@netlify/functions";
 import Anthropic from "@anthropic-ai/sdk";
 import { readFile } from "node:fs/promises";
@@ -27,15 +29,18 @@ export function buildAlchemistPrompt(input: { lessonText: string; retrieved: Ret
   const sources = input.retrieved
     .map((item, index) => `[${index + 1}] "${item.title}" (id: ${item.pageId})\n${item.excerpt}`)
     .join("\n\n");
-  return `You are helping a teacher find non-obvious cross-domain connections between their lesson and their personal knowledge archive.
-
-Lesson:
+  return assembleClementinePrompt({
+    voice: loadPromptFile("clementine-voice.md"),
+    job: loadPromptFile("clementine-university.md"),
+    surface: `This turn is the Alchemist rail: the school–university bridge. Paste-lesson in, archive out. Write summary and whyNonObvious in your own voice — not as a generic tool. Return only a JSON array. Do not break JSON to make a joke. Do not run draft-review protocols on this turn.`,
+    payload: `Lesson:
 ${input.lessonText}
 
 Candidate archive excerpts:
 ${sources}
 
-For each genuinely non-obvious connection, return only a JSON array of objects with icon (one of the Icons of Depth and Complexity), summary, sourcePageId, sourcePageTitle, sourceExcerpt, and whyNonObvious. Only cite sources above.`;
+For each genuinely non-obvious connection, return only a JSON array of objects with icon (one of the Icons of Depth and Complexity), summary, sourcePageId, sourcePageTitle, sourceExcerpt, and whyNonObvious. Only cite sources above.`,
+  });
 }
 
 export function parseConnectionsJson(raw: string): AlchemistConnection[] {

@@ -3,6 +3,9 @@
   publish = "netlify/public"
   functions = "netlify/handlers"
 
+[functions]
+  included_files = ["prompts/clementine-*.md"]
+
 [build.environment]
   SECRETS_SCAN_OMIT_KEYS = "SITE_ORIGIN"
 
@@ -46,6 +49,11 @@
 [[redirects]]
   from = "/api/attachments/*"
   to = "/.netlify/functions/attachments-get"
+  status = 200
+
+[[redirects]]
+  from = "/api/clementine-coach"
+  to = "/.netlify/functions/clementine-coach"
   status = 200
 
 [[redirects]]

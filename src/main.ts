@@ -9,9 +9,12 @@ import {
   login,
   logout,
   runAlchemist,
+  runCoach,
   searchPages,
   type AlchemistConnection,
+  type CoachMessage,
 } from "./api/client";
+import type { ResearchFinding } from "./research/schema";
 import { escapeHtml, showToast } from "./lib/dom";
 import { renderMarkdown } from "./lib/markdown";
 import { archiveEmptyHtml } from "./archive/emptyList";
@@ -19,7 +22,12 @@ import { buildArchiveGraph, topicKeywords } from "./archive/keywordGraph";
 import { mountForceGraph } from "./archive/forceGraph";
 
 type AreaFilter = "all" | "university" | "notes";
-type View = "list" | "graph" | "page" | "alchemist";
+type View = "list" | "graph" | "page" | "alchemist" | "coach";
+
+type CoachTurn = CoachMessage & {
+  findings?: ResearchFinding[];
+  archiveFailed?: boolean;
+};
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const ROW_HEIGHT = 68;
@@ -39,6 +47,12 @@ let alchemistBusy = false;
 let alchemistError = "";
 let alchemistConnections: AlchemistConnection[] = [];
 let alchemistMode = "";
+let coachThesis = "";
+let coachDraft = "";
+let coachInput = "";
+let coachBusy = false;
+let coachError = "";
+let coachTurns: CoachTurn[] = [];
 
 const icons = {
   archive: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z"/><path d="M9 7V5h6v2"/><path d="M8 12h8"/></svg>`,
@@ -46,6 +60,7 @@ const icons = {
   university: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10l9-5 9 5-9 5-9-5z"/><path d="M7 12.5V17c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/></svg>`,
   notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>`,
   alchemist: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l-1 4H9L8 3z"/><path d="M9 7l-3 12h12l-3-12"/><path d="M10 12h4"/></svg>`,
+  coach: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h10v14H5z"/><path d="M8 9h4M8 13h4"/><path d="M17 8l4 4-6 6h-4v-4z"/></svg>`,
 };
 
 function kindBadge(attachment: Attachment) {
@@ -109,6 +124,7 @@ function shell(main: string) {
         <button class="rail__btn ${area === "notes" && view === "list" ? "is-active" : ""}" data-nav="notes" type="button">${icons.notes}<span>Notes</span></button>
         <button class="rail__btn ${view === "graph" ? "is-active" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
         <button class="rail__btn ${view === "alchemist" ? "is-active" : ""}" data-nav="alchemist" type="button">${icons.alchemist}<span>Alchemist</span></button>
+        <button class="rail__btn ${view === "coach" ? "is-active" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
       </nav>
       ${
         USE_LOCAL_DATA
@@ -130,6 +146,12 @@ function shell(main: string) {
       }
       if (next === "alchemist") {
         view = "alchemist";
+        activePage = null;
+        render();
+        return;
+      }
+      if (next === "coach") {
+        view = "coach";
         activePage = null;
         render();
         return;
@@ -393,6 +415,123 @@ function renderAlchemist() {
   });
 }
 
+function findingCards(findings: ResearchFinding[]) {
+  return findings
+    .map(
+      item => `<article class="alchemist-card glass-panel">
+        <p class="alchemist-card__icon">${escapeHtml(item.stance)}</p>
+        <h2>${escapeHtml(item.title)}</h2>
+        <p class="alchemist-card__why">${escapeHtml(item.analysis)}</p>
+        <p class="alchemist-card__excerpt">${escapeHtml(item.excerpt)}</p>
+        <button type="button" data-open-page="${escapeHtml(item.pageId)}">Open “${escapeHtml(item.title)}” →</button>
+      </article>`,
+    )
+    .join("");
+}
+
+function renderCoach() {
+  shell(`
+    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · coach needs the Netlify API (session + Anthropic). The browser never talks to the research kernel.</p>` : ""}
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Professor Clementine Haig</p>
+        <h1>University office</h1>
+      </div>
+    </header>
+    <section class="coach">
+      <form class="coach__form glass-panel">
+        <label for="coach-thesis">Working thesis</label>
+        <input id="coach-thesis" value="${escapeHtml(coachThesis)}" placeholder="The claim, in one sentence" />
+        <label for="coach-draft">Draft</label>
+        <textarea id="coach-draft" rows="8" placeholder="Paste a section…">${escapeHtml(coachDraft)}</textarea>
+        <label for="coach-input">Message</label>
+        <textarea id="coach-input" rows="4" placeholder="Ask her about the argument…">${escapeHtml(coachInput)}</textarea>
+        <div class="alchemist__actions">
+          <button type="submit" ${coachBusy ? "disabled" : ""}>${coachBusy ? "Reading…" : "Send"}</button>
+          ${coachThesis ? `<p class="alchemist__mode">Thesis in play</p>` : `<p class="alchemist__mode">Optional thesis — she will still start with the argument</p>`}
+        </div>
+        ${coachError ? `<p class="alchemist__error">${escapeHtml(coachError)}</p>` : ""}
+      </form>
+      <div class="coach__thread" aria-live="polite">
+        ${
+          coachTurns.length
+            ? coachTurns
+                .map(
+                  turn => `<article class="coach-msg coach-msg--${turn.role} glass-panel">
+                    <p class="coach-msg__who">${turn.role === "user" ? "You" : "Clementine"}</p>
+                    <p class="coach-msg__body">${escapeHtml(turn.content)}</p>
+                    ${
+                      turn.archiveFailed
+                        ? `<p class="alchemist__error">Archive pull failed this turn — she continued with what she had.</p>`
+                        : ""
+                    }
+                    ${turn.findings?.length ? `<div class="coach-msg__citations">${findingCards(turn.findings)}</div>` : ""}
+                  </article>`,
+                )
+                .join("")
+            : `<p class="empty">She is waiting. Put a claim or a messy paragraph on the table.</p>`
+        }
+      </div>
+    </section>
+  `);
+
+  const form = app.querySelector("form")!;
+  const thesis = app.querySelector<HTMLInputElement>("#coach-thesis")!;
+  const draft = app.querySelector<HTMLTextAreaElement>("#coach-draft")!;
+  const input = app.querySelector<HTMLTextAreaElement>("#coach-input")!;
+
+  thesis.oninput = () => {
+    coachThesis = thesis.value;
+  };
+  draft.oninput = () => {
+    coachDraft = draft.value;
+  };
+  input.oninput = () => {
+    coachInput = input.value;
+  };
+
+  form.onsubmit = async event => {
+    event.preventDefault();
+    coachThesis = thesis.value.trim();
+    coachDraft = draft.value;
+    coachInput = input.value.trim();
+    if (!coachInput) return;
+    const history: CoachTurn[] = [...coachTurns, { role: "user", content: coachInput }];
+    coachTurns = history;
+    const outgoing = coachInput;
+    coachInput = "";
+    coachBusy = true;
+    coachError = "";
+    render();
+    try {
+      const result = await runCoach({
+        messages: history.map(({ role, content }) => ({ role, content })),
+        workingThesis: coachThesis || undefined,
+        draft: coachDraft || undefined,
+      });
+      coachTurns = [
+        ...history,
+        {
+          role: "assistant",
+          content: result.reply,
+          findings: result.research?.findings,
+          archiveFailed: result.archiveFailed,
+        },
+      ];
+    } catch (error) {
+      coachInput = outgoing;
+      coachError = error instanceof Error ? error.message : "Coach failed";
+    } finally {
+      coachBusy = false;
+      render();
+    }
+  };
+
+  app.querySelectorAll<HTMLButtonElement>("[data-open-page]").forEach(button => {
+    button.onclick = () => void openPage(button.dataset.openPage!);
+  });
+}
+
 function renderPage(page: Page) {
   const topics = topicKeywords(page.tags);
   const chips = topics
@@ -432,6 +571,7 @@ function render() {
   if (view === "page" && activePage) return renderPage(activePage);
   if (view === "graph") return renderGraph();
   if (view === "alchemist") return renderAlchemist();
+  if (view === "coach") return renderCoach();
   return renderList();
 }
 

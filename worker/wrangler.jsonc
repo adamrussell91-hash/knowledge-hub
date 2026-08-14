@@ -4,6 +4,12 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-14",
   "compatibility_flags": ["nodejs_compat"],
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.md"]
+    }
+  ],
   "vars": {
     "TEACHING_HUB_ORIGIN": "https://teaching-hub.adam-russell.com"
   },

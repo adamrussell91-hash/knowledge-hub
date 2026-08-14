@@ -11,6 +11,8 @@ describe("lesson alchemist", () => {
     expect(prompt).toContain("Entropy");
     expect(prompt).toContain("Icons of Depth and Complexity");
     expect(prompt).toContain("non-obvious");
+    expect(prompt).toContain("Professor Clementine Haig");
+    expect(prompt).not.toContain("You are helping a teacher find");
   });
 
   it("parses fenced or raw JSON connection arrays", () => {

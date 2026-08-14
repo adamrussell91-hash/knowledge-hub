@@ -1,4 +1,5 @@
 import type { Page, PageManifestEntry } from "../domain/page";
+import type { ResearchResult } from "../research/schema";
 import { API_BASE } from "./config";
 import { localGetPage, localListPages, localSearchPages } from "./localData";
 import { lexicalRetrieve } from "../lib/lexicalRetrieve";
@@ -102,5 +103,25 @@ export async function runAlchemist(lessonText: string): Promise<AlchemistResult>
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ lessonText }),
+  });
+}
+
+export type CoachMessage = { role: "user" | "assistant"; content: string };
+
+export type CoachResult = {
+  reply: string;
+  research?: ResearchResult;
+  archiveFailed?: boolean;
+};
+
+export async function runCoach(input: {
+  messages: CoachMessage[];
+  workingThesis?: string;
+  draft?: string;
+}): Promise<CoachResult> {
+  return apiFetch<CoachResult>("/clementine-coach", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
   });
 }
