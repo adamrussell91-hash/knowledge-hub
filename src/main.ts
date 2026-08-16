@@ -27,6 +27,7 @@ import {
 } from "./capture";
 import type { ResearchFinding } from "./research/schema";
 import { escapeHtml, showToast } from "./lib/dom";
+import { hubUtilitiesHtml } from "./lib/hubChrome";
 import { renderMarkdown } from "./lib/markdown";
 import { archiveEmptyHtml } from "./archive/emptyList";
 import { searchCluster } from "./archive/graphFocus";
@@ -173,7 +174,12 @@ function cardMeta(item: PageManifestEntry) {
   return topicKeywords(item.tags)[0] ?? "";
 }
 
-function pageHeader(eyebrow: string, title: string, actions = "") {
+function pageHeader(eyebrow: string, title: string, actionsInner = "") {
+  const utilities = hubUtilitiesHtml();
+  const actions =
+    actionsInner || utilities
+      ? `<div class="page-header__actions">${actionsInner}${utilities}</div>`
+      : "";
   return `<header class="topbar page-header">
       <div class="page-header__copy">
         <p class="eyebrow page-header__eyebrow">${eyebrow}</p>
@@ -233,7 +239,7 @@ function shell(main: string) {
   }
   app.innerHTML = `<div class="app-shell">
     <aside class="rail" aria-label="Knowledge Hub">
-      <p class="rail__brand">Knowledge<br>Hub</p>
+      <p class="rail__brand">Knowledge Hub</p>
       <nav class="rail__nav">
         <button class="rail__btn ${view === "list" && area === "all" && !keywordFilter ? "is-active" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
         <button class="rail__btn ${area === "university" && view === "list" ? "is-active" : ""}" data-nav="university" type="button">${icons.university}<span>Uni</span></button>
@@ -246,11 +252,6 @@ function shell(main: string) {
         <button class="rail__btn ${view === "quiz" ? "is-active" : ""}" data-nav="quiz" type="button">${icons.quiz}<span>Quiz</span></button>
         <button class="rail__btn ${view === "wiki" ? "is-active" : ""}" data-nav="wiki" type="button">${icons.wiki}<span>Wiki</span></button>
       </nav>
-      ${
-        USE_LOCAL_DATA
-          ? ""
-          : `<button class="rail__logout" data-logout type="button">Sign out</button>`
-      }
     </aside>
     <main class="canvas">${main}</main>
   </div>`;
@@ -350,13 +351,11 @@ function renderList() {
     ${pageHeader(
       `Private archive${keywordFilter ? " · keyword" : ""}`,
       escapeHtml(titleForArea()),
-      `<div class="page-header__actions">
-        <button class="btn" data-new-note type="button">New note</button>
+      `<button class="btn" data-new-note type="button">New note</button>
         <div class="viewbar">
           <button class="viewbar__btn is-active" type="button">List</button>
           <button class="viewbar__btn" data-jump-graph type="button">Graph</button>
-        </div>
-      </div>`,
+        </div>`,
     )}
     <div class="toolbar">
       <input class="search" value="${escapeHtml(query)}" placeholder="Search titles, tags, excerpts…" aria-label="Search archive" />
@@ -450,7 +449,7 @@ function renderGraph() {
     ${pageHeader(
       "Private archive",
       "Keyword graph",
-      `<div class="viewbar page-header__actions">
+      `<div class="viewbar">
         <button class="viewbar__btn" data-jump-list type="button">List</button>
         <button class="viewbar__btn is-active" type="button">Graph</button>
       </div>`,
@@ -728,6 +727,7 @@ function renderPage(page: Page) {
       <div class="reader__actions">
         <button class="reader__back" data-back type="button">← Archive</button>
         <button class="btn" data-edit type="button">Edit</button>
+        ${hubUtilitiesHtml()}
       </div>
       <p class="eyebrow">${topics[0] ? escapeHtml(topics[0]) : "Note"}</p>
       <h1 class="reader__title">${escapeHtml(page.title)}</h1>
@@ -848,11 +848,14 @@ function renderCompose(state: ComposeState) {
   ].join("");
   const captureBusy = state.captureBusy || state.recording;
 
+  const composeLabel = state.id.startsWith("page_hub_") && !activePage ? "New note" : "Edit note";
   shell(`
     <section class="compose">
-      <button class="reader__back" data-compose-cancel type="button">← Cancel</button>
-      <p class="eyebrow">${state.id.startsWith("page_hub_") && !activePage ? "New note" : "Edit note"}</p>
-      <h1>${state.id.startsWith("page_hub_") && !activePage ? "New note" : "Edit note"}</h1>
+      ${pageHeader(
+        composeLabel,
+        composeLabel,
+        `<button class="reader__back" data-compose-cancel type="button">← Cancel</button>`,
+      )}
       ${USE_LOCAL_DATA ? `<p class="local-banner">Saving and capture need the live API (npx netlify dev).</p>` : ""}
       <div class="compose__field">
         <label for="compose-title">Title</label>

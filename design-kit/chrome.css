@@ -86,14 +86,44 @@ html[data-hub="life"] .glass-panel {
   color: var(--on-dark);
 }
 
+/* Rail brand: one line, CSS uppercase. Text is "Teaching Hub" / "Life Hub" /
+   "Knowledge Hub" / "Tasks Hub" — never stacked <br>, never a large title-case
+   hero on the rail. Optional tagline sits under the brand. */
+.hub-rail__brand-block {
+  padding: var(--space-1) var(--space-3) var(--space-4);
+}
+
 .hub-rail__brand {
   margin: 0;
-  padding: var(--space-1) var(--space-3) var(--space-4);
+  padding: 0;
   font-size: var(--text-2xs);
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
+  line-height: var(--leading-snug);
   color: var(--on-dark-muted);
+  white-space: nowrap;
+}
+
+.hub-rail__tagline {
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-normal);
+  text-transform: none;
+  line-height: var(--leading-snug);
+  color: var(--on-dark-muted);
+  opacity: 0.72;
+}
+
+html[data-hub="knowledge"] .hub-rail__brand-block {
+  padding-inline: var(--space-1);
+  text-align: center;
+}
+
+html[data-hub="knowledge"] .hub-rail__brand {
+  white-space: normal;
 }
 
 .hub-canvas {
@@ -149,6 +179,48 @@ html[data-hub="life"] .glass-panel {
   gap: var(--space-2);
   align-items: center;
   flex-shrink: 0;
+}
+
+/* Discrete chrome utilities (refresh / sign out). Always top-right of the
+   canvas header — never pill .btn labels on the rail. See snippets/hub-utilities.html */
+.hub-utilities {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-px);
+  flex-shrink: 0;
+  margin-left: var(--space-2);
+}
+
+.hub-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--shallow);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hub-icon-btn:hover:not(:disabled),
+.hub-icon-btn:focus-visible {
+  color: var(--muted);
+  background: transparent;
+}
+
+.hub-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
+.hub-icon-btn svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  display: block;
 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */

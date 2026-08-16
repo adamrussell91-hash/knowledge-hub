@@ -1,6 +1,7 @@
 import { curatorAction, listCuratorPending, WIKI_NEEDS_NETLIFY, USE_LOCAL_DATA } from "../api/wikiClient";
 import type { PendingProposal } from "../curator/schema";
 import { escapeHtml } from "../lib/dom";
+import { hubUtilitiesActionsHtml } from "../lib/hubChrome";
 
 export type WikiRailHost = {
   app: HTMLElement;
@@ -139,6 +140,7 @@ export function renderWikiRail(host: WikiRailHost) {
         <p class="eyebrow page-header__eyebrow">Self-maintaining wiki</p>
         <h1 class="page-header__title">Wiki</h1>
       </div>
+      ${hubUtilitiesActionsHtml()}
     </header>
     <section class="alchemist wiki">
       <div class="alchemist__actions">
