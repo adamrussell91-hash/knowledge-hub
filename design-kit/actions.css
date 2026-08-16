@@ -1,0 +1,82 @@
+/* Shared action chrome. Existing hubs import this instead of full chrome.css. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-card);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary,
+.btn--decisive {
+  color: #fff;
+  background: var(--navy);
+  border-color: var(--navy);
+  box-shadow: var(--elev-2);
+}
+
+.btn--primary:hover:not(:disabled),
+.btn--decisive:hover:not(:disabled) {
+  background: var(--navy-2);
+  border-color: var(--navy-2);
+}
+
+.btn--secondary {
+  color: var(--marine);
+  background: rgba(255, 255, 255, 0.62);
+  border-color: var(--line);
+  box-shadow: var(--elev-1);
+}
+
+.btn--ghost {
+  color: var(--ink);
+  background: var(--glass);
+  border-color: var(--line);
+}
+
+.btn--high-sea {
+  color: var(--depth);
+  background: var(--high-sea);
+  border-color: var(--high-sea);
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--wave);
+  outline-offset: 2px;
+}
+
+.confirm-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--hub-tile-radius);
+  border: 1px solid var(--line);
+  background: var(--hub-glass-fill);
+  box-shadow: var(--hub-elev-card);
+}
+
+.confirm-card__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}

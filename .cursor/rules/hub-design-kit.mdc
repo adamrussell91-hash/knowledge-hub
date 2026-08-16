@@ -1,0 +1,12 @@
+---
+description: Hub design kit is the visual source of truth for all hub sites
+alwaysApply: true
+---
+
+# Hub design kit
+
+Before any UI work on a hub (new site or an edit), read `AGENTS.md` and use `css/tokens.css`, `css/overlays.css`, `css/chrome.css`, and `snippets/`.
+
+- Do not invent colours, type sizes, radii, or button styles.
+- Per-hub differences are overlay only: `data-hub="teaching|life|knowledge|tasks"` (glass / tile density). Tasks clones Teaching; see `TASKS.md`.
+- After changing kit CSS, run `scripts/sync-to-hubs.sh`.

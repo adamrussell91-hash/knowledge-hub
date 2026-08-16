@@ -1,0 +1,43 @@
+/* Hub overlays — the only allowed visual divergence.
+ *
+ * Set data-hub on <html>. Do not fork the palette, type scale, or spacing.
+ * Teaching / Tasks: more glass, more tiles. Life: tiles, flatter. Knowledge: less glass.
+ */
+
+:root {
+  --hub-glass-fill: rgba(255, 255, 255, 0.7);
+  --hub-glass-blur: 22px;
+  --hub-tile-radius: var(--radius-md);
+  --hub-tile-gap: var(--space-4);
+  --hub-elev-card: var(--elev-3);
+}
+
+html[data-hub="teaching"],
+html[data-hub="tasks"] {
+  --hub-glass-fill: rgba(255, 255, 255, 0.62);
+  --hub-glass-blur: 22px;
+  --hub-tile-gap: var(--space-4);
+  --hub-elev-card: var(--elev-3);
+  --glass: var(--hub-glass-fill);
+}
+
+html[data-hub="life"] {
+  --hub-glass-fill: rgba(255, 255, 255, 0.88);
+  --hub-glass-blur: 8px;
+  --hub-tile-gap: var(--space-2);
+  --hub-elev-card: var(--elev-1);
+  --glass: var(--hub-glass-fill);
+  --shadow: var(--elev-1);
+}
+
+html[data-hub="knowledge"] {
+  --hub-glass-fill: rgba(255, 255, 255, 0.94);
+  --hub-glass-blur: 0px;
+  --hub-tile-gap: var(--space-6);
+  --hub-tile-radius: var(--radius-sm);
+  --hub-elev-card: var(--elev-1);
+  --glass: var(--hub-glass-fill);
+  --shadow: var(--elev-1);
+  /* Icon rail — product chrome, not the 15rem text rail used by Teaching/Life */
+  --rail-width: 5.75rem;
+}

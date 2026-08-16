@@ -1,0 +1,248 @@
+/* Shared chrome for new hubs. Existing hubs already implement these patterns
+   under local class names — copy structure from snippets/, map to tokens,
+   do not invent a parallel button or header system.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  background: var(--warm-white);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  color: var(--ink);
+  background-color: var(--cotton);
+  background-image:
+    radial-gradient(760px 540px at 4% 0%, rgba(207, 223, 241, 0.62), transparent 70%),
+    radial-gradient(720px 500px at 98% 8%, rgba(237, 216, 197, 0.5), transparent 72%),
+    linear-gradient(145deg, var(--cotton), var(--paper) 48%, var(--cotton));
+  line-height: var(--leading-normal);
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--wave);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  color: var(--marine);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+/* ── Glass ────────────────────────────────────────────────────────────── */
+
+.glass-panel {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--hub-glass-fill) 100%, white),
+    color-mix(in srgb, var(--hub-glass-fill) 75%, transparent)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--hub-elev-card);
+  backdrop-filter: blur(var(--hub-glass-blur)) saturate(115%);
+  -webkit-backdrop-filter: blur(var(--hub-glass-blur)) saturate(115%);
+}
+
+html[data-hub="knowledge"] .glass-panel,
+html[data-hub="life"] .glass-panel {
+  background: var(--hub-glass-fill);
+}
+
+/* ── Shell: dark rail + canvas ────────────────────────────────────────── */
+
+.hub-layout {
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr);
+  min-height: 100dvh;
+}
+
+.hub-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-3);
+  background: linear-gradient(180deg, var(--depth) 0%, var(--marine) 100%);
+  color: var(--on-dark);
+}
+
+.hub-rail__brand {
+  margin: 0;
+  padding: var(--space-1) var(--space-3) var(--space-4);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--on-dark-muted);
+}
+
+.hub-canvas {
+  min-width: 0;
+  padding: var(--space-8) var(--space-6);
+}
+
+@media (max-width: 720px) {
+  .hub-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hub-rail {
+    display: none;
+  }
+}
+
+/* ── Page header ──────────────────────────────────────────────────────── */
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.page-header__eyebrow {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+
+.page-header__title {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--navy);
+}
+
+.page-header__supporting {
+  margin-top: var(--space-2);
+  font-size: var(--text-md);
+  color: var(--muted);
+}
+
+.page-header__actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-card);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary,
+.btn--decisive {
+  color: #fff;
+  background: var(--navy);
+  border-color: var(--navy);
+  box-shadow: var(--elev-2);
+}
+
+.btn--primary:hover:not(:disabled),
+.btn--decisive:hover:not(:disabled) {
+  background: var(--navy-2);
+  border-color: var(--navy-2);
+}
+
+.btn--secondary {
+  color: var(--marine);
+  background: rgba(255, 255, 255, 0.62);
+  border-color: var(--line);
+  box-shadow: var(--elev-1);
+}
+
+.btn--ghost {
+  color: var(--ink);
+  background: var(--glass);
+  border-color: var(--line);
+}
+
+.btn--high-sea {
+  color: var(--depth);
+  background: var(--high-sea);
+  border-color: var(--high-sea);
+}
+
+/* ── Agent confirm (chat write-loop) ──────────────────────────────────── */
+
+.confirm-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--hub-tile-radius);
+  border: 1px solid var(--line);
+  background: var(--hub-glass-fill);
+  box-shadow: var(--hub-elev-card);
+}
+
+.confirm-card__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* ── Focus: Wave for keyboard. High Sea is not a focus colour. ───────── */
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--wave);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,34 @@
+---
+description: Repos and data stay off iCloud Documents; sites never depend on local files
+alwaysApply: true
+---
+
+# No files in Documents
+
+Adam’s `~/Documents` and `~/Desktop` are iCloud Drive. Git objects there go dataless and hang. **Do not create, clone, write, or worktree anything under those folders.** Codex/Claude default output paths under Documents are forbidden.
+
+## Put code here
+
+| Thing | Path |
+|-------|------|
+| Design kit | `/Users/adamrussell/Projects/hub-design-kit` |
+| Teaching Hub | `/Users/adamrussell/Teaching Hub` |
+| Knowledge Hub | `/Users/adamrussell/Projects/knowledge-hub` |
+| Life Hub | `/Users/adamrussell/Projects/life-hub` |
+| Tasks Hub | `/Users/adamrussell/Projects/tasks-hub` |
+| New git repos | `/Users/adamrussell/Projects/<name>` |
+
+If the workspace path contains `/Documents/` or `/Desktop/`: stop. Tell Adam. Relocate to `~/Projects/<name>` (or Teaching Hub), then `move_agent_to_root`. Do not keep editing in place except to finish a move.
+
+## Put data here
+
+- Source: git remotes (GitHub).
+- Media, archives, exports, dumps, large binaries: **Cloudflare R2** (hub Workers/bindings). Not `~/Documents`, not repo `data/` dumps that belong in R2.
+
+## Sites never depend on this Mac
+
+Teaching, Knowledge, Life, Tasks, and future hubs must **never** need iCloud or any local file to work. Runtime data is git remotes + Cloudflare (Workers, R2, KV, D1). Do not add features that read `~/Documents`, `~/Desktop`, or other machine-local paths in production or as a required fallback.
+
+❌ `/Users/adamrussell/Documents/Codex/.../knowledge-hub`  
+❌ `/Users/adamrussell/Documents/Claude/Projects/life-hub`  
+✅ `/Users/adamrussell/Projects/knowledge-hub`

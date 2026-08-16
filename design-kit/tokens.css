@@ -1,0 +1,137 @@
+/* Hub design kit — closed tokens (Cotton Glass / Clinical Glass)
+ *
+ * If a value you need is not here, pick the nearest step — do not add a new one.
+ * Ad-hoc rem, hex, or shadow values in a hub stylesheet are a regression.
+ */
+:root {
+  color-scheme: light;
+
+  /* ── Palette ──────────────────────────────────────────────────────────── */
+  --warm-white: #fbf8f2;
+  --cotton: #f5f1e9;
+  --paper: #fbf8f2;
+  --depth: #0a1536;
+  --marine: #142b51;
+  --navy: #17375e;
+  --navy-2: #244f7c;
+  --orca: #424860;
+  --shallow: #a7abb9;
+  --wave: #376fb7;
+  --high-sea: #f68620;
+  --shore: #eae7da;
+  --sand: #f0cfac;
+  --ink: #13233a;
+  --muted: #6b7788;
+  --line: rgba(23, 55, 94, 0.10);
+  --glass: rgba(255, 255, 255, 0.70);
+
+  --pastel-blue: #dceafa;
+  --pastel-blue-ink: #294c71;
+  --pastel-sage: #dfe9e1;
+  --pastel-sage-ink: #3c5949;
+  --pastel-peach: #f2dfd0;
+  --pastel-peach-ink: #7a5038;
+  --pastel-gold: #f1e2b6;
+  --pastel-gold-ink: #6c581f;
+  --pastel-lilac: #e8e0f1;
+  --pastel-lilac-ink: #5d4e70;
+
+  --accent: var(--navy);
+  --ink-muted: var(--muted);
+  --text-muted: var(--muted);
+
+  /* On-dark surface (the left rail). Components on the rail must use these,
+     never --ink / --muted / --orca / --line (those are for the light canvas). */
+  --on-dark: rgba(255, 255, 255, 0.92);
+  --on-dark-muted: rgba(255, 255, 255, 0.66);
+  --on-dark-line: rgba(255, 255, 255, 0.16);
+  --on-dark-hover: rgba(255, 255, 255, 0.1);
+
+  /* High Sea is rail / decisive-accent only. White on #F68620 is 2.5:1.
+     Use --high-sea-ink for orange text on light, --depth for text on a High Sea fill. */
+  --high-sea-ink: #a85a0c;
+  --high-sea-hover: #e07818;
+
+  --danger: #9b2c2c;
+  --danger-hover: #8a2424;
+  --danger-surface: rgba(155, 44, 44, 0.08);
+  --danger-line: rgba(155, 44, 44, 0.28);
+  --success: #2f7a4f;
+  --success-surface: rgba(47, 122, 79, 0.1);
+  --warning: var(--high-sea-ink);
+  --warning-surface: rgba(246, 134, 32, 0.12);
+
+  /* ── Type ─────────────────────────────────────────────────────────────── */
+  --font-ui: Inter, ui-sans-serif, sans-serif;
+  --font-display: var(--font-ui);
+
+  /* 8 steps, base 16px. No two steps sit within 2px of each other. */
+  --text-2xs: 0.6875rem; /* 11px — uppercase micro-labels only */
+  --text-xs: 0.75rem; /*    12px — captions, timestamps */
+  --text-sm: 0.8125rem; /*  13px — secondary UI text, metadata */
+  --text-base: 0.9375rem; /* 15px — default UI text */
+  --text-md: 1.0625rem; /*  17px — reading copy, card titles */
+  --text-lg: 1.3125rem; /*  21px — section headings */
+  --text-xl: 2rem; /*      32px — small page titles */
+  --text-2xl: 2.625rem; /* 42px — page titles */
+
+  --font-size-meta: var(--text-sm);
+  --font-size-card: var(--text-base);
+  --font-size-body: var(--text-md);
+  --font-size-section: var(--text-lg);
+  --font-size-page: var(--text-xl);
+  --font-size-hero: var(--text-2xl);
+  --font-size-tile-value: var(--text-2xl);
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-tight: -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-caps: 0.08em;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.55;
+
+  /* ── Space (4px grid). --space-2 and --space-4 are the workhorses. ── */
+  --space-px: 0.125rem; /*  2px */
+  --space-1: 0.25rem; /*    4px */
+  --space-2: 0.5rem; /*     8px */
+  --space-3: 0.75rem; /*   12px */
+  --space-4: 1rem; /*      16px */
+  --space-5: 1.25rem; /*   20px */
+  --space-6: 1.5rem; /*    24px */
+  --space-8: 2rem; /*      32px */
+  --space-10: 2.5rem; /*   40px */
+  --space-12: 3rem; /*     48px */
+  --space-16: 4rem; /*     64px */
+
+  /* ── Radius ───────────────────────────────────────────────────────────── */
+  --radius-xs: 0.375rem; /*  6px — chips, tags */
+  --radius-sm: 0.875rem; /* 14px — buttons */
+  --radius-md: 1.25rem; /*  20px — cards */
+  --radius-lg: 1.5rem; /*   24px — panels */
+  --radius-xl: 1.75rem; /*  28px — page-level containers */
+  --radius-full: 999px;
+  --tab-radius: var(--radius-sm);
+
+  /* ── Elevation ────────────────────────────────────────────────────────── */
+  --elev-1: 0 1px 2px rgba(20, 35, 70, 0.06);
+  --elev-2:
+    0 1px 2px rgba(20, 35, 70, 0.05), 0 2px 6px rgba(20, 35, 70, 0.06);
+  --elev-3: 0 18px 48px rgba(39, 55, 74, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  --elev-4:
+    0 4px 8px rgba(20, 35, 70, 0.08), 0 20px 48px rgba(20, 35, 70, 0.14);
+  --shadow: var(--elev-3);
+
+  /* ── Layout ───────────────────────────────────────────────────────────── */
+  --rail-width: 15rem;
+  --measure: 68ch;
+
+  font-family: var(--font-ui);
+  font-synthesis: none;
+}
