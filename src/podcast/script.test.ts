@@ -126,4 +126,29 @@ describe("podcast prompts", () => {
     expect(podcastEditor).toMatch(/rewrite the entire episode/i);
     expect(podcastEditor).toMatch(/read.{0,20}aloud/i);
   });
+
+  it("cold-opens by saying what today is about, not mid-thought", () => {
+    expect(clementinePodcast).toMatch(/what today is about/i);
+    expect(clementinePodcast).toMatch(/why it matters/i);
+    expect(clementinePodcast).not.toMatch(/mid-thought/i);
+    expect(podcastEditor).toMatch(/what today is about/i);
+    expect(podcastEditor).toMatch(/why it matters/i);
+    expect(podcastEditor).not.toMatch(/mid-thought/i);
+    expect(podcastEditor).not.toMatch(/no premise announcement/i);
+  });
+
+  it("strips Adam address and draft talk from the editor fourth wall", () => {
+    expect(podcastEditor).toMatch(/no ["']?Adam["']?/i);
+    expect(podcastEditor).toMatch(/draft|essay|paper|assignment|thesis/i);
+  });
+
+  it("encodes build cadence, metaphor returns, and spoken repair", () => {
+    expect(clementinePodcast).toMatch(/every third or fourth turn/i);
+    expect(clementinePodcast).toMatch(/3.?5 sentence/i);
+    expect(clementinePodcast).toMatch(/return 2.?3 times/i);
+    expect(clementinePodcast).toMatch(/I mean/i);
+    expect(podcastEditor).toMatch(/every third or fourth turn/i);
+    expect(podcastEditor).toMatch(/return 2.?3 times/i);
+    expect(podcastEditor).toMatch(/I mean/i);
+  });
 });

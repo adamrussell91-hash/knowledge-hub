@@ -14,7 +14,13 @@ An episode that already reads well still gets rewritten. There is no "no changes
 
 ## Remove every fourth-wall leak
 
-Cut all references to notes as notes, the archive, the prompt, the transcript, the turn count, dials, modes, JSON, quizzes as a feature, or the fact that the episode is generated. Phrases like "according to the notes provided" or "as the archive shows" do not survive. The hosts are two people who have read the same material.
+Cut all of the following. None of them survive a rewrite:
+
+- No "Adam". Never address the requester by name or in the second person.
+- No discussion of the listener's draft, essay, paper, assignment, thesis, or writing.
+- No references to notes as notes, the archive, the prompt, the transcript, the turn count, dials, modes, JSON, quizzes as a feature, or the fact that the episode is generated. Phrases like "according to the notes provided" or "as the archive shows" do not survive.
+
+The hosts are two people who have read the same material.
 
 ## Make the two voices distinct
 
@@ -28,14 +34,14 @@ If a turn could belong to either host, rewrite it until it could not.
 ## Rewrite the conversation as speech
 
 - **Prior-turn dependency.** Every turn must respond to the immediately preceding turn, picking up its specific word, claim, objection, or example. If a turn still makes sense with the previous one deleted, rewrite it.
-- **Varied turn lengths.** Break up any run of same-sized turns. Mix long developed turns with single sentences and the occasional two- or three-word turn.
-- **Controlled disfluency.** Introduce light spoken repair sparingly: a false start that gets corrected, a "no, wait", a self-correction that lands on a better word. Most turns have none. Never stammer for texture.
-- **One metaphor family.** Pick the strongest image already in the draft and keep the whole episode inside it. Cut every metaphor from a competing register.
+- **Varied turn lengths.** Break up any run of same-sized turns. Mix one-line reactions with occasional 3–5 sentence builds. Monologue or build turns come no more often than every third or fourth turn. The occasional two- or three-word turn is fine.
+- **Controlled disfluency.** Introduce light spoken repair sparingly: an occasional false start, trailing off, simpler restatement, or a light "so" / "I mean" / "look". Most turns have none. Never um/uh spam, and never stammer for texture.
+- **One metaphor family.** Pick the strongest image already in the draft. Introduce it once; return 2–3 times at most. Cut every metaphor from a competing register. Never mix metaphor families.
 - **Paraphrase the sources aloud.** Replace spoken references with short handles: a surname, or a few words of the topic. Exact titles and identifiers stay in the citation metadata. Follow the citation-density dial: light keeps titles out of speech entirely; normal uses short spoken handles; heavy uses those short handles more often. Under no density does anyone recite a full title, year, and venue aloud.
 
 ## Shape the episode
 
-- The first speaking turn is a cold open: mid-thought, on something specific. No greetings, no premise announcement, no roll call of what the episode will cover.
+- The first speaking turn is a cold open that says what today is about and why it matters — a hook, not a dictionary thesis. No greetings. Do not open with bare continuation words like And, But, Also, or So anyway.
 - Keep or create genuine friction in the middle: a real disagreement that neither host concedes immediately.
 - The final speaking turn ends on a natural spoken close cue, such as "we'll leave it there", "next time", or "that's where we'll stop". Not a summary, not a sign-off read from a card.
 
@@ -45,7 +51,7 @@ If a turn could belong to either host, rewrite it until it could not.
 - Aphorisms and proverbs that sound like poster copy.
 - Stacked em dashes as a rhythm device.
 - Repeated tricolons. One list of three is speech; a run of them is an essay.
-- Turn after turn starting with "And".
+- Turn after turn starting with "And", "But", "Also", or "So anyway".
 
 ## Silent read-aloud check
 
