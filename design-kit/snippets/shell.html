@@ -17,7 +17,11 @@
   <body>
     <div class="hub-layout">
       <aside class="hub-rail">
-        <p class="hub-rail__brand">Knowledge Hub</p>
+        <div class="hub-rail__brand-block">
+          <!-- Single line; CSS uppercases. Do not stack with <br> or restyle as a hero. -->
+          <p class="hub-rail__brand">Knowledge Hub</p>
+          <!-- Optional: <p class="hub-rail__tagline">Private dashboard</p> -->
+        </div>
         <!-- nav buttons: use .btn.btn--ghost; colour with --on-dark on the rail -->
       </aside>
       <div class="hub-canvas">
@@ -30,6 +34,22 @@
           <div class="page-header__actions">
             <button class="btn btn--secondary" type="button">Secondary</button>
             <button class="btn btn--primary" type="button">Primary</button>
+            <!-- Refresh + sign out: faded icons only. Copy from hub-utilities.html -->
+            <div class="hub-utilities">
+              <button class="hub-icon-btn" type="button" data-hub-refresh aria-label="Refresh" title="Refresh">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 12a9 9 0 1 1-2.6-6.3" />
+                  <path d="M21 3v6h-6" />
+                </svg>
+              </button>
+              <button class="hub-icon-btn" type="button" data-hub-sign-out aria-label="Sign out" title="Sign out">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M10 7V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-1" />
+                  <path d="M15 12H3" />
+                  <path d="m7 8-4 4 4 4" />
+                </svg>
+              </button>
+            </div>
           </div>
         </header>
       </div>

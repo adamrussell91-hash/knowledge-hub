@@ -1,0 +1,18 @@
+<!-- Discrete chrome utilities. Place as the last child of .page-header__actions
+     (canvas top-right). Icon-only — never labelled .btn pills for refresh/sign out.
+     Wire click handlers in the hub; keep aria-label + title for accessibility. -->
+<div class="hub-utilities">
+  <button class="hub-icon-btn" type="button" data-hub-refresh aria-label="Refresh" title="Refresh">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 12a9 9 0 1 1-2.6-6.3" />
+      <path d="M21 3v6h-6" />
+    </svg>
+  </button>
+  <button class="hub-icon-btn" type="button" data-hub-sign-out aria-label="Sign out" title="Sign out">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M10 7V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-1" />
+      <path d="M15 12H3" />
+      <path d="m7 8-4 4 4 4" />
+    </svg>
+  </button>
+</div>

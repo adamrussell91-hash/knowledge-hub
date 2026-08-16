@@ -17,7 +17,7 @@ Load Inter, then kit `tokens.css`, `overlays.css`, `chrome.css` (new hub), then 
 
 `data-hub="tasks"` **clones Teaching**: more glass, more tiles, labeled left rail (not Knowledge’s icon rail). Values live in `css/overlays.css` — do not retune them in the hub.
 
-Page header stays kit: uppercase eyebrow → `h1` → optional supporting → actions on the right.
+Page header stays kit: uppercase eyebrow → `h1` → optional supporting → actions on the right. Rail brand is `.hub-rail__brand` (single uppercase line). Refresh and sign out use `.hub-utilities` / `.hub-icon-btn` at the canvas top-right — not labelled pills on the rail.
 
 Agent writes: propose → **confirm card** → apply.
 

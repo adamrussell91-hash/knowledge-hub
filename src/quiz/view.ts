@@ -2,6 +2,7 @@ import { USE_LOCAL_DATA, getPage } from "../api/client";
 import { getQuizItems, getQuizSchedule, saveQuiz } from "../api/quizClient";
 import type { PageManifestEntry } from "../domain/page";
 import { escapeHtml } from "../lib/dom";
+import { hubUtilitiesActionsHtml } from "../lib/hubChrome";
 import { mountDumpSort } from "./dumpCanvas";
 import { dumpSessionToQuiz, sortThenDumpPeek, type DumpNode } from "./dumpSort";
 import { harvestPage, pagesToHarvest } from "./harvest";
@@ -368,11 +369,12 @@ function renderQuiz() {
     (quizMode === "sprint" || quizMode === "hqe" || quizMode === "why" || quizMode === "cloze" || quizMode === "exam");
   currentHost.shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · quiz progress stays in this browser until you use the live API.</p>` : ""}
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">${quizEyebrow()}</p>
-        <h1>Quiz</h1>
+    <header class="topbar page-header">
+      <div class="page-header__copy">
+        <p class="eyebrow page-header__eyebrow">${quizEyebrow()}</p>
+        <h1 class="page-header__title">Quiz</h1>
       </div>
+      ${hubUtilitiesActionsHtml()}
     </header>
     ${
       quizPhase === "home" || quizPhase === "dump"
