@@ -20,7 +20,7 @@ import {
 
 const TTS_BATCH = 8;
 const ALARM_DELAY_MS = 250;
-const GENERATE_TIMEOUT_MS = 150_000;
+const GENERATE_TIMEOUT_MS = 210_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {

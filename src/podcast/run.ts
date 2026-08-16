@@ -1,6 +1,7 @@
 import type { ResearchScope } from "../research/scope";
 import { groundTurns } from "./ground";
 import { pickMemories } from "./memory";
+import { podcastNaturalnessError } from "./naturalness";
 import {
   PodcastEpisodeSchema,
   PodcastSeriesSchema,
@@ -13,7 +14,7 @@ import {
   type PodcastTurn,
   type SeriesSlot,
 } from "./schema";
-import { buildPodcastPrompt, parsePodcastScript } from "./script";
+import { buildPodcastEditorPrompt, buildPodcastPrompt, parsePodcastScript } from "./script";
 import { filterByUpdatedAt, recapCutoff, selectQuery } from "./select";
 import { buildSeriesPlanPrompt, groundSeriesPlan, type RawSeriesPlan } from "./seriesPlan";
 
@@ -162,26 +163,32 @@ export async function runGenerate(input: RunGenerateInput, deps: RunGenerateDeps
     scopeTags: input.scope?.tags,
     episodes,
   });
-  const raw = await deps.complete(
-    buildPodcastPrompt({
-      mode: input.mode,
-      dials: input.dials,
-      modeDial: input.modeDial,
-      notes,
-      memories,
-      bible: input.series?.bible,
-    }),
+  const promptInput = {
+    mode: input.mode,
+    dials: input.dials,
+    modeDial: input.modeDial,
+    notes,
+    bible: input.series?.bible,
+  };
+  const draft = parsePodcastScript(
+    await deps.complete(buildPodcastPrompt({ ...promptInput, memories })),
+  );
+  const edited = parsePodcastScript(
+    await deps.complete(buildPodcastEditorPrompt({ ...promptInput, draft })),
   );
   const { kept } = groundTurns(
-    parsePodcastScript(raw),
+    edited,
     notes.map(note => ({ pageId: note.pageId, title: note.title })),
   );
+  const turns = kept.slice(0, turnCap(input.dials.length));
+  const naturalnessError = podcastNaturalnessError(turns);
 
   return PodcastEpisodeSchema.parse({
     ...episodeBase(input, deps),
-    status: "running",
+    status: naturalnessError ? "error" : "running",
     sourcePageIds: notes.map(note => note.pageId),
-    turns: kept.slice(0, turnCap(input.dials.length)),
+    turns: naturalnessError ? [] : turns,
+    error: naturalnessError ?? undefined,
   });
 }
 

@@ -14,6 +14,38 @@ function scriptJson(turns: unknown[]) {
   return JSON.stringify({ turns });
 }
 
+function completionSequence(...responses: string[]) {
+  const prompts: string[] = [];
+  let index = 0;
+  return {
+    prompts,
+    complete: async (prompt: string) => {
+      prompts.push(prompt);
+      const response = responses[index];
+      index += 1;
+      if (response === undefined) throw new Error(`Unexpected completion ${index}`);
+      return response;
+    },
+  };
+}
+
+const framedTurns = [
+  {
+    id: "edited-open",
+    speaker: "clementine",
+    kind: "content",
+    text: "Today we're looking at why autonomy gets confused with independence.",
+    citations: [{ pageId: "p1", title: "SDT" }],
+  },
+  {
+    id: "edited-close",
+    speaker: "ann",
+    kind: "content",
+    text: "That's where we'll stop for today.",
+    citations: [{ pageId: "p1", title: "SDT" }],
+  },
+];
+
 describe("runGenerate", () => {
   it("returns a ready empty recap when retrieve only has pages before the cutoff", async () => {
     let completed = 0;
@@ -44,37 +76,106 @@ describe("runGenerate", () => {
     expect(episode.turns[0]?.text.toLowerCase()).toMatch(/nothing new/);
   });
 
-  it("keeps grounded turns and sets sourcePageIds on the happy path", async () => {
+  it("uses the editor output as the grounded episode transcript", async () => {
+    const completions = completionSequence(
+      scriptJson([
+        {
+          id: "draft-only",
+          speaker: "clementine",
+          kind: "content",
+          text: "A static draft.",
+          citations: [{ pageId: "p1", title: "SDT" }],
+        },
+      ]),
+      scriptJson(framedTurns),
+    );
+
     const episode = await runGenerate(
       { mode: "quiz", scope: { tags: ["sdt"] }, modeDial: {}, dials, now },
       {
         retrieve: async () => notes,
-        complete: async () =>
-          scriptJson([
-            {
-              id: "t1",
-              speaker: "clementine",
-              kind: "content",
-              text: "Deci named three needs.",
-              citations: [{ pageId: "p1", title: "SDT" }],
-            },
-            {
-              id: "t2",
-              speaker: "ann",
-              kind: "content",
-              text: "Causality orientations sit beside that map.",
-              citations: [{ pageId: "p2", title: "Causality" }],
-            },
-          ]),
+        complete: completions.complete,
         listEpisodes: async () => [],
         id: () => "ep_ok",
         nowIso: () => "2026-08-15T00:00:00.000Z",
       },
     );
 
+    expect(completions.prompts).toHaveLength(2);
+    expect(completions.prompts[1]).toContain("draft-only");
+    expect(completions.prompts[1]).toMatch(/mandatory editorial pass/i);
     expect(episode.status).toBe("running");
     expect(episode.sourcePageIds).toEqual(["p1", "p2"]);
-    expect(episode.turns.map(turn => turn.id)).toEqual(["t1", "t2"]);
+    expect(episode.turns.map(turn => turn.id)).toEqual(["edited-open", "edited-close"]);
+  });
+
+  it("returns an error episode when edited dialogue breaks the fourth wall", async () => {
+    const completions = completionSequence(
+      scriptJson(framedTurns),
+      scriptJson([
+        {
+          id: "bad",
+          speaker: "clementine",
+          kind: "content",
+          text: "Adam, your essay needs this distinction.",
+          citations: [{ pageId: "p1", title: "SDT" }],
+        },
+        framedTurns[1],
+      ]),
+    );
+
+    const episode = await runGenerate(
+      { mode: "quiz", modeDial: {}, dials, now },
+      {
+        retrieve: async () => notes,
+        complete: completions.complete,
+        listEpisodes: async () => [],
+        id: () => "ep_bad",
+      },
+    );
+
+    expect(episode.status).toBe("error");
+    expect(episode.error).toMatch(/fourth wall/i);
+    expect(episode.turns).toEqual([]);
+  });
+
+  it("errors when the editor keeps only ungrounded turns and never falls back to the writer draft", async () => {
+    const completions = completionSequence(
+      scriptJson([
+        {
+          id: "draft-only",
+          speaker: "clementine",
+          kind: "content",
+          text: "Today we're looking at autonomy, and we'll leave it there.",
+          citations: [{ pageId: "p1", title: "SDT" }],
+        },
+      ]),
+      scriptJson([
+        {
+          id: "editor-web",
+          speaker: "ann",
+          kind: "content",
+          text: "Today the open web disagrees.",
+          citations: [{ pageId: "web", title: "Web" }],
+        },
+      ]),
+    );
+
+    const episode = await runGenerate(
+      { mode: "quiz", modeDial: {}, dials, now },
+      {
+        retrieve: async () => notes,
+        complete: completions.complete,
+        listEpisodes: async () => [],
+        id: () => "ep_nofallback",
+      },
+    );
+
+    expect(completions.prompts).toHaveLength(2);
+    expect(episode.status).toBe("error");
+    expect(episode.error).toMatch(/usable speaking turns|no usable/i);
+    expect(episode.turns).toEqual([]);
+    expect(episode.turns.some(turn => turn.id === "draft-only")).toBe(false);
   });
 
   it("caps retrieved notes to the length dial before scripting", async () => {
@@ -84,8 +185,8 @@ describe("runGenerate", () => {
       excerpt: "Body.",
       updated_at: "2026-08-14T00:00:00.000Z",
     }));
-    let prompt = "";
     let limitArg: number | undefined;
+    const completions = completionSequence(scriptJson(framedTurns), scriptJson(framedTurns));
     const episode = await runGenerate(
       { mode: "quiz", modeDial: {}, dials: PodcastDialsSchema.parse({ length: "short" }), now },
       {
@@ -93,10 +194,7 @@ describe("runGenerate", () => {
           limitArg = limit;
           return many.slice(0, limit ?? many.length);
         },
-        complete: async value => {
-          prompt = value;
-          return scriptJson([]);
-        },
+        complete: completions.complete,
         listEpisodes: async () => [],
         id: () => "ep_notecap",
       },
@@ -105,22 +203,30 @@ describe("runGenerate", () => {
     expect(limitArg).toBe(12);
     expect(episode.sourcePageIds).toHaveLength(12);
     expect(episode.sourcePageIds.at(-1)).toBe("p12");
-    expect(prompt).not.toContain("p13");
+    expect(completions.prompts).toHaveLength(2);
+    expect(completions.prompts[0]).not.toContain("p13");
+    expect(completions.prompts[1]).not.toContain("p13");
   });
 
   it("caps kept turns to the length dial", async () => {
-    const script = Array.from({ length: 30 }, (_, index) => ({
+    const editedScript = Array.from({ length: 30 }, (_, index) => ({
       id: `t${index + 1}`,
-      speaker: "clementine",
+      speaker: index % 2 === 0 ? "clementine" : "ann",
       kind: "content",
-      text: "Deci named three needs.",
+      text:
+        index === 0
+          ? "Today we're looking at the three basic needs."
+          : index === 23
+            ? "That's where we'll stop for today."
+            : "That claim changes when the second note is read beside it.",
       citations: [{ pageId: "p1", title: "SDT" }],
     }));
+    const completions = completionSequence(scriptJson(framedTurns), scriptJson(editedScript));
     const episode = await runGenerate(
       { mode: "quiz", modeDial: {}, dials: PodcastDialsSchema.parse({ length: "short" }), now },
       {
         retrieve: async () => notes,
-        complete: async () => scriptJson(script),
+        complete: completions.complete,
         listEpisodes: async () => [],
         id: () => "ep_turncap",
       },
@@ -131,27 +237,30 @@ describe("runGenerate", () => {
   });
 
   it("drops an ungrounded turn from the completed script", async () => {
+    const completions = completionSequence(
+      scriptJson(framedTurns),
+      scriptJson([
+        {
+          id: "t1",
+          speaker: "clementine",
+          kind: "content",
+          text: "Today we're looking at the three basic needs, and we'll leave it there.",
+          citations: [{ pageId: "p1", title: "SDT" }],
+        },
+        {
+          id: "t-bad",
+          speaker: "ann",
+          kind: "content",
+          text: "The open web disagrees.",
+          citations: [{ pageId: "web", title: "Web" }],
+        },
+      ]),
+    );
     const episode = await runGenerate(
       { mode: "quiz", modeDial: {}, dials, now },
       {
         retrieve: async () => notes,
-        complete: async () =>
-          scriptJson([
-            {
-              id: "t1",
-              speaker: "clementine",
-              kind: "content",
-              text: "Deci named three needs.",
-              citations: [{ pageId: "p1", title: "SDT" }],
-            },
-            {
-              id: "t-bad",
-              speaker: "ann",
-              kind: "content",
-              text: "The open web disagrees.",
-              citations: [{ pageId: "web", title: "Web" }],
-            },
-          ]),
+        complete: completions.complete,
         listEpisodes: async () => [],
         id: () => "ep_ground",
       },
@@ -500,121 +609,13 @@ describe("nextSeriesSlot", () => {
 describe("runNextEpisode", () => {
   it("generates the open slot with throughLine as the retrieve topic", async () => {
     const queries: string[] = [];
+    const completions = completionSequence(scriptJson(framedTurns), scriptJson(framedTurns));
     const result = await runNextEpisode(seriesFixture([{}, {}, {}]), [], {
       retrieve: async query => {
         queries.push(query);
         return notes;
       },
-      complete: async () =>
-        scriptJson([
-          {
-            id: "t1",
-            speaker: "clementine",
-            kind: "content",
-            text: "Deci named three needs.",
-            citations: [{ pageId: "p1", title: "SDT" }],
-          },
-        ]),
-      listEpisodes: async () => [],
-      id: () => "ep_next",
-      nowIso: () => "2026-08-15T00:00:00.000Z",
-    });
-
-    expect("status" in result && result.status === 409).toBe(false);
-    expect("status" in result && result.status === 422).toBe(false);
-    if ("error" in result) return;
-    expect(queries[0]).toBe("What is SDT");
-    expect(result.mode).toBe("recap");
-    expect(result.seriesId).toBe("ser_1");
-    expect(result.episodeIndex).toBe(1);
-    expect(result.showTitle).toBe("Autonomy Hours");
-    expect(result.id).toBe("ep_next");
-  });
-
-  it("returns 409 without generating when the previous episode is not ready", async () => {
-    let retrieved = 0;
-    const result = await runNextEpisode(
-      seriesFixture([{ episodeId: "ep_1" }, {}, {}]),
-      [readyEpisode({ id: "ep_1", status: "running", seriesId: "ser_1" })],
-      {
-        retrieve: async () => {
-          retrieved += 1;
-          return notes;
-        },
-        complete: async () => scriptJson([]),
-        listEpisodes: async () => [],
-      },
-    );
-
-    expect(result).toMatchObject({ status: 409 });
-    expect(retrieved).toBe(0);
-  });
-});
-
-
-describe("nextSeriesSlot", () => {
-  it("returns the first slot without an episodeId", () => {
-    const result = nextSeriesSlot(seriesFixture(), {});
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.slot.index).toBe(1);
-    expect(result.slot.throughLine).toBe("What is SDT");
-  });
-
-  it("returns 409 when the previous episode is still running", () => {
-    const result = nextSeriesSlot(seriesFixture([{ episodeId: "ep_1" }, {}, {}]), {
-      ep_1: { status: "running" },
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.status).toBe(409);
-    expect(result.error).toMatch(/previous|still|generating|ready/i);
-  });
-
-  it("returns 422 when every slot already has a recorded episode", () => {
-    const result = nextSeriesSlot(
-      seriesFixture([{ episodeId: "ep_1" }, { episodeId: "ep_2" }, { episodeId: "ep_3" }]),
-      {
-        ep_1: { status: "ready" },
-        ep_2: { status: "ready" },
-        ep_3: { status: "cancelled" },
-      },
-    );
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.status).toBe(422);
-    expect(result.error).toMatch(/no remaining|no more|complete/i);
-  });
-
-  it("treats a missing episode as an open slot after a ready predecessor", () => {
-    const result = nextSeriesSlot(seriesFixture([{ episodeId: "ep_1" }, { episodeId: "ep_missing" }, {}]), {
-      ep_1: { status: "ready" },
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.slot.index).toBe(2);
-    expect(result.slot.episodeId).toBe("ep_missing");
-  });
-});
-
-describe("runNextEpisode", () => {
-  it("generates the open slot with throughLine as the retrieve topic", async () => {
-    const queries: string[] = [];
-    const result = await runNextEpisode(seriesFixture([{}, {}, {}]), [], {
-      retrieve: async query => {
-        queries.push(query);
-        return notes;
-      },
-      complete: async () =>
-        scriptJson([
-          {
-            id: "t1",
-            speaker: "clementine",
-            kind: "content",
-            text: "Deci named three needs.",
-            citations: [{ pageId: "p1", title: "SDT" }],
-          },
-        ]),
+      complete: completions.complete,
       listEpisodes: async () => [],
       id: () => "ep_next",
       nowIso: () => "2026-08-15T00:00:00.000Z",
