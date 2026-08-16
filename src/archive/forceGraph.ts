@@ -7,14 +7,35 @@ import {
   forceY,
   type Simulation,
 } from "d3-force";
+import {
+  OVERLAP_LINK_ALPHA,
+  attachGraphSearch,
+  canvasRadius,
+  initialForceView,
+  linkDrawState,
+  nodeDrawState,
+  nodeHoverTip,
+  resolveBackgroundClick,
+  resolveEnterKey,
+  resolveNodeClick,
+  showAllLinkShouldDraw,
+  simulationNodes,
+  type ForceGraphVariant,
+  type GraphMount,
+} from "./forceGraphBehavior";
 import type { ArchiveGraphModel, GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
 
+export type { ForceGraphVariant };
+
 export type ForceGraphHandlers = {
-  onKeywordFilter: (keyword: string) => void;
-  onPageClick: (pageId: string) => void;
+  onNoteSelect?: (note: { pageId: string; title: string; excerpt: string } | null) => void;
 };
 
-type ViewState = { x: number; y: number; k: number };
+export type ForceGraphOptions = {
+  variant: ForceGraphVariant;
+  search: string;
+  excerptFor: (pageId: string) => string;
+};
 
 function curve(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
   const mx = (x1 + x2) / 2;
@@ -35,11 +56,17 @@ function linkEnds(link: GraphLinkDatum, map: Map<string, GraphNodeDatum>) {
   return { source, target };
 }
 
-export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, handlers: ForceGraphHandlers) {
+export function mountForceGraph(
+  host: HTMLElement,
+  model: ArchiveGraphModel,
+  handlers: ForceGraphHandlers,
+  options: ForceGraphOptions = { variant: "constellation", search: "", excerptFor: () => "" },
+): GraphMount {
   const width = host.clientWidth || 1100;
   const height = Math.max(720, Math.floor(window.innerHeight * 0.8));
   host.innerHTML = "";
   host.style.height = `${height}px`;
+  const onNoteSelect = handlers.onNoteSelect ?? (() => {});
 
   const canvas = document.createElement("canvas");
   canvas.className = "graph-canvas";
@@ -55,9 +82,11 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
   host.appendChild(tip);
 
   const ctx = canvas.getContext("2d")!;
-  const view: ViewState = { x: 0, y: 0, k: 0.62 };
-  view.x = width / 2 - 760 * view.k;
-  view.y = height / 2 - 560 * view.k;
+  const anchor = model.nodes.find(node => node.kind === "major" && node.x != null && node.y != null);
+  const view = initialForceView(options.variant, width, height, {
+    x: options.variant === "showAll" ? 760 : (anchor?.x ?? 760),
+    y: options.variant === "showAll" ? 560 : (anchor?.y ?? 560),
+  });
 
   let hover: GraphNodeDatum | null = null;
   let selected: string | null = null;
@@ -65,18 +94,50 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
 
   let simNodes: GraphNodeDatum[] = model.nodes.map(node => ({ ...node }));
   let simLinks: GraphLinkDatum[] = model.links.map(link => ({ ...link }));
+  let nodeMap = new Map(simNodes.map(node => [node.id, node]));
+  let maxWeight = 1;
+  for (const link of simLinks) if (link.weight > maxWeight) maxWeight = link.weight;
+  let drawRaf = 0;
   let simulation: Simulation<GraphNodeDatum, GraphLinkDatum> = createSimulation();
 
+  function refreshLookups() {
+    nodeMap = new Map(simNodes.map(node => [node.id, node]));
+    maxWeight = 1;
+    for (const link of simLinks) if (link.weight > maxWeight) maxWeight = link.weight;
+  }
+
+  function scheduleDraw() {
+    if (drawRaf) return;
+    drawRaf = requestAnimationFrame(() => {
+      drawRaf = 0;
+      draw();
+    });
+  }
+
+  function onScreen(x: number, y: number, pad = 64) {
+    const sx = view.x + x * view.k;
+    const sy = view.y + y * view.k;
+    return sx >= -pad && sy >= -pad && sx <= width + pad && sy <= height + pad;
+  }
+
   function createSimulation() {
-    return forceSimulation(simNodes)
+    const nodesForSim = simulationNodes(options.variant, simNodes);
+    if (options.variant === "showAll") {
+      for (const node of simNodes) {
+        node.fx = node.x ?? 0;
+        node.fy = node.y ?? 0;
+      }
+      return forceSimulation(nodesForSim).alpha(0).stop();
+    }
+    const sim = forceSimulation(nodesForSim)
       .force(
         "link",
         forceLink<GraphNodeDatum, GraphLinkDatum>(simLinks)
           .id(node => node.id)
           .distance(link => {
             if (link.kind === "spoke") return 72;
-            if (link.kind === "orbit") return 140;
-            return 240 + Math.min(140, link.weight / 5);
+            if (link.kind === "orbit") return options.variant === "showAll" ? 980 : 140;
+            return (240 + Math.min(140, link.weight / 5)) * (options.variant === "showAll" ? 8 : 1);
           })
           .strength(link => {
             if (link.kind === "spoke") return 0.65;
@@ -88,15 +149,21 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
         "charge",
         forceManyBody<GraphNodeDatum>()
           .strength(node => {
+            if (node.kind === "leaf") return 0;
+            if (options.variant === "showAll") {
+              if (node.kind === "major") return -2600;
+              return -700;
+            }
             if (node.kind === "major") return -2400;
             if (node.kind === "minor") return -320;
             return -28;
           })
-          .distanceMax(1200),
+          .distanceMax(options.variant === "showAll" ? 7000 : 1200),
       )
       .force(
         "x",
         forceX<GraphNodeDatum>(node => node.x ?? 760).strength(node => {
+          if (node.kind === "leaf") return 0;
           if (node.kind === "major") return 0.12;
           if (node.kind === "minor") return 0.06;
           return 0.02;
@@ -105,6 +172,7 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
       .force(
         "y",
         forceY<GraphNodeDatum>(node => node.y ?? 560).strength(node => {
+          if (node.kind === "leaf") return 0;
           if (node.kind === "major") return 0.12;
           if (node.kind === "minor") return 0.06;
           return 0.02;
@@ -114,15 +182,22 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
         "collide",
         forceCollide<GraphNodeDatum>()
           .radius(node => {
+            if (node.kind === "leaf") return 0;
+            if (options.variant === "showAll") {
+              if (node.kind === "major") return node.r + 80;
+              return node.r + 36;
+            }
             if (node.kind === "major") return node.r + 44;
             if (node.kind === "minor") return node.r + 18;
             return node.r + 8;
           })
           .strength(0.95),
       )
-      .alphaDecay(0.02)
+      .alphaDecay(options.variant === "showAll" ? 0.08 : 0.02)
       .velocityDecay(0.4)
-      .on("tick", draw);
+      .on("tick", scheduleDraw);
+
+    return sim;
   }
 
   function restartSimulation() {
@@ -131,7 +206,7 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
   }
 
   function byId() {
-    return new Map(simNodes.map(node => [node.id, node]));
+    return nodeMap;
   }
 
   function collapseLeaves() {
@@ -146,6 +221,7 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
       };
     });
     simLinks = model.links.map(link => ({ ...link }));
+    refreshLookups();
   }
 
   function expandMinor(label: string) {
@@ -198,6 +274,7 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
 
     simNodes = [...simNodes, ...leaves];
     simLinks = [...simLinks, ...spokes];
+    refreshLookups();
     restartSimulation();
   }
 
@@ -220,13 +297,17 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
   const findNode = (x: number, y: number) => {
     let hit: GraphNodeDatum | null = null;
     let best = Infinity;
+    const skipLeaves = options.variant === "showAll" && view.k < 0.11;
     for (let i = simNodes.length - 1; i >= 0; i--) {
       const node = simNodes[i];
+      if (skipLeaves && node.kind === "leaf") continue;
       const dx = (node.x ?? 0) - x;
       const dy = (node.y ?? 0) - y;
       const dist = Math.hypot(dx, dy);
+      const minPx = node.kind === "major" ? 6 : node.kind === "minor" ? 4 : 2.4;
+      const hitR = canvasRadius(node.r, view.k, options.variant === "showAll" ? minPx : 1.6);
       const pad = node.kind === "major" ? 8 : node.kind === "minor" ? 6 : 4;
-      if (dist <= node.r + pad && dist < best) {
+      if (dist <= hitR + pad && dist < best) {
         best = dist;
         hit = node;
       }
@@ -234,14 +315,8 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
     return hit;
   };
 
-  function isActivePair(source: GraphNodeDatum, target: GraphNodeDatum) {
-    if (!hover && !selected) return false;
-    const labels = new Set(
-      [hover?.label, hover?.parentKeyword, selected].filter(Boolean) as string[],
-    );
-    return labels.has(source.label) || labels.has(target.label) ||
-      (source.parentKeyword != null && labels.has(source.parentKeyword)) ||
-      (target.parentKeyword != null && labels.has(target.parentKeyword));
+  function drawArgs() {
+    return { query: options.search, nodes: simNodes, selected, hover };
   }
 
   function draw() {
@@ -252,18 +327,27 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
     ctx.translate(view.x, view.y);
     ctx.scale(view.k, view.k);
 
-    const maxWeight = Math.max(...simLinks.map(link => link.weight), 1);
-    const focusing = Boolean(selected);
+    const emphasis = drawArgs();
+    const showAll = options.variant === "showAll";
+    const showLeaves = !showAll || view.k >= 0.11;
 
     for (const link of simLinks) {
       const { source, target } = linkEnds(link, map);
-      if (!source?.x || !target?.x || source.y == null || target.y == null) continue;
+      if (!source || !target || source.x == null || target.x == null || source.y == null || target.y == null) continue;
+      const leaf = source.kind === "leaf" ? source : target.kind === "leaf" ? target : null;
+      const leafOnScreen = Boolean(leaf && onScreen(leaf.x ?? 0, leaf.y ?? 0));
+      if (showAll && !showAllLinkShouldDraw(link.kind, view.k, leafOnScreen)) continue;
+      if (showAll && link.kind !== "spoke" && !onScreen(source.x, source.y) && !onScreen(target.x, target.y)) continue;
 
-      const active = isActivePair(source, target);
-      const dim = focusing && !active;
+      const { active, dim } = linkDrawState(link, source, target, emphasis);
 
       ctx.beginPath();
-      curve(ctx, source.x, source.y, target.x, target.y);
+      if (showAll && link.kind === "spoke") {
+        ctx.moveTo(source.x, source.y);
+        ctx.lineTo(target.x, target.y);
+      } else {
+        curve(ctx, source.x, source.y, target.x, target.y);
+      }
 
       if (link.kind === "spoke") {
         ctx.setLineDash([4 / view.k, 5 / view.k]);
@@ -284,7 +368,7 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
           ctx.lineWidth = (thick + 1.4) / view.k;
         } else {
           ctx.strokeStyle = link.color;
-          ctx.globalAlpha = dim ? 0.05 : 0.2;
+          ctx.globalAlpha = dim ? 0.05 : link.kind === "overlap" ? OVERLAP_LINK_ALPHA : 0.2;
           ctx.lineWidth = thick / view.k;
         }
       }
@@ -295,11 +379,14 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
 
     for (const node of simNodes) {
       if (node.kind !== "leaf" || node.x == null || node.y == null) continue;
-      const hot = hover === node || selected === node.parentKeyword;
+      if (!showLeaves) continue;
+      if (options.variant === "showAll" && !onScreen(node.x, node.y)) continue;
+      const { hot, dim } = nodeDrawState(node, emphasis);
+      const drawR = canvasRadius(node.r, view.k, options.variant === "showAll" ? 2.4 : 1.6);
       ctx.beginPath();
-      ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+      ctx.arc(node.x, node.y, drawR, 0, Math.PI * 2);
       ctx.fillStyle = node.color;
-      ctx.globalAlpha = hot ? 1 : 0.8;
+      ctx.globalAlpha = dim ? 0.18 : hot ? 1 : 0.8;
       ctx.fill();
       ctx.globalAlpha = 1;
       ctx.lineWidth = 1 / view.k;
@@ -312,16 +399,16 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
         const text = node.label.length > 32 ? `${node.label.slice(0, 31)}…` : node.label;
-        ctx.fillText(text, node.x + node.r + 6, node.y);
+        ctx.fillText(text, node.x + drawR + 6, node.y);
       }
     }
 
     for (const node of simNodes) {
       if (node.kind !== "minor" || node.x == null || node.y == null) continue;
-      const hot = hover === node || selected === node.label || selected === node.parentKeyword;
-      const dim = focusing && !hot;
+      const { hot, dim } = nodeDrawState(node, emphasis);
+      const drawR = canvasRadius(node.r, view.k, options.variant === "showAll" ? 4 : 2.8);
       ctx.beginPath();
-      ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+      ctx.arc(node.x, node.y, drawR, 0, Math.PI * 2);
       ctx.fillStyle = node.color;
       ctx.globalAlpha = dim ? 0.25 : hot ? 1 : 0.88;
       ctx.fill();
@@ -356,9 +443,7 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
 
     for (const node of simNodes) {
       if (node.kind !== "major" || node.x == null || node.y == null) continue;
-      const hot = hover === node || selected === node.label;
-      const dim = focusing && selected !== node.label &&
-        !simNodes.some(item => item.kind === "minor" && item.parentKeyword === node.label && item.label === selected);
+      const { hot, dim } = nodeDrawState(node, emphasis);
       ctx.beginPath();
       ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
       const gradient = ctx.createRadialGradient(
@@ -406,11 +491,12 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
     event => {
       event.preventDefault();
       const world = toWorld(event.clientX, event.clientY);
-      const next = Math.min(2.4, Math.max(0.28, view.k * (event.deltaY < 0 ? 1.08 : 0.92)));
+      const minK = options.variant === "showAll" ? 0.05 : 0.28;
+      const next = Math.min(2.4, Math.max(minK, view.k * (event.deltaY < 0 ? 1.08 : 0.92)));
       view.x = event.clientX - canvas.getBoundingClientRect().left - world.x * next;
       view.y = event.clientY - canvas.getBoundingClientRect().top - world.y * next;
       view.k = next;
-      draw();
+      scheduleDraw();
     },
     { passive: false },
   );
@@ -422,7 +508,7 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
       dragged = node;
       node.fx = node.x;
       node.fy = node.y;
-      simulation.alphaTarget(0.15).restart();
+      if (options.variant !== "showAll") simulation.alphaTarget(0.15).restart();
       canvas.setPointerCapture(event.pointerId);
       return;
     }
@@ -432,11 +518,16 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
     const onMove = (move: PointerEvent) => {
       view.x = origin.x + (move.clientX - startX);
       view.y = origin.y + (move.clientY - startY);
-      draw();
+      scheduleDraw();
     };
-    const onUp = () => {
+    const onUp = (up: PointerEvent) => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      if (resolveBackgroundClick(Math.hypot(up.clientX - startX, up.clientY - startY)) === "clear") {
+        selected = null;
+        onNoteSelect(null);
+        scheduleDraw();
+      }
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -445,70 +536,94 @@ export function mountForceGraph(host: HTMLElement, model: ArchiveGraphModel, han
   canvas.addEventListener("pointermove", event => {
     const world = toWorld(event.clientX, event.clientY);
     if (dragged) {
+      dragged.x = world.x;
+      dragged.y = world.y;
       dragged.fx = world.x;
       dragged.fy = world.y;
+      scheduleDraw();
       return;
     }
     const node = findNode(world.x, world.y);
+    const hoverChanged = hover !== node;
     hover = node;
     canvas.style.cursor = node ? "pointer" : "grab";
     if (node) {
       tip.hidden = false;
-      if (node.kind === "major") {
-        tip.textContent = `${node.label} · ${node.count} notes · click to focus · double-click for list`;
-      } else if (node.kind === "minor") {
-        tip.textContent = `${node.label} · sub-theme of ${node.parentKeyword} · click + for notes`;
-      } else {
-        tip.textContent = node.label;
-      }
+      tip.textContent = nodeHoverTip(node);
       tip.style.left = `${event.clientX - host.getBoundingClientRect().left + 12}px`;
       tip.style.top = `${event.clientY - host.getBoundingClientRect().top + 12}px`;
     } else {
       tip.hidden = true;
     }
-    draw();
+    if (hoverChanged) scheduleDraw();
   });
 
   canvas.addEventListener("pointerup", event => {
     if (!dragged) return;
     const node = dragged;
     dragged = null;
-    node.fx = null;
-    node.fy = null;
-    simulation.alphaTarget(0);
+    if (options.variant === "showAll" && node.kind === "leaf") {
+      node.fx = node.x ?? 0;
+      node.fy = node.y ?? 0;
+    } else {
+      node.fx = null;
+      node.fy = null;
+    }
+    if (options.variant !== "showAll") simulation.alphaTarget(0);
     const world = toWorld(event.clientX, event.clientY);
     const still = findNode(world.x, world.y);
     if (!(still && still.id === node.id)) return;
+    if (event.detail >= 2 && (node.kind === "major" || node.kind === "minor")) return;
 
-    if (node.kind === "major") {
-      if (event.detail >= 2) {
-        handlers.onKeywordFilter(node.label);
-        return;
-      }
-      focusMajor(node.label);
+    const action = resolveNodeClick(options.variant, node, selected, options.excerptFor);
+    if (action.kind === "focusMajor") {
+      onNoteSelect(null);
+      focusMajor(action.label);
       return;
     }
-    if (node.kind === "minor") {
-      if (event.detail >= 2) {
-        handlers.onKeywordFilter(node.label);
-        return;
-      }
-      expandMinor(node.label);
+    if (action.kind === "expandMinor") {
+      onNoteSelect(null);
+      expandMinor(action.label);
       return;
     }
-    if (node.pageId) handlers.onPageClick(node.pageId);
+    if (action.kind === "selectHub") {
+      selected = action.selected;
+      onNoteSelect(null);
+      scheduleDraw();
+      return;
+    }
+    if (action.kind === "selectNote") {
+      selected = action.selected;
+      onNoteSelect(action.note);
+      scheduleDraw();
+    }
   });
 
   canvas.addEventListener("pointerleave", () => {
     hover = null;
     tip.hidden = true;
-    draw();
+    scheduleDraw();
   });
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Enter") return;
+    const note = resolveEnterKey(selected, simNodes, options.excerptFor);
+    if (note) onNoteSelect(note);
+  };
+  window.addEventListener("keydown", onKeyDown);
 
   draw();
 
-  return () => {
-    simulation.stop();
-    host.innerHTML = "";
-  };
+  return attachGraphSearch(
+    () => {
+      window.removeEventListener("keydown", onKeyDown);
+      simulation.stop();
+      if (drawRaf) cancelAnimationFrame(drawRaf);
+      host.innerHTML = "";
+    },
+    query => {
+      options.search = query;
+      scheduleDraw();
+    },
+  );
 }

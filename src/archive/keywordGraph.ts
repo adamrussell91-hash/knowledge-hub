@@ -57,7 +57,7 @@ export type GraphNodeDatum = {
   fy?: number | null;
 };
 
-export type GraphLinkKind = "backbone" | "orbit" | "spoke";
+export type GraphLinkKind = "backbone" | "orbit" | "spoke" | "overlap";
 
 export type GraphLinkDatum = {
   source: string | GraphNodeDatum;
