@@ -4,7 +4,7 @@
   functions = "netlify/handlers"
 
 [functions]
-  included_files = ["prompts/clementine-*.md"]
+  included_files = ["prompts/clementine-*.md", "prompts/annotation-voice.md"]
 
 [build.environment]
   SECRETS_SCAN_OMIT_KEYS = "SITE_ORIGIN"
@@ -59,4 +59,14 @@
 [[redirects]]
   from = "/api/lesson-alchemist"
   to = "/.netlify/functions/lesson-alchemist"
+  status = 200
+
+[[redirects]]
+  from = "/api/podcast"
+  to = "/.netlify/functions/podcast"
+  status = 200
+
+[[redirects]]
+  from = "/api/podcast/*"
+  to = "/.netlify/functions/podcast"
   status = 200

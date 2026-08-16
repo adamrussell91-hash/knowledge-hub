@@ -125,3 +125,51 @@ export async function runCoach(input: {
     body: JSON.stringify(input),
   });
 }
+
+export const PODCAST_NEEDS_NETLIFY = "Podcast needs the Netlify API";
+
+function podcastPost<T>(path: string, body: unknown) {
+  if (USE_LOCAL_DATA) throw new Error(PODCAST_NEEDS_NETLIFY);
+  return apiFetch<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function startPodcast(body: unknown) {
+  return podcastPost("/podcast/start", body);
+}
+
+export function startPodcastSeries(body: unknown) {
+  return podcastPost("/podcast/series/start", body);
+}
+
+export function nextPodcastEpisode(seriesId: string) {
+  return podcastPost(`/podcast/series/${encodeURIComponent(seriesId)}/next`, {});
+}
+
+export function listPodcasts() {
+  if (USE_LOCAL_DATA) throw new Error(PODCAST_NEEDS_NETLIFY);
+  return apiFetch("/podcast");
+}
+
+export function getPodcast(episodeId: string) {
+  if (USE_LOCAL_DATA) throw new Error(PODCAST_NEEDS_NETLIFY);
+  return apiFetch(`/podcast/${encodeURIComponent(episodeId)}`);
+}
+
+export function interruptPodcast(episodeId: string, body: unknown) {
+  return podcastPost(`/podcast/${encodeURIComponent(episodeId)}/interrupt`, body);
+}
+
+export function answerPodcastQuiz(episodeId: string, body: unknown) {
+  return podcastPost(`/podcast/${encodeURIComponent(episodeId)}/answer`, body);
+}
+
+export function getPodcastAudioUrl(episodeId: string, turnId: string) {
+  if (USE_LOCAL_DATA) throw new Error(PODCAST_NEEDS_NETLIFY);
+  return apiFetch<{ url: string }>(
+    `/podcast/${encodeURIComponent(episodeId)}/audio/${encodeURIComponent(turnId)}`,
+  );
+}

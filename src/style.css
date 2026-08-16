@@ -922,6 +922,28 @@
   transform: translateX(-50%) translateY(0);
 }
 
+.podcast-library {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.podcast-card {
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.podcast-advanced {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.podcast-player {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
 .local-banner {
   margin: 0 0 var(--space-4);
   padding: 0.7rem 0.9rem;

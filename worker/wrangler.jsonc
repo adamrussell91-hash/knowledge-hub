@@ -19,11 +19,18 @@
       "bucket_name": "knowledge-hub-archive"
     }
   ],
+  "ai": {
+    "binding": "AI"
+  },
   "durable_objects": {
     "bindings": [
       {
         "name": "RESEARCH_SESSION",
         "class_name": "ResearchSession"
+      },
+      {
+        "name": "PODCAST_SESSION",
+        "class_name": "PodcastSession"
       }
     ]
   },
@@ -31,6 +38,10 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["ResearchSession"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["PodcastSession"]
     }
   ]
 }

@@ -25,9 +25,10 @@ import { mountForceGraph } from "./archive/forceGraph";
 import { buildShowAllGraph } from "./archive/showAllGraph";
 import { buildUniverseGraph } from "./archive/universeGraph";
 import { mountUniverseView, universeHotIds } from "./archive/universeView";
+import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 
 type AreaFilter = "all" | "university" | "notes";
-type View = "list" | "graph" | "page" | "alchemist" | "coach";
+type View = "list" | "graph" | "page" | "alchemist" | "coach" | "podcast";
 type GraphMode = "constellation" | "showAll" | "universe";
 
 type CoachTurn = CoachMessage & {
@@ -69,6 +70,7 @@ const icons = {
   notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>`,
   alchemist: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l-1 4H9L8 3z"/><path d="M9 7l-3 12h12l-3-12"/><path d="M10 12h4"/></svg>`,
   coach: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h10v14H5z"/><path d="M8 9h4M8 13h4"/><path d="M17 8l4 4-6 6h-4v-4z"/></svg>`,
+  podcast: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="3"/><path d="M8 10a4 4 0 0 0 8 0"/><path d="M6 10a6 6 0 0 0 12 0"/><path d="M12 13v6M9 19h6"/></svg>`,
 };
 
 function kindBadge(attachment: Attachment) {
@@ -143,6 +145,7 @@ function shell(main: string) {
         <button class="rail__btn ${view === "graph" ? "is-active" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
         <button class="rail__btn ${view === "alchemist" ? "is-active" : ""}" data-nav="alchemist" type="button">${icons.alchemist}<span>Alchemist</span></button>
         <button class="rail__btn ${view === "coach" ? "is-active" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
+        <button class="rail__btn ${view === "podcast" ? "is-active" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
       </nav>
       ${
         USE_LOCAL_DATA
@@ -157,23 +160,34 @@ function shell(main: string) {
     button.onclick = () => {
       const next = button.dataset.nav!;
       if (next === "graph") {
+        if (view === "podcast") leavePodcastRail();
         view = "graph";
         activePage = null;
         render();
         return;
       }
       if (next === "alchemist") {
+        if (view === "podcast") leavePodcastRail();
         view = "alchemist";
         activePage = null;
         render();
         return;
       }
       if (next === "coach") {
+        if (view === "podcast") leavePodcastRail();
         view = "coach";
         activePage = null;
         render();
         return;
       }
+      if (next === "podcast") {
+        view = "podcast";
+        activePage = null;
+        enterPodcastRail();
+        render();
+        return;
+      }
+      if (view === "podcast") leavePodcastRail();
       area = next as AreaFilter;
       keywordFilter = "";
       view = "list";
@@ -644,6 +658,15 @@ function render() {
   if (view === "graph") return renderGraph();
   if (view === "alchemist") return renderAlchemist();
   if (view === "coach") return renderCoach();
+  if (view === "podcast") {
+    return renderPodcastRail({
+      app,
+      tags: [...new Set(entries.flatMap(entry => topicKeywords(entry.tags)))].sort(),
+      shell,
+      render,
+      onOpenPage: pageId => void openPage(pageId),
+    });
+  }
   return renderList();
 }
 
