@@ -8,6 +8,7 @@ export type PlayerState = {
 
 export type PlayerCommand =
   | { type: "noop" }
+  | { type: "nothing-to-play" }
   | { type: "play-index"; index: number }
   | { type: "pause" }
   | { type: "stop-now" }
@@ -27,6 +28,10 @@ function isSilentMarker(turn: Turn) {
   return (turn.kind === "cue" || turn.kind === "empty") && !turn.audioKey;
 }
 
+export function hasPlayableTurn(turns: Turn[]) {
+  return turns.some(turn => turn && !isSilentMarker(turn));
+}
+
 function nextPlayable(start: number, turns: Turn[]) {
   let index = start;
   while (index < turns.length) {
@@ -43,7 +48,11 @@ function nextPlayable(start: number, turns: Turn[]) {
 function playAt(state: PlayerState, index: number, turns: Turn[]) {
   const playable = nextPlayable(index, turns);
   if (playable >= turns.length) {
-    return { state: withPending({ ...state, playing: false, index: playable }, state.pendingInterrupt), command: { type: "noop" } as const };
+    const rest = Math.max(turns.length - 1, 0);
+    return {
+      state: withPending({ ...state, playing: false, index: rest }, state.pendingInterrupt),
+      command: { type: "nothing-to-play" } as const,
+    };
   }
   return {
     state: withPending({ ...state, playing: true, index: playable }, state.pendingInterrupt),

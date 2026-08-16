@@ -63,6 +63,7 @@ export const PodcastEpisodeSchema = z.object({
   episodeIndex: z.number().int().positive().optional(),
   showTitle: z.string().optional(),
   error: z.string().optional(),
+  progress_at: z.string().optional(),
 });
 export type PodcastEpisode = z.infer<typeof PodcastEpisodeSchema>;
 
@@ -74,7 +75,6 @@ export const SeriesSlotSchema = z.object({
   sourcePageIds: z.array(z.string()),
   episodeId: z.string().optional(),
 });
-export type SeriesSlot = z.infer<typeof SeriesSlotSchema>;
 export type SeriesSlot = z.infer<typeof SeriesSlotSchema>;
 
 export const PodcastSeriesSchema = z.object({

@@ -11,6 +11,7 @@ import {
 import { handlePodcastRequest } from "../../src/podcast/http";
 import { runInterrupt, runQuizAnswer } from "../../src/podcast/run";
 import { markEpisodeRecording } from "../../src/podcast/speak";
+import { isStalledEpisode, markStalledEpisode } from "../../src/podcast/stall";
 import { startEpisodeOnDo, startNextOnDo, startSeriesOnDo } from "../../src/podcast/start";
 import {
   PodcastEpisodeSchema,
@@ -65,10 +66,12 @@ async function saveEpisode(env: WorkerEnv, episode: PodcastEpisode) {
 
 async function getEpisode(env: WorkerEnv, id: string): Promise<PodcastEpisode | null> {
   const fromR2 = await loadPodcastEpisode(env, id);
-  if (fromR2) return fromR2;
-  const stored = await getStoredJson(env, id);
-  const parsed = PodcastEpisodeSchema.safeParse(stored);
-  return parsed.success ? parsed.data : null;
+  const episode = fromR2 ?? PodcastEpisodeSchema.safeParse(await getStoredJson(env, id)).data ?? null;
+  if (!episode) return null;
+  if (!isStalledEpisode(episode, Date.now())) return episode;
+  const stalled = markStalledEpisode(episode);
+  await persistPodcastEpisode(env, stalled);
+  return stalled;
 }
 
 async function getSeries(env: WorkerEnv, id: string): Promise<PodcastSeries | null> {

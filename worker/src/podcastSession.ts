@@ -190,7 +190,8 @@ export class PodcastSession {
   }
 
   private async save(episode: PodcastEpisode) {
-    await this.ctx.storage.put("episode", episode);
-    await persistPodcastEpisode(this.env, episode);
+    const stamped = PodcastEpisodeSchema.parse({ ...episode, progress_at: new Date().toISOString() });
+    await this.ctx.storage.put("episode", stamped);
+    await persistPodcastEpisode(this.env, stamped);
   }
 }

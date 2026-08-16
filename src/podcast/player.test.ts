@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   failCurrentLine,
+  hasPlayableTurn,
   nextAction,
   pauseAfterInterrupt,
   playerBoxLabel,
@@ -105,6 +106,14 @@ describe("nextAction", () => {
     expect(result.command).toEqual({ type: "stop-now" });
     expect(result.state.playing).toBe(false);
     expect(result.state.pendingInterrupt).toBe("why autonomy?");
+  });
+
+  it("play on a silent-only episode reports nothing to play and holds the index", () => {
+    const script = turns({ id: "t1", kind: "empty" });
+    const result = nextAction(idle, "play", script, "finish-thought");
+    expect(result.command).toEqual({ type: "nothing-to-play" });
+    expect(result.state).toEqual({ playing: false, index: 0 });
+    expect(hasPlayableTurn(script)).toBe(false);
   });
 
   it("quiz-prompt ended returns wait-answer and does not auto-advance", () => {

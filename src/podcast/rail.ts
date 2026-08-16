@@ -139,9 +139,17 @@ function failMessage(error: unknown) {
     : "Podcast failed.";
 }
 
+function episodeFailure(episode: PodcastEpisode) {
+  return episode.error?.trim() || "Podcast failed.";
+}
+
 function runningNote(episode: PodcastEpisode) {
   if (episode.seriesId && (episode.episodeIndex ?? 1) === 1) return "writing episode 1";
-  return "recording…";
+  if (!episode.turns.length) return "writing the script…";
+  const spoken = episode.turns.filter(turn => turn.audioKey).length;
+  const speakable = episode.turns.filter(turn => turn.kind !== "cue" && turn.kind !== "empty").length;
+  if (!speakable) return "recording…";
+  return `recording turn ${Math.min(spoken + 1, speakable)}/${speakable}`;
 }
 
 function formatDate(iso: string) {
@@ -196,7 +204,7 @@ function startPoll(host: PodcastRailHost, id: string) {
         stopPoll();
         busy = false;
         statusNote = "";
-        if (current.status === "error") podcastError = "Podcast failed.";
+        if (current.status === "error") podcastError = episodeFailure(current);
         try {
           await refreshLibrary();
         } catch {
@@ -513,7 +521,7 @@ async function generate(host: PodcastRailHost) {
       host.render();
       return;
     }
-    if (current.status === "error") podcastError = "Podcast failed.";
+    if (current.status === "error") podcastError = episodeFailure(current);
     statusNote = "";
     try {
       await refreshLibrary();
@@ -543,7 +551,7 @@ async function nextEpisode(host: PodcastRailHost, seriesId: string) {
       host.render();
       return;
     }
-    if (current.status === "error") podcastError = "Podcast failed.";
+    if (current.status === "error") podcastError = episodeFailure(current);
     statusNote = "";
     try {
       await refreshLibrary();

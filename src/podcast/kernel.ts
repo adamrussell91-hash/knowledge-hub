@@ -17,6 +17,9 @@ import {
 } from "./schema";
 import { applyPodcastScope, connectorScope, type TagMatch } from "./select";
 
+export const ANTHROPIC_TIMEOUT_MS = 90_000;
+export const GITHUB_TIMEOUT_MS = 20_000;
+
 export const PODCAST_INDEX_KEY = "podcast/index.json";
 export const podcastEpisodeKey = (id: string) => `podcast/episodes/${id}.json`;
 export const podcastSeriesKey = (id: string) => `podcast/series/${id}.json`;
@@ -72,6 +75,7 @@ async function githubPage(env: PodcastKernelEnv, pageId: string): Promise<PageRe
       Authorization: `Bearer ${env.GITHUB_DATA_REPO_TOKEN}`,
       Accept: "application/vnd.github.raw",
     },
+    signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
   });
   if (!response.ok) return null;
   const page = (await response.json()) as PageRecord;
@@ -144,19 +148,29 @@ export async function retrievePodcastNotes(
 }
 
 export async function completePrompt(env: PodcastKernelEnv, prompt: string): Promise<string> {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4000,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: AbortSignal.timeout(ANTHROPIC_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name === "TimeoutError" || name === "AbortError") {
+      throw new Error(`Anthropic timed out after ${Math.round(ANTHROPIC_TIMEOUT_MS / 1000)}s`);
+    }
+    throw error;
+  }
   if (!response.ok) throw new Error(`Anthropic error ${response.status}`);
   const payload = (await response.json()) as { content?: { type: string; text?: string }[] };
   return payload.content?.find(block => block.type === "text")?.text ?? "";

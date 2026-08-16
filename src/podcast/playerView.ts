@@ -2,6 +2,7 @@ import { answerPodcastQuiz, getPodcastAudioUrl, interruptPodcast } from "../api/
 import { escapeHtml } from "../lib/dom";
 import {
   failCurrentLine,
+  hasPlayableTurn,
   nextAction,
   pauseAfterInterrupt,
   playerBoxLabel,
@@ -22,6 +23,7 @@ let state: PlayerState = { playing: false, index: 0 };
 let playGen = 0;
 let waitingAnswer = false;
 let playError = "";
+let playInfo = "";
 
 export function resetPlayer() {
   episodeId = "";
@@ -29,6 +31,7 @@ export function resetPlayer() {
   playGen += 1;
   waitingAnswer = false;
   playError = "";
+  playInfo = "";
 }
 
 function ensureEpisode(id: string) {
@@ -37,6 +40,7 @@ function ensureEpisode(id: string) {
   state = { playing: false, index: 0 };
   waitingAnswer = false;
   playError = "";
+  playInfo = "";
 }
 
 function sensitivity(episode: PodcastEpisode) {
@@ -81,8 +85,17 @@ function transcriptHtml(episode: PodcastEpisode) {
     .join("")}</ol>`;
 }
 
+export function nothingToPlayMessage(episode: PodcastEpisode) {
+  if (episode.turns.every(turn => turn.kind === "empty")) {
+    return "Nothing new in the archive for this window, so there is no audio. Try a longer cadence or a different mode.";
+  }
+  if (!episode.turns.some(turn => turn.audioKey)) return "This episode has no recorded audio.";
+  return "End of the episode.";
+}
+
 function waitingNote() {
   if (playError) return `<p class="alchemist__error" data-player-note>${escapeHtml(playError)}</p>`;
+  if (playInfo) return `<p class="alchemist__mode" data-player-note>${escapeHtml(playInfo)}</p>`;
   if (waitingAnswer) return `<p class="alchemist__mode" data-player-note>Type an answer to continue.</p>`;
   if (state.pendingInterrupt) return `<p class="alchemist__mode" data-player-note>Finishing this thought…</p>`;
   return `<p class="alchemist__mode" data-player-note hidden></p>`;
@@ -90,6 +103,9 @@ function waitingNote() {
 
 export function playerHtml(episode: PodcastEpisode) {
   ensureEpisode(episode.id);
+  if (!playError && episode.status !== "running" && !hasPlayableTurn(episode.turns)) {
+    playInfo = nothingToPlayMessage(episode);
+  }
   const turn = episode.turns[state.index];
   const title = episode.episodeIndex ? `Episode ${episode.episodeIndex}` : episode.mode.replace(/-/g, " ");
   const eyebrow = episode.showTitle ?? "Podcast";
@@ -138,6 +154,9 @@ function patch(root: ParentNode, episode: PodcastEpisode, onOpenPage?: (pageId: 
     if (playError) {
       note.hidden = false;
       note.textContent = playError;
+    } else if (playInfo) {
+      note.hidden = false;
+      note.textContent = playInfo;
     } else if (waitingAnswer) {
       note.hidden = false;
       note.textContent = "Type an answer to continue.";
@@ -166,7 +185,14 @@ async function apply(root: ParentNode, host: PlayerViewHost, next: ReturnType<ty
 
   if (next.command.type === "wait-answer") waitingAnswer = true;
   else if (next.command.type !== "noop") waitingAnswer = false;
-  if (next.command.type === "play-index") playError = "";
+  if (next.command.type === "play-index") {
+    playError = "";
+    playInfo = "";
+  }
+  if (next.command.type === "nothing-to-play") {
+    playError = "";
+    playInfo = nothingToPlayMessage(host.episode);
+  }
 
   patch(root, host.episode, host.onOpenPage);
 
@@ -187,6 +213,7 @@ async function apply(root: ParentNode, host: PlayerViewHost, next: ReturnType<ty
     const turn = turns[next.command.index];
     if (!turn?.audioKey) {
       if (host.episode.status === "running") {
+        playInfo = "Still recording this line…";
         patch(root, host.episode, host.onOpenPage);
         return;
       }
@@ -254,6 +281,7 @@ async function submitFollowup(
 function stayOnFailedLine(root: ParentNode, host: PlayerViewHost, message: string) {
   playGen += 1;
   playError = message;
+  playInfo = "";
   state = failCurrentLine(state);
   const audio = root.querySelector<HTMLAudioElement>("[data-podcast-audio]");
   audio?.pause();
