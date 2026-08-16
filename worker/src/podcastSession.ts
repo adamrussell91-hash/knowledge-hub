@@ -20,6 +20,23 @@ import {
 
 const TTS_BATCH = 8;
 const ALARM_DELAY_MS = 250;
+const GENERATE_TIMEOUT_MS = 150_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      value => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      error => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 function isSeriesBody(body: Record<string, unknown>) {
   return body.kind === "series" || Array.isArray(body.slots);
@@ -106,7 +123,19 @@ export class PodcastSession {
     const deps = podcastKernelDeps(this.env);
 
     if (episode.status === "running" && episode.turns.length === 0) {
-      episode = await this.generateTurns(episode);
+      try {
+        episode = await withTimeout(
+          this.generateTurns(episode),
+          GENERATE_TIMEOUT_MS,
+          `Script timed out after ${Math.round(GENERATE_TIMEOUT_MS / 1000)}s`,
+        );
+      } catch (error) {
+        episode = PodcastEpisodeSchema.parse({
+          ...episode,
+          status: "error",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       await this.save(episode);
       if (episode.status === "error") return;
     }

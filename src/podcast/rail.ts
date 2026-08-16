@@ -317,9 +317,11 @@ function currentHtml() {
     return playerHtml(current);
   }
   const title = current.showTitle ?? labelize(current.mode);
+  const failure = current.status === "error" ? episodeFailure(current) : "";
   return `<article class="coach-msg glass-panel">
     <p class="coach-msg__who">${escapeHtml(title)}</p>
     <p class="alchemist__mode">${escapeHtml(current.status)}${current.episodeIndex ? ` · episode ${current.episodeIndex}` : ""}</p>
+    ${failure ? `<p class="alchemist__error">${escapeHtml(failure)}</p>` : ""}
     ${statusNote ? `<p class="alchemist__mode">${escapeHtml(statusNote)}</p>` : ""}
   </article>`;
 }
@@ -478,7 +480,7 @@ function openEpisode(host: PodcastRailHost, id: string) {
   stopPoll();
   current = episode;
   resetPlayer();
-  podcastError = "";
+  podcastError = episode.status === "error" ? episodeFailure(episode) : "";
   statusNote = episode.status === "running" ? runningNote(episode) : "";
   if (episode.status === "running") startPoll(host, episode.id);
   host.render();

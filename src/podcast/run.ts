@@ -39,7 +39,12 @@ export type RunGenerateInput = {
 };
 
 export type RunGenerateDeps = {
-  retrieve: (query: string, scope?: ResearchScope) => Promise<PodcastNote[]>;
+  retrieve: (
+    query: string,
+    scope?: ResearchScope,
+    pageIds?: string[],
+    limit?: number,
+  ) => Promise<PodcastNote[]>;
   complete: (prompt: string) => Promise<string>;
   listEpisodes: () => Promise<PodcastEpisode[]>;
   id?: () => string;
@@ -122,7 +127,8 @@ export async function runGenerate(input: RunGenerateInput, deps: RunGenerateDeps
     topic: input.topic,
   });
   const episodes = await deps.listEpisodes();
-  let notes = await deps.retrieve(query, input.scope);
+  const noteLimit = noteCap(input.dials.length, input.dials.pacing);
+  let notes = await deps.retrieve(query, input.scope, undefined, noteLimit);
 
   if (input.mode === "recap") {
     const cutoff = recapCutoff({
@@ -149,7 +155,7 @@ export async function runGenerate(input: RunGenerateInput, deps: RunGenerateDeps
     }
   }
 
-  notes = notes.slice(0, noteCap(input.dials.length, input.dials.pacing));
+  notes = notes.slice(0, noteLimit);
 
   const memories = pickMemories({
     seriesId: input.series?.id,
@@ -188,14 +194,19 @@ export async function runSeriesPlan(
     dials: PodcastDials;
   },
   deps: {
-    retrieve: (query: string, scope?: ResearchScope) => Promise<PodcastNote[]>;
+    retrieve: (
+      query: string,
+      scope?: ResearchScope,
+      pageIds?: string[],
+      limit?: number,
+    ) => Promise<PodcastNote[]>;
     complete: (prompt: string) => Promise<string>;
     id?: () => string;
     nowIso?: () => string;
   },
 ): Promise<PodcastSeries | { error: string; status: 422 }> {
-  const retrieved = await deps.retrieve(input.topic, input.scope);
-  const notes = retrieved.slice(0, noteCap("deep", input.dials.pacing));
+  const noteLimit = noteCap("deep", input.dials.pacing);
+  const notes = (await deps.retrieve(input.topic, input.scope, undefined, noteLimit)).slice(0, noteLimit);
   const raw = parseSeriesPlan(await deps.complete(buildSeriesPlanPrompt(input.topic, notes, input.episodeCount)));
   const plan = groundSeriesPlan(raw, notes, input.episodeCount);
   if (!plan.ok) return { error: plan.gap, status: 422 };
@@ -271,7 +282,12 @@ export async function runNextEpisode(
 }
 
 export type RunFollowupDeps = {
-  retrieve: (query: string, scope?: ResearchScope, pageIds?: string[]) => Promise<PodcastNote[]>;
+  retrieve: (
+    query: string,
+    scope?: ResearchScope,
+    pageIds?: string[],
+    limit?: number,
+  ) => Promise<PodcastNote[]>;
   complete: (prompt: string) => Promise<string>;
 };
 

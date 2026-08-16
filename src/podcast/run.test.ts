@@ -85,10 +85,14 @@ describe("runGenerate", () => {
       updated_at: "2026-08-14T00:00:00.000Z",
     }));
     let prompt = "";
+    let limitArg: number | undefined;
     const episode = await runGenerate(
       { mode: "quiz", modeDial: {}, dials: PodcastDialsSchema.parse({ length: "short" }), now },
       {
-        retrieve: async () => many,
+        retrieve: async (_query, _scope, _pageIds, limit) => {
+          limitArg = limit;
+          return many.slice(0, limit ?? many.length);
+        },
         complete: async value => {
           prompt = value;
           return scriptJson([]);
@@ -98,6 +102,7 @@ describe("runGenerate", () => {
       },
     );
 
+    expect(limitArg).toBe(12);
     expect(episode.sourcePageIds).toHaveLength(12);
     expect(episode.sourcePageIds.at(-1)).toBe("p12");
     expect(prompt).not.toContain("p13");
@@ -165,10 +170,14 @@ describe("runSeriesPlan", () => {
       excerpt: "Body.",
     }));
     let prompt = "";
+    let limitArg: number | undefined;
     await runSeriesPlan(
       { topic: "SDT", episodeCount: 8, cadence: "weekly", dials },
       {
-        retrieve: async () => many,
+        retrieve: async (_query, _scope, _pageIds, limit) => {
+          limitArg = limit;
+          return many.slice(0, limit ?? many.length);
+        },
         complete: async value => {
           prompt = value;
           return JSON.stringify({
@@ -182,6 +191,7 @@ describe("runSeriesPlan", () => {
       },
     );
 
+    expect(limitArg).toBe(40);
     expect(prompt).toContain("p40");
     expect(prompt).not.toContain("p41");
   });

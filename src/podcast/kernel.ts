@@ -46,7 +46,12 @@ export type PodcastKernelEnv = {
 export type PodcastRetrieveScope = ResearchScope & { tagMatch?: TagMatch };
 
 export type PodcastKernelDeps = {
-  retrieve: (query: string, scope?: ResearchScope, pageIds?: string[]) => Promise<PodcastNote[]>;
+  retrieve: (
+    query: string,
+    scope?: ResearchScope,
+    pageIds?: string[],
+    limit?: number,
+  ) => Promise<PodcastNote[]>;
   complete: (prompt: string) => Promise<string>;
   listEpisodes: () => Promise<PodcastEpisode[]>;
 };
@@ -105,6 +110,7 @@ export async function retrievePodcastNotes(
   query: string,
   scope?: PodcastRetrieveScope,
   pageIds?: string[],
+  limit = 24,
 ): Promise<PodcastNote[]> {
   const corpus = await loadCorpusCached({
     text: key => r2Text(env, key),
@@ -132,6 +138,7 @@ export async function retrievePodcastNotes(
     manifest,
     index,
     queryVector,
+    k: Math.max(1, limit),
   });
 
   return Promise.all(
@@ -250,8 +257,7 @@ export async function listPodcastEpisodes(env: PodcastKernelEnv): Promise<Podcas
 
 export function podcastKernelDeps(env: PodcastKernelEnv): PodcastKernelDeps {
   return {
-    retrieve: (query: string, scope?: ResearchScope, pageIds?: string[]) =>
-      retrievePodcastNotes(env, query, scope, pageIds),
+    retrieve: (query, scope, pageIds, limit) => retrievePodcastNotes(env, query, scope, pageIds, limit),
     complete: prompt => completePrompt(env, prompt),
     listEpisodes: () => listPodcastEpisodes(env),
   };
