@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { assembleClementinePrompt } from "../clementine/assemble";
 import { annotationVoice, clementinePodcast, voice } from "../clementine/pack";
-import { PodcastTurnSchema, type PodcastDials, type PodcastMode, type PodcastTurn } from "./schema";
+import { PodcastTurnSchema, turnCap, type PodcastDials, type PodcastMode, type PodcastTurn } from "./schema";
 
 export type PodcastScriptNote = {
   pageId: string;
@@ -30,6 +30,7 @@ export function buildPodcastPrompt(input: {
     "Ann is a co-host close-reading the notes as texts, not a lesson mentor in this surface.",
     "Return only JSON. JSON-only. Do not wrap the response in markdown.",
     "Each turn must include: id, speaker (clementine | ann), kind (content | banter | quiz-prompt | model-answer | interrupt | cue | empty), text, citations (array of { pageId, title, sourceUrl? }).",
+    `Write at most ${turnCap(input.dials.length)} turns. Turns past that are discarded.`,
   ].join(" ");
 
   const notes = input.notes

@@ -4,6 +4,8 @@ import { pickMemories } from "./memory";
 import {
   PodcastEpisodeSchema,
   PodcastSeriesSchema,
+  noteCap,
+  turnCap,
   type PodcastDials,
   type PodcastEpisode,
   type PodcastMode,
@@ -147,6 +149,8 @@ export async function runGenerate(input: RunGenerateInput, deps: RunGenerateDeps
     }
   }
 
+  notes = notes.slice(0, noteCap(input.dials.length, input.dials.pacing));
+
   const memories = pickMemories({
     seriesId: input.series?.id,
     scopeTags: input.scope?.tags,
@@ -171,7 +175,7 @@ export async function runGenerate(input: RunGenerateInput, deps: RunGenerateDeps
     ...episodeBase(input, deps),
     status: "running",
     sourcePageIds: notes.map(note => note.pageId),
-    turns: kept,
+    turns: kept.slice(0, turnCap(input.dials.length)),
   });
 }
 
@@ -190,7 +194,8 @@ export async function runSeriesPlan(
     nowIso?: () => string;
   },
 ): Promise<PodcastSeries | { error: string; status: 422 }> {
-  const notes = await deps.retrieve(input.topic, input.scope);
+  const retrieved = await deps.retrieve(input.topic, input.scope);
+  const notes = retrieved.slice(0, noteCap("deep", input.dials.pacing));
   const raw = parseSeriesPlan(await deps.complete(buildSeriesPlanPrompt(input.topic, notes, input.episodeCount)));
   const plan = groundSeriesPlan(raw, notes, input.episodeCount);
   if (!plan.ok) return { error: plan.gap, status: 422 };

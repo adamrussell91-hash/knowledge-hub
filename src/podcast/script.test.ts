@@ -44,6 +44,25 @@ describe("podcast script", () => {
     expect(prompt).toContain("Ep 1 mapped the three needs.");
   });
 
+  it("states the turn budget for the length dial", () => {
+    const short = buildPodcastPrompt({
+      mode: "recap",
+      dials,
+      modeDial: {},
+      notes: [{ pageId: "p1", title: "SDT", excerpt: "needs" }],
+      memories: [],
+    });
+    const deep = buildPodcastPrompt({
+      mode: "recap",
+      dials: { ...dials, length: "deep" },
+      modeDial: {},
+      notes: [{ pageId: "p1", title: "SDT", excerpt: "needs" }],
+      memories: [],
+    });
+    expect(short).toContain("at most 24 turns");
+    expect(deep).toContain("at most 90 turns");
+  });
+
   it("parses turns and ignores junk", () => {
     const turns = parsePodcastScript(`{"turns":[{"id":"1","speaker":"clementine","kind":"content","text":"Hello","citations":[{"pageId":"p1","title":"SDT"}]}]}`);
     expect(turns[0]?.speaker).toBe("clementine");
