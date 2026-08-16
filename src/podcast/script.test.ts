@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPodcastPrompt, parsePodcastScript } from "./script";
+import { buildPodcastEditorPrompt, buildPodcastPrompt, parsePodcastScript } from "./script";
 import { annPodcast, clementinePodcast, podcastEditor } from "../clementine/pack";
 import type { PodcastDials } from "./schema";
 
@@ -29,6 +29,50 @@ describe("podcast script", () => {
     expect(prompt).toContain("Return only JSON");
     expect(prompt).toContain("p1");
     expect(prompt).not.toMatch(/search the web/i);
+  });
+
+  it("uses podcast identities without coaching context", () => {
+    const prompt = buildPodcastPrompt({
+      mode: "recap",
+      dials,
+      modeDial: { cadence: "weekly" },
+      notes: [{ pageId: "p1", title: "SDT", excerpt: "Three basic needs." }],
+      memories: [],
+    });
+
+    expect(prompt).toContain("Professor Clementine Haig");
+    expect(prompt).toContain("Ann O’Tation");
+    expect(prompt).toMatch(/reply to the immediately preceding turn/i);
+    expect(prompt).not.toMatch(/academic writing coach/i);
+    expect(prompt).not.toContain("Adam's Academic Context");
+    expect(prompt).not.toMatch(/lesson mentor in this surface/i);
+  });
+
+  it("builds an editor prompt from the draft and archive notes", () => {
+    const prompt = buildPodcastEditorPrompt({
+      mode: "recap",
+      dials,
+      modeDial: { cadence: "weekly" },
+      notes: [{ pageId: "p1", title: "SDT", excerpt: "Three basic needs." }],
+      draft: [
+        {
+          id: "draft-1",
+          speaker: "clementine",
+          kind: "content",
+          text: "A manuscript needs a spine.",
+          citations: [{ pageId: "p1", title: "SDT" }],
+        },
+      ],
+    });
+
+    expect(prompt).toMatch(/rewrite the entire supplied episode/i);
+    expect(prompt).toMatch(/read-aloud/i);
+    expect(prompt).toMatch(/cold open/i);
+    expect(prompt).toMatch(/paraphrase/i);
+    expect(prompt).toContain("draft-1");
+    expect(prompt).toContain("A manuscript needs a spine.");
+    expect(prompt).toContain("p1");
+    expect(prompt).not.toMatch(/academic writing coach/i);
   });
 
   it("injects series bible when present", () => {
