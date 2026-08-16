@@ -13,17 +13,24 @@ async function readJson<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function localListPages(): Promise<PageManifestEntry[]> {
-  if (cache) return cache;
-  const raw = await readJson<unknown>("/local-data/manifest.json");
-  // Manifest entries from migrate may include `path` — strip before parse
-  const normalized = (Array.isArray(raw) ? raw : []).map((entry: Record<string, unknown>) => ({
+export function normalizeManifestRow(entry: Record<string, unknown>) {
+  return {
     id: entry.id,
     title: entry.title,
     area: entry.area,
     tags: entry.tags ?? [],
     excerpt: entry.excerpt ?? "",
-  }));
+    ...(typeof entry.created_at === "string" ? { created_at: entry.created_at } : {}),
+  };
+}
+
+export async function localListPages(): Promise<PageManifestEntry[]> {
+  if (cache) return cache;
+  const raw = await readJson<unknown>("/local-data/manifest.json");
+  // Manifest entries from migrate may include `path` — strip before parse
+  const normalized = (Array.isArray(raw) ? raw : []).map(entry =>
+    normalizeManifestRow(entry as Record<string, unknown>),
+  );
   cache = ManifestSchema.parse(normalized);
   return cache;
 }

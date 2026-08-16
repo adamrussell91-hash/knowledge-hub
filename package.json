@@ -14,6 +14,7 @@
     "build-index": "tsx scripts/build-index.ts",
     "upload-attachments": "tsx scripts/upload-attachments.ts",
     "sync-research-r2": "tsx scripts/sync-research-r2.ts",
+    "curator": "tsx scripts/run-curator.ts",
     "research:dev": "wrangler dev --config worker/wrangler.jsonc",
     "research:deploy": "wrangler deploy --config worker/wrangler.jsonc"
   },
@@ -23,6 +24,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1109.0",
     "@netlify/functions": "^2.8.2",
     "d3-force": "^3.0.0",
+    "ts-fsrs": "^5.4.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -32,8 +34,8 @@
     "jsdom": "^26.0.0",
     "tsx": "^4.19.3",
     "typescript": "~5.7.2",
-    "wrangler": "^4.28.0",
     "vite": "^6.2.0",
-    "vitest": "^3.0.8"
+    "vitest": "^3.0.8",
+    "wrangler": "^4.28.0"
   }
 }

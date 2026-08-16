@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { archiveEmptyHtml } from "./emptyList";
 
 describe("archiveEmptyHtml", () => {
-  it("shows migrate instructions only when Notes are absent from the archive", () => {
+  it("shows a New-note empty state when Notes are absent from the archive", () => {
     const html = archiveEmptyHtml({ area: "notes", notesInArchive: false });
-    expect(html).toContain("Notes not migrated yet");
-    expect(html).toContain("--area notes");
+    expect(html).toContain("No notes yet");
+    expect(html).not.toContain("migrate");
+    expect(html).not.toContain("Notion");
+    expect(html).not.toContain("--area notes");
   });
 
   it("treats an empty Notes filter as no matches once Notes exist", () => {

@@ -1,6 +1,7 @@
 import "./tokens.css";
 import "./style.css";
 import type { Attachment, Page, PageManifestEntry } from "./domain/page";
+import { newHubPageId, parseTagList } from "./domain/page";
 import {
   USE_LOCAL_DATA,
   getAttachmentUrl,
@@ -10,10 +11,20 @@ import {
   logout,
   runAlchemist,
   runCoach,
+  savePage,
   searchPages,
+  signAttachment,
+  uploadSignedFile,
   type AlchemistConnection,
   type CoachMessage,
 } from "./api/client";
+import { runCapture } from "./api/captureClient";
+import {
+  bindCaptureControls,
+  captureFieldHtml,
+  createVoiceCapture,
+  ingestCaptureFile,
+} from "./capture";
 import type { ResearchFinding } from "./research/schema";
 import { escapeHtml, showToast } from "./lib/dom";
 import { renderMarkdown } from "./lib/markdown";
@@ -26,9 +37,24 @@ import { buildShowAllGraph } from "./archive/showAllGraph";
 import { buildUniverseGraph } from "./archive/universeGraph";
 import { mountUniverseView, universeHotIds } from "./archive/universeView";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
+import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
+import { buildTimeline } from "./timeline/build";
+import { mountKeywordTimeline } from "./timeline/mount";
+import { enterWikiRail, leaveWikiRail, renderWikiRail } from "./wiki/rail";
+import { connectedLinksHtml } from "./wiki/connectedHtml";
 
 type AreaFilter = "all" | "university" | "notes";
-type View = "list" | "graph" | "page" | "alchemist" | "coach" | "podcast";
+type View =
+  | "list"
+  | "graph"
+  | "page"
+  | "compose"
+  | "timeline"
+  | "alchemist"
+  | "coach"
+  | "podcast"
+  | "quiz"
+  | "wiki";
 type GraphMode = "constellation" | "showAll" | "universe";
 
 type CoachTurn = CoachMessage & {
@@ -62,19 +88,79 @@ let coachInput = "";
 let coachBusy = false;
 let coachError = "";
 let coachTurns: CoachTurn[] = [];
+let timelineQuery = "";
+let timelineArea: AreaFilter = "all";
+let timelineBusy = false;
+let timelineError = "";
+let timelineTeardown: (() => void) | null = null;
+let timelinePaintGen = 0;
+
+type ComposeState = {
+  id: string;
+  title: string;
+  area: "notes" | "university";
+  tags: string;
+  body: string;
+  existing: Attachment[];
+  pending: File[];
+  titleError: string;
+  busy: boolean;
+  captureBusy: boolean;
+  recording: boolean;
+};
+
+let compose: ComposeState | null = null;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
+
+function blankCompose(areaDefault: AreaFilter): ComposeState {
+  const nextArea = areaDefault === "university" ? "university" : "notes";
+  return {
+    id: newHubPageId(),
+    title: "",
+    area: nextArea,
+    tags: "",
+    body: "",
+    existing: [],
+    pending: [],
+    titleError: "",
+    busy: false,
+    captureBusy: false,
+    recording: false,
+  };
+}
+
+function composeFromPage(page: Page): ComposeState {
+  return {
+    id: page.id,
+    title: page.title,
+    area: page.area,
+    tags: page.tags.join(", "),
+    body: page.body,
+    existing: [...page.attachments],
+    pending: [],
+    titleError: "",
+    busy: false,
+    captureBusy: false,
+    recording: false,
+  };
+}
 
 const icons = {
   archive: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z"/><path d="M9 7V5h6v2"/><path d="M8 12h8"/></svg>`,
   graph: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="6" r="2.2"/><circle cx="18" cy="14" r="2.2"/><path d="M8 11l3-3M13.5 8l3 4"/></svg>`,
+  timeline: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18"/><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="18" cy="12" r="2.2"/></svg>`,
   university: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10l9-5 9 5-9 5-9-5z"/><path d="M7 12.5V17c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/></svg>`,
   notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>`,
   alchemist: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l-1 4H9L8 3z"/><path d="M9 7l-3 12h12l-3-12"/><path d="M10 12h4"/></svg>`,
   coach: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h10v14H5z"/><path d="M8 9h4M8 13h4"/><path d="M17 8l4 4-6 6h-4v-4z"/></svg>`,
   podcast: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="3"/><path d="M8 10a4 4 0 0 0 8 0"/><path d="M6 10a6 6 0 0 0 12 0"/><path d="M12 13v6M9 19h6"/></svg>`,
+  quiz: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v16H8z"/><path d="M11 8h2M11 12h2M11 16h1"/></svg>`,
+  wiki: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v12H5z"/><path d="M8 10h8M8 14h5"/></svg>`,
 };
 
 function kindBadge(attachment: Attachment) {
   if (attachment.kind === "pdf") return "PDF";
+  if (attachment.kind === "audio") return "AUDIO";
   if (attachment.kind === "image") {
     const extension = attachment.filename.split(".").pop()?.toUpperCase();
     return extension && extension.length <= 4 ? extension : "IMG";
@@ -130,10 +216,20 @@ function renderAttachments(page: Page) {
   </section>`;
 }
 
+function leaveSpecialRails() {
+  if (view === "podcast") leavePodcastRail();
+  if (view === "quiz") leaveQuizRail();
+  if (view === "wiki") leaveWikiRail();
+}
+
 function shell(main: string) {
   if (graphTeardown) {
     graphTeardown();
     graphTeardown = null;
+  }
+  if (timelineTeardown) {
+    timelineTeardown();
+    timelineTeardown = null;
   }
   app.innerHTML = `<div class="app-shell">
     <aside class="rail" aria-label="Knowledge Hub">
@@ -143,9 +239,12 @@ function shell(main: string) {
         <button class="rail__btn ${area === "university" && view === "list" ? "is-active" : ""}" data-nav="university" type="button">${icons.university}<span>Uni</span></button>
         <button class="rail__btn ${area === "notes" && view === "list" ? "is-active" : ""}" data-nav="notes" type="button">${icons.notes}<span>Notes</span></button>
         <button class="rail__btn ${view === "graph" ? "is-active" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
+        <button class="rail__btn ${view === "timeline" ? "is-active" : ""}" data-nav="timeline" type="button">${icons.timeline}<span>Timeline</span></button>
         <button class="rail__btn ${view === "alchemist" ? "is-active" : ""}" data-nav="alchemist" type="button">${icons.alchemist}<span>Alchemist</span></button>
         <button class="rail__btn ${view === "coach" ? "is-active" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
         <button class="rail__btn ${view === "podcast" ? "is-active" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
+        <button class="rail__btn ${view === "quiz" ? "is-active" : ""}" data-nav="quiz" type="button">${icons.quiz}<span>Quiz</span></button>
+        <button class="rail__btn ${view === "wiki" ? "is-active" : ""}" data-nav="wiki" type="button">${icons.wiki}<span>Wiki</span></button>
       </nav>
       ${
         USE_LOCAL_DATA
@@ -159,35 +258,26 @@ function shell(main: string) {
   app.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach(button => {
     button.onclick = () => {
       const next = button.dataset.nav!;
-      if (next === "graph") {
-        if (view === "podcast") leavePodcastRail();
-        view = "graph";
+      const special: Record<string, View> = {
+        graph: "graph",
+        timeline: "timeline",
+        alchemist: "alchemist",
+        coach: "coach",
+        podcast: "podcast",
+        quiz: "quiz",
+        wiki: "wiki",
+      };
+      if (special[next]) {
+        leaveSpecialRails();
+        view = special[next];
         activePage = null;
+        if (next === "podcast") enterPodcastRail();
+        if (next === "quiz") enterQuizRail();
+        if (next === "wiki") enterWikiRail();
         render();
         return;
       }
-      if (next === "alchemist") {
-        if (view === "podcast") leavePodcastRail();
-        view = "alchemist";
-        activePage = null;
-        render();
-        return;
-      }
-      if (next === "coach") {
-        if (view === "podcast") leavePodcastRail();
-        view = "coach";
-        activePage = null;
-        render();
-        return;
-      }
-      if (next === "podcast") {
-        view = "podcast";
-        activePage = null;
-        enterPodcastRail();
-        render();
-        return;
-      }
-      if (view === "podcast") leavePodcastRail();
+      leaveSpecialRails();
       area = next as AreaFilter;
       keywordFilter = "";
       view = "list";
@@ -260,9 +350,12 @@ function renderList() {
     ${pageHeader(
       `Private archive${keywordFilter ? " · keyword" : ""}`,
       escapeHtml(titleForArea()),
-      `<div class="viewbar page-header__actions">
-        <button class="viewbar__btn is-active" type="button">List</button>
-        <button class="viewbar__btn" data-jump-graph type="button">Graph</button>
+      `<div class="page-header__actions">
+        <button class="btn" data-new-note type="button">New note</button>
+        <div class="viewbar">
+          <button class="viewbar__btn is-active" type="button">List</button>
+          <button class="viewbar__btn" data-jump-graph type="button">Graph</button>
+        </div>
       </div>`,
     )}
     <div class="toolbar">
@@ -284,6 +377,11 @@ function renderList() {
 
   app.querySelector<HTMLButtonElement>("[data-jump-graph]")!.onclick = () => {
     view = "graph";
+    render();
+  };
+  app.querySelector<HTMLButtonElement>("[data-new-note]")!.onclick = () => {
+    compose = blankCompose(area);
+    view = "compose";
     render();
   };
   app.querySelectorAll<HTMLButtonElement>("[data-filter]").forEach(button => {
@@ -627,11 +725,15 @@ function renderPage(page: Page) {
 
   shell(`
     <article class="reader">
-      <button class="reader__back" data-back type="button">← Archive</button>
+      <div class="reader__actions">
+        <button class="reader__back" data-back type="button">← Archive</button>
+        <button class="btn" data-edit type="button">Edit</button>
+      </div>
       <p class="eyebrow">${topics[0] ? escapeHtml(topics[0]) : "Note"}</p>
       <h1 class="reader__title">${escapeHtml(page.title)}</h1>
       <div class="reader__meta">${chips}</div>
       <div class="reader__body">${renderMarkdown(page.body)}</div>
+      ${connectedLinksHtml(page, entries)}
       ${renderAttachments(page)}
     </article>
   `);
@@ -641,6 +743,14 @@ function renderPage(page: Page) {
     view = "list";
     render();
   };
+  app.querySelector<HTMLButtonElement>("[data-edit]")!.onclick = () => {
+    compose = composeFromPage(page);
+    view = "compose";
+    render();
+  };
+  app.querySelectorAll<HTMLButtonElement>("[data-open-page]").forEach(button => {
+    button.onclick = () => void openPage(button.dataset.openPage!);
+  });
   app.querySelectorAll<HTMLButtonElement>("[data-attachment]").forEach(button => {
     button.onclick = async () => {
       try {
@@ -653,15 +763,305 @@ function renderPage(page: Page) {
   });
 }
 
+function renderTimeline() {
+  shell(`
+    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · reading migrated data · no Netlify deploy</p>` : ""}
+    ${pageHeader("Private archive", "Timeline")}
+    <div class="toolbar">
+      <input class="search" value="${escapeHtml(timelineQuery)}" placeholder="Search a topic — e.g. self determination theory" aria-label="Search timeline" />
+      <div class="filters">
+        <button class="filter-chip ${timelineArea === "all" ? "is-active" : ""}" data-timeline-area="all" type="button">All</button>
+        <button class="filter-chip ${timelineArea === "university" ? "is-active" : ""}" data-timeline-area="university" type="button">University</button>
+        <button class="filter-chip ${timelineArea === "notes" ? "is-active" : ""}" data-timeline-area="notes" type="button">Notes</button>
+      </div>
+    </div>
+    <p class="list-count">${timelineBusy ? "Searching…" : timelineError ? escapeHtml(timelineError) : ""}</p>
+    <div class="timeline-stage" data-timeline-stage></div>
+  `);
+
+  const input = app.querySelector<HTMLInputElement>(".search")!;
+  input.oninput = async event => {
+    timelineQuery = (event.target as HTMLInputElement).value;
+    render();
+    const next = app.querySelector<HTMLInputElement>(".search")!;
+    next.focus();
+    next.setSelectionRange(timelineQuery.length, timelineQuery.length);
+  };
+  app.querySelectorAll<HTMLButtonElement>("[data-timeline-area]").forEach(button => {
+    button.onclick = () => {
+      timelineArea = button.dataset.timelineArea as AreaFilter;
+      render();
+    };
+  });
+  const stage = app.querySelector<HTMLElement>("[data-timeline-stage]")!;
+  void paintTimeline(stage);
+}
+
+async function paintTimeline(stage: HTMLElement) {
+  const gen = ++timelinePaintGen;
+  const needle = timelineQuery.trim();
+  if (!needle) {
+    stage.innerHTML = `<p class="empty">Search a topic to see when those notes landed.</p>`;
+    return;
+  }
+  timelineBusy = true;
+  try {
+    const hits = (await searchPages(needle)).filter(item => timelineArea === "all" || item.area === timelineArea);
+    if (gen !== timelinePaintGen || view !== "timeline") return;
+    const model = buildTimeline(hits);
+    const count =
+      model.truncated > 0
+        ? `Showing ${model.nodes.length} of ${model.total.toLocaleString()} notes${model.spanLabel ? ` · ${model.spanLabel}` : ""}`
+        : `${model.total.toLocaleString()} notes${model.spanLabel ? ` · ${model.spanLabel}` : ""}`;
+    const countEl = app.querySelector(".list-count");
+    if (countEl) countEl.textContent = count;
+    if (!model.nodes.length) {
+      stage.innerHTML = `<p class="empty">No notes match.</p>`;
+      return;
+    }
+    timelineTeardown = () => {
+      stage.innerHTML = "";
+    };
+    mountKeywordTimeline(stage, {
+      model,
+      onPageClick: pageId => void openPage(pageId),
+    });
+  } catch (error) {
+    timelineError = error instanceof Error ? error.message : "Search failed";
+    showToast(timelineError);
+    stage.innerHTML = `<p class="empty">${escapeHtml(timelineError)}</p>`;
+  } finally {
+    timelineBusy = false;
+  }
+}
+
+function renderCompose(state: ComposeState) {
+  const files = [
+    ...state.existing.map(
+      (item, index) =>
+        `<li><span>${escapeHtml(item.filename)}</span><button type="button" data-remove-existing="${index}">Remove</button></li>`,
+    ),
+    ...state.pending.map(
+      (file, index) =>
+        `<li><span>${escapeHtml(file.name)} (new)</span><button type="button" data-remove-pending="${index}">Remove</button></li>`,
+    ),
+  ].join("");
+  const captureBusy = state.captureBusy || state.recording;
+
+  shell(`
+    <section class="compose">
+      <button class="reader__back" data-compose-cancel type="button">← Cancel</button>
+      <p class="eyebrow">${state.id.startsWith("page_hub_") && !activePage ? "New note" : "Edit note"}</p>
+      <h1>${state.id.startsWith("page_hub_") && !activePage ? "New note" : "Edit note"}</h1>
+      ${USE_LOCAL_DATA ? `<p class="local-banner">Saving and capture need the live API (npx netlify dev).</p>` : ""}
+      <div class="compose__field">
+        <label for="compose-title">Title</label>
+        <input id="compose-title" value="${escapeHtml(state.title)}" />
+        ${state.titleError ? `<p class="compose__error">${escapeHtml(state.titleError)}</p>` : ""}
+      </div>
+      <div class="compose__field">
+        <label for="compose-area">Area</label>
+        <select id="compose-area">
+          <option value="notes" ${state.area === "notes" ? "selected" : ""}>Notes</option>
+          <option value="university" ${state.area === "university" ? "selected" : ""}>University</option>
+        </select>
+      </div>
+      <div class="compose__field">
+        <label for="compose-tags">Tags</label>
+        <input id="compose-tags" value="${escapeHtml(state.tags)}" placeholder="Comma-separated" />
+      </div>
+      <div class="compose__field">
+        <label for="compose-body">Body (markdown)</label>
+        <textarea id="compose-body">${escapeHtml(state.body)}</textarea>
+      </div>
+      ${captureFieldHtml({
+        busy: state.busy,
+        captureBusy: state.captureBusy,
+        recording: state.recording,
+        localData: USE_LOCAL_DATA,
+      })}
+      <div class="compose__field">
+        <label>Attachments</label>
+        <ul class="compose__files">${files || "<li>None</li>"}</ul>
+        <input id="compose-files" type="file" multiple />
+      </div>
+      <button class="btn btn--primary compose__save" data-compose-save type="button" ${
+        USE_LOCAL_DATA || state.busy || captureBusy ? "disabled" : ""
+      }>${state.busy ? "Saving…" : "Save"}</button>
+    </section>
+  `);
+
+  const syncFields = () => {
+    if (!compose) return;
+    compose.title = app.querySelector<HTMLInputElement>("#compose-title")!.value;
+    compose.area = app.querySelector<HTMLSelectElement>("#compose-area")!.value as "notes" | "university";
+    compose.tags = app.querySelector<HTMLInputElement>("#compose-tags")!.value;
+    compose.body = app.querySelector<HTMLTextAreaElement>("#compose-body")!.value;
+  };
+
+  const voice = createVoiceCapture({
+    onFile: file => void ingestAndApply(file, "voice"),
+  });
+
+  async function ingestAndApply(file: File, kind: "voice" | "photo" | "pdf") {
+    if (!compose) return;
+    compose.captureBusy = true;
+    render();
+    const result = await ingestCaptureFile(
+      { file, kind, pageId: compose.id, area: compose.area, body: compose.body, title: compose.title },
+      { signAttachment, uploadSignedFile, runCapture, localData: USE_LOCAL_DATA },
+    );
+    if (result.attachment) compose.existing.push(result.attachment as Attachment);
+    if (result.ok) {
+      compose.body = result.body;
+      compose.title = result.title;
+    }
+    showToast(result.toast);
+    compose.captureBusy = false;
+    compose.recording = false;
+    render();
+  }
+
+  app.querySelector<HTMLButtonElement>("[data-compose-cancel]")!.onclick = () => {
+    compose = null;
+    view = activePage ? "page" : "list";
+    render();
+  };
+  app.querySelectorAll<HTMLButtonElement>("[data-remove-existing]").forEach(button => {
+    button.onclick = () => {
+      if (!compose) return;
+      syncFields();
+      compose.existing.splice(Number(button.dataset.removeExisting), 1);
+      render();
+    };
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-remove-pending]").forEach(button => {
+    button.onclick = () => {
+      if (!compose) return;
+      syncFields();
+      compose.pending.splice(Number(button.dataset.removePending), 1);
+      render();
+    };
+  });
+  app.querySelector<HTMLInputElement>("#compose-files")!.onchange = event => {
+    if (!compose) return;
+    syncFields();
+    const list = Array.from((event.target as HTMLInputElement).files ?? []);
+    compose.pending.push(...list);
+    render();
+  };
+  app.querySelector<HTMLButtonElement>("[data-compose-save]")!.onclick = () => void saveCompose();
+  bindCaptureControls(app, {
+    syncFields,
+    onVoice: () => {
+      void voice.toggle().then(status => {
+        if (!compose) return;
+        if (status === "denied") showToast("Microphone permission is required for voice capture");
+        if (status === "started") {
+          compose.recording = true;
+          render();
+        }
+      });
+    },
+    onPhoto: file => void ingestAndApply(file, "photo"),
+    onPdf: file => void ingestAndApply(file, "pdf"),
+  });
+}
+
+async function saveCompose() {
+  if (!compose || compose.busy) return;
+  compose.title = app.querySelector<HTMLInputElement>("#compose-title")!.value;
+  compose.area = app.querySelector<HTMLSelectElement>("#compose-area")!.value as "notes" | "university";
+  compose.tags = app.querySelector<HTMLInputElement>("#compose-tags")!.value;
+  compose.body = app.querySelector<HTMLTextAreaElement>("#compose-body")!.value;
+  if (!compose.title.trim()) {
+    compose.titleError = "Title is required";
+    render();
+    return;
+  }
+  compose.titleError = "";
+  compose.busy = true;
+  render();
+  const snapshot = compose;
+  try {
+    const uploaded: Attachment[] = [];
+    for (const file of snapshot.pending) {
+      if (file.size > MAX_FILE_BYTES) {
+        showToast(`${file.name} exceeds 20MB and was skipped`);
+        continue;
+      }
+      const signed = await signAttachment({
+        filename: file.name,
+        content_type: file.type || "application/octet-stream",
+        byte_size: file.size,
+        page_id: snapshot.id,
+        area: snapshot.area,
+      });
+      await uploadSignedFile(signed.put_url, file, file.type || "application/octet-stream");
+      uploaded.push(signed.attachment);
+    }
+    const now = new Date().toISOString();
+    const hub = snapshot.id.startsWith("page_hub_");
+    const page: Page = {
+      id: snapshot.id,
+      title: snapshot.title.trim(),
+      area: snapshot.area,
+      tags: parseTagList(snapshot.tags),
+      body: snapshot.body,
+      connected: activePage?.connected ?? [],
+      attachments: [...snapshot.existing, ...uploaded],
+      source: hub ? "hub" : activePage?.source,
+      source_notion_id: hub ? undefined : activePage?.source_notion_id,
+      source_notion_url: hub ? undefined : activePage?.source_notion_url,
+      created_at: activePage?.created_at ?? now,
+      updated_at: now,
+      schema_version: 1,
+    };
+    const saved = await savePage(page);
+    entries = await listPages();
+    activePage = saved;
+    compose = null;
+    view = "page";
+    showToast("Saved");
+    await refreshVisible();
+    render();
+  } catch (error) {
+    snapshot.busy = false;
+    compose = snapshot;
+    showToast(error instanceof Error ? error.message : "Save failed");
+    render();
+  }
+}
+
 function render() {
+  if (view === "compose" && compose) return renderCompose(compose);
   if (view === "page" && activePage) return renderPage(activePage);
   if (view === "graph") return renderGraph();
+  if (view === "timeline") return renderTimeline();
   if (view === "alchemist") return renderAlchemist();
   if (view === "coach") return renderCoach();
   if (view === "podcast") {
     return renderPodcastRail({
       app,
       tags: [...new Set(entries.flatMap(entry => topicKeywords(entry.tags)))].sort(),
+      shell,
+      render,
+      onOpenPage: pageId => void openPage(pageId),
+    });
+  }
+  if (view === "quiz") {
+    return renderQuizRail({
+      app,
+      entries,
+      tags: [...new Set(entries.flatMap(entry => entry.tags))].sort(),
+      shell,
+      render,
+      onOpenPage: id => void openPage(id),
+    });
+  }
+  if (view === "wiki") {
+    return renderWikiRail({
+      app,
       shell,
       render,
       onOpenPage: pageId => void openPage(pageId),

@@ -6,10 +6,8 @@ export function archiveEmptyHtml(input: {
 }): string {
   if (input.area === "notes" && !input.notesInArchive) {
     return `<div class="empty empty--panel">
-              <h2>Notes not migrated yet</h2>
-              <p>Export the Notion Notes database, tidy with <code>prompts/notion-notes-tidy.md</code>, then run:</p>
-              <pre>npm run migrate -- ~/path/to/Notes\\ Export --area notes</pre>
-              <p>University pages stay in the archive; Notes merge into the same manifest.</p>
+              <h2>No notes yet</h2>
+              <p>Use New note in the top bar to add one. University pages stay in the archive.</p>
             </div>`;
   }
   return `<p class="empty">No matching pages.</p>`;

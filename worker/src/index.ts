@@ -18,6 +18,8 @@ import {
   type PodcastEpisode,
   type PodcastSeries,
 } from "../../src/podcast/schema";
+import { handleCaptureRequest } from "../../src/capture/http";
+import { liveExtract } from "../../src/capture/live";
 import { handleResearchRequest } from "../../src/research/http";
 import { runQuickKernel } from "../../src/research/kernel";
 import { PodcastSession } from "./podcastSession";
@@ -143,6 +145,14 @@ async function answerEpisode(env: WorkerEnv, id: string, body: unknown) {
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     const pathname = new URL(request.url).pathname;
+    const path = pathname.replace(/\/+$/, "") || "/";
+    if (path.endsWith("/capture")) {
+      return handleCaptureRequest(request, {
+        secret: env.RESEARCH_KERNEL_SHARED_SECRET,
+        allowedOrigin: env.TEACHING_HUB_ORIGIN ?? "*",
+        extract: liveExtract(env),
+      });
+    }
     if (pathname.includes("/podcast")) {
       return handlePodcastRequest(request, {
         secret: env.RESEARCH_KERNEL_SHARED_SECRET,

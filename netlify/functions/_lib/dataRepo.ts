@@ -1,7 +1,17 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PageManifestEntrySchema, type Page, type PageManifestEntry } from "../../../src/domain/page";
-export function toManifestEntry(page: Page): PageManifestEntry { const plain = page.body.replace(/^#.*$/gm, "").replace(/\s+/g, " ").trim(); return { id: page.id, title: page.title, area: page.area, tags: page.tags, excerpt: plain.slice(0, 157) + (plain.length > 157 ? "..." : "") }; }
+export function toManifestEntry(page: Page): PageManifestEntry {
+  const plain = page.body.replace(/^#.*$/gm, "").replace(/\s+/g, " ").trim();
+  return {
+    id: page.id,
+    title: page.title,
+    area: page.area,
+    tags: page.tags,
+    excerpt: plain.slice(0, 157) + (plain.length > 157 ? "..." : ""),
+    created_at: page.created_at,
+  };
+}
 export function githubNetworkError(error: unknown) { const cause = error instanceof Error && "cause" in error ? String(error.cause) : String(error); return new Error(`GitHub network error: ${cause}`); }
 export type ManifestFileEntry = PageManifestEntry & { path: string };
 export function parseManifest(input: unknown): ManifestFileEntry[] { return (input as { path: string }[]).map(item => ({ ...PageManifestEntrySchema.parse(item), path: item.path })); }

@@ -1,4 +1,4 @@
-import type { Page, PageManifestEntry } from "../domain/page";
+import type { Attachment, Page, PageManifestEntry } from "../domain/page";
 import type { ResearchResult } from "../research/schema";
 import { API_BASE } from "./config";
 import { localGetPage, localListPages, localSearchPages } from "./localData";
@@ -27,7 +27,16 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: "include",
     ...init,
   });
-  if (!response.ok) throw new Error(`API error ${response.status}: ${path}`);
+  if (!response.ok) {
+    let detail = `API error ${response.status}: ${path}`;
+    try {
+      const payload = (await response.json()) as { error?: string };
+      if (payload.error) detail = payload.error;
+    } catch {
+      /* keep status text */
+    }
+    throw new Error(detail);
+  }
   return response.json() as Promise<T>;
 }
 
@@ -172,4 +181,41 @@ export function getPodcastAudioUrl(episodeId: string, turnId: string) {
   return apiFetch<{ url: string }>(
     `/podcast/${encodeURIComponent(episodeId)}/audio/${encodeURIComponent(turnId)}`,
   );
+}
+
+export async function savePage(page: Page): Promise<Page> {
+  if (USE_LOCAL_DATA) {
+    throw new Error("Saving needs the live API (netlify dev or production).");
+  }
+  return apiFetch<Page>("/pages-save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(page),
+  });
+}
+
+export type SignAttachmentInput = {
+  filename: string;
+  content_type: string;
+  byte_size: number;
+  page_id: string;
+  area: Page["area"];
+};
+
+export async function signAttachment(
+  input: SignAttachmentInput,
+): Promise<{ put_url: string; attachment: Attachment }> {
+  if (USE_LOCAL_DATA) {
+    throw new Error("Uploads need the live API (netlify dev or production).");
+  }
+  return apiFetch<{ put_url: string; attachment: Attachment }>("/attachments-sign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function uploadSignedFile(putUrl: string, file: File, contentType: string) {
+  const response = await fetch(putUrl, { method: "PUT", body: file, headers: { "Content-Type": contentType } });
+  if (!response.ok) throw new Error(`Upload failed (${response.status})`);
 }

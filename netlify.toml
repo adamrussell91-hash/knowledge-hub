@@ -32,6 +32,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/pages-save"
+  to = "/.netlify/functions/pages-save"
+  status = 200
+
+[[redirects]]
+  from = "/api/attachments-sign"
+  to = "/.netlify/functions/attachments-sign"
+  status = 200
+
+[[redirects]]
   from = "/api/pages"
   to = "/.netlify/functions/pages-list"
   status = 200
@@ -57,6 +67,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/curator"
+  to = "/.netlify/functions/curator"
+  status = 200
+
+[[redirects]]
   from = "/api/lesson-alchemist"
   to = "/.netlify/functions/lesson-alchemist"
   status = 200
@@ -69,4 +84,24 @@
 [[redirects]]
   from = "/api/podcast/*"
   to = "/.netlify/functions/podcast"
+  status = 200
+
+[[redirects]]
+  from = "/api/capture"
+  to = "/.netlify/functions/capture"
+  status = 200
+
+[[redirects]]
+  from = "/api/quiz-save"
+  to = "/.netlify/functions/quiz-save"
+  status = 200
+
+[[redirects]]
+  from = "/api/quiz/items/*"
+  to = "/.netlify/functions/quiz-items"
+  status = 200
+
+[[redirects]]
+  from = "/api/quiz"
+  to = "/.netlify/functions/quiz-get"
   status = 200

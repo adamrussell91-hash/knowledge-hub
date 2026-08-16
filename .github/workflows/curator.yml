@@ -1,0 +1,45 @@
+name: Curator
+
+on:
+  schedule:
+    - cron: "17 14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  curator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Checkout data repo
+        uses: actions/checkout@v4
+        with:
+          repository: adamrussell91-hash/knowledge-hub-data
+          token: ${{ secrets.GITHUB_DATA_REPO_TOKEN }}
+          path: data-repo
+
+      - name: Run curator
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EMBEDDINGS_API_KEY: ${{ secrets.EMBEDDINGS_API_KEY }}
+        run: npx tsx scripts/run-curator.ts --data-dir data-repo
+
+      - name: Commit curator artifacts
+        working-directory: data-repo
+        run: |
+          git config user.name "knowledge-hub-curator"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add _curator pages
+          git diff --cached --quiet && echo "No curator changes" && exit 0
+          git commit -m "Curator proposals from changed notes."
+          git push

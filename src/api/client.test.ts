@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getPage, listPages, runCoach } from "./client";
+import { getPage, listPages, runCoach, savePage, signAttachment } from "./client";
 import { API_BASE } from "./config";
 
 describe("api client", () => {
@@ -42,6 +42,34 @@ describe("api client", () => {
     expect(String(init.body)).toContain("A claim");
     expect(String(init.body)).not.toMatch(/kernel/i);
     expect(JSON.stringify(init.headers)).not.toMatch(/x-research-kernel-secret/i);
+  });
+
+  it("posts page saves with credentials", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "page_hub_x" }) }));
+    await expect(savePage({ id: "page_hub_x" } as never)).resolves.toMatchObject({ id: "page_hub_x" });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/pages-save"),
+      expect.objectContaining({ credentials: "include", method: "POST" }),
+    );
+  });
+
+  it("posts attachment sign requests", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ put_url: "https://r2", attachment: { id: "a" } }),
+      }),
+    );
+    await expect(
+      signAttachment({
+        filename: "a.pdf",
+        content_type: "application/pdf",
+        byte_size: 10,
+        page_id: "page_hub_x",
+        area: "notes",
+      }),
+    ).resolves.toMatchObject({ put_url: "https://r2" });
   });
 });
 
