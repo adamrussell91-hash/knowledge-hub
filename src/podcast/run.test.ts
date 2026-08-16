@@ -517,6 +517,34 @@ describe("runInterrupt", () => {
     if (isBusy(result)) return;
     expect(result.turns.map(turn => turn.id)).toEqual(["t1", "int-scope", "t2"]);
   });
+
+  it("rejects an interrupt when every grounded turn breaks the fourth wall", async () => {
+    const result = await runInterrupt(
+      readyEpisode(),
+      { afterTurn: "t1", question: "How does this affect the argument?" },
+      {
+        retrieve: async () => [{ pageId: "p1", title: "SDT", excerpt: "Three basic needs." }],
+        complete: async prompt => {
+          expect(prompt).toMatch(/never address the requester by name/i);
+          expect(prompt).toMatch(/paraphrase source/i);
+          return scriptJson([
+            {
+              id: "bad",
+              speaker: "clementine",
+              kind: "interrupt",
+              text: "Adam, your essay needs this claim.",
+              citations: [{ pageId: "p1", title: "SDT" }],
+            },
+          ]);
+        },
+      },
+    );
+
+    expect(result).toEqual({
+      status: 422,
+      error: "Podcast follow-up broke the fourth wall",
+    });
+  });
 });
 
 function seriesFixture(
@@ -697,109 +725,16 @@ describe("runQuizAnswer", () => {
       },
     });
 
+    expect(isBusy(result)).toBe(false);
+    if (isBusy(result)) return;
     expect(result.turns.map(turn => turn.id)).toEqual(["t1", "q1", "a1", "t2"]);
     expect(result.id).toBe("ep_1");
     expect(result.status).toBe("ready");
   });
-});
 
-
-
-
-
-describe("runInterrupt", () => {
-  it("returns 409 and does not complete while the episode is still generating", async () => {
-    let completed = 0;
-    const result = await runInterrupt(
-      readyEpisode({ status: "running" }),
-      { afterTurn: "t1", question: "What are the three needs?" },
-      {
-        retrieve: async () => notes,
-        complete: async () => {
-          completed += 1;
-          return scriptJson([]);
-        },
-      },
-    );
-
-    expect(result).toEqual({ status: 409, error: "still generating" });
-    expect(completed).toBe(0);
-  });
-
-  it("splices a grounded interrupt after afterTurn and keeps original turns", async () => {
-    const order: string[] = [];
-    const result = await runInterrupt(
-      readyEpisode(),
-      { afterTurn: "t1", question: "What are the three needs?" },
-      {
-        retrieve: async () => {
-          order.push("retrieve");
-          return [{ pageId: "p1", title: "SDT", excerpt: "Three basic needs." }];
-        },
-        complete: async prompt => {
-          order.push("complete");
-          expect(prompt).toMatch(/What are the three needs\?/);
-          expect(prompt).toMatch(/interrupt/i);
-          expect(prompt).toMatch(/SDT/);
-          expect(prompt).toMatch(/Deci named three needs/);
-          return scriptJson([
-            {
-              id: "int1",
-              speaker: "clementine",
-              kind: "interrupt",
-              text: "The three needs live in that note.",
-              citations: [{ pageId: "p1", title: "SDT" }],
-            },
-          ]);
-        },
-      },
-    );
-
-    expect(isBusy(result)).toBe(false);
-    if (isBusy(result)) return;
-    expect(result.id).toBe("ep_1");
-    expect(result.status).toBe("ready");
-    expect(result.turns.map(turn => turn.id)).toEqual(["t1", "int1", "t2"]);
-    expect(order).toEqual(["retrieve", "complete"]);
-  });
-
-  it("drops an ungrounded interrupt turn", async () => {
-    const result = await runInterrupt(
-      readyEpisode(),
-      { afterTurn: "t1", question: "What does the web say?" },
-      {
-        retrieve: async () => [{ pageId: "p1", title: "SDT", excerpt: "Three basic needs." }],
-        complete: async () =>
-          scriptJson([
-            {
-              id: "int-bad",
-              speaker: "ann",
-              kind: "interrupt",
-              text: "Wikipedia says otherwise.",
-              citations: [{ pageId: "web", title: "Web" }],
-            },
-          ]),
-      },
-    );
-
-    expect(isBusy(result)).toBe(false);
-    if (isBusy(result)) return;
-    expect(result.turns.map(turn => turn.id)).toEqual(["t1", "t2"]);
-    expect(result.turns.some(turn => turn.id === "int-bad")).toBe(false);
-  });
-});
-
-describe("runQuizAnswer", () => {
-  it("inserts a model-answer after the quiz-prompt", async () => {
+  it("rejects a fourth-wall quiz reaction without changing the episode", async () => {
     const episode = readyEpisode({
       turns: [
-        {
-          id: "t1",
-          speaker: "clementine",
-          kind: "content",
-          text: "Deci named three needs.",
-          citations: [{ pageId: "p1", title: "SDT" }],
-        },
         {
           id: "q1",
           speaker: "ann",
@@ -807,35 +742,31 @@ describe("runQuizAnswer", () => {
           text: "Name one basic need.",
           citations: [],
         },
-        {
-          id: "t2",
-          speaker: "clementine",
-          kind: "content",
-          text: "We will come back to that.",
-          citations: [{ pageId: "p1", title: "SDT" }],
-        },
       ],
     });
-
-    const result = await runQuizAnswer(episode, { afterTurn: "t1", text: "Autonomy?" }, {
-      retrieve: async () => [{ pageId: "p1", title: "SDT", excerpt: "Three basic needs." }],
-      complete: async prompt => {
-        expect(prompt).toMatch(/Autonomy\?/);
-        expect(prompt).toMatch(/Name one basic need/);
-        return scriptJson([
-          {
-            id: "a1",
-            speaker: "clementine",
-            kind: "model-answer",
-            text: "Autonomy is one of the three needs.",
-            citations: [{ pageId: "p1", title: "SDT" }],
-          },
-        ]);
+    const result = await runQuizAnswer(
+      episode,
+      { afterTurn: "q1", text: "Autonomy" },
+      {
+        retrieve: async () => [{ pageId: "p1", title: "SDT", excerpt: "Autonomy is a basic need." }],
+        complete: async prompt => {
+          expect(prompt).toMatch(/reply directly/i);
+          return scriptJson([
+            {
+              id: "bad",
+              speaker: "ann",
+              kind: "model-answer",
+              text: "Put that in your paper, Adam.",
+              citations: [{ pageId: "p1", title: "SDT" }],
+            },
+          ]);
+        },
       },
-    });
+    );
 
-    expect(result.turns.map(turn => turn.id)).toEqual(["t1", "q1", "a1", "t2"]);
-    expect(result.id).toBe("ep_1");
-    expect(result.status).toBe("ready");
+    expect(result).toEqual({
+      status: 422,
+      error: "Podcast follow-up broke the fourth wall",
+    });
   });
 });
