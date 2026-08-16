@@ -77,6 +77,16 @@ function cardMeta(item: PageManifestEntry) {
   return topicKeywords(item.tags)[0] ?? "";
 }
 
+function pageHeader(eyebrow: string, title: string, actions = "") {
+  return `<header class="topbar page-header">
+      <div class="page-header__copy">
+        <p class="eyebrow page-header__eyebrow">${eyebrow}</p>
+        <h1 class="page-header__title">${title}</h1>
+      </div>
+      ${actions}
+    </header>`;
+}
+
 function titleForArea() {
   if (keywordFilter) return keywordFilter;
   if (area === "university") return "University";
@@ -225,16 +235,14 @@ function renderVirtualList(viewport: HTMLElement) {
 function renderList() {
   shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · reading migrated data · no Netlify deploy</p>` : ""}
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Private archive${keywordFilter ? " · keyword" : ""}</p>
-        <h1>${escapeHtml(titleForArea())}</h1>
-      </div>
-      <div class="viewbar">
+    ${pageHeader(
+      `Private archive${keywordFilter ? " · keyword" : ""}`,
+      escapeHtml(titleForArea()),
+      `<div class="viewbar page-header__actions">
         <button class="viewbar__btn is-active" type="button">List</button>
         <button class="viewbar__btn" data-jump-graph type="button">Graph</button>
-      </div>
-    </header>
+      </div>`,
+    )}
     <div class="toolbar">
       <input class="search" value="${escapeHtml(query)}" placeholder="Search titles, tags, excerpts…" aria-label="Search archive" />
       <div class="filters">
@@ -296,16 +304,14 @@ function renderGraph() {
 
   shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · major → minor → notes · click major to focus · click minor + for notes · double-click for list</p>` : ""}
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Private archive</p>
-        <h1>Keyword graph</h1>
-      </div>
-      <div class="viewbar">
+    ${pageHeader(
+      "Private archive",
+      "Keyword graph",
+      `<div class="viewbar page-header__actions">
         <button class="viewbar__btn" data-jump-list type="button">List</button>
         <button class="viewbar__btn is-active" type="button">Graph</button>
-      </div>
-    </header>
+      </div>`,
+    )}
     <div class="graph-wrap">
       <div class="graph-toolbar glass-panel">${model.majorCount} majors · ${model.minorCount} sub-themes · backbone co-occurrence · expand minors for notes</div>
       <div class="graph-stage"></div>
@@ -353,12 +359,7 @@ function renderAlchemist() {
 
   shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · lexical retrieval over your archive · full Claude synthesis needs the live Alchemist API</p>` : ""}
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Lesson Alchemist</p>
-        <h1>Cross-domain connections</h1>
-      </div>
-    </header>
+    ${pageHeader("Lesson Alchemist", "Cross-domain connections")}
     <section class="alchemist">
       <form class="alchemist__form glass-panel">
         <label for="lesson-input">Lesson text</label>
@@ -432,12 +433,7 @@ function findingCards(findings: ResearchFinding[]) {
 function renderCoach() {
   shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · coach needs the Netlify API (session + Anthropic). The browser never talks to the research kernel.</p>` : ""}
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Professor Clementine Haig</p>
-        <h1>University office</h1>
-      </div>
-    </header>
+    ${pageHeader("Professor Clementine Haig", "University office")}
     <section class="coach">
       <form class="coach__form glass-panel">
         <label for="coach-thesis">Working thesis</label>
@@ -576,22 +572,25 @@ function render() {
 }
 
 function renderLogin() {
-  app.innerHTML = `<div class="login">
-    <form class="login__card glass-panel">
-      <p class="eyebrow">Private archive</p>
-      <h1>Knowledge Hub</h1>
-      <p>Sign in to browse University and Notes.</p>
-      <input placeholder="Passphrase" type="password" required autocomplete="current-password" />
-      <button type="submit">Sign in</button>
-      <p class="login__error" hidden></p>
+  app.innerHTML = `<div class="sign-in">
+    <form class="sign-in__card" method="post" action="#">
+      <p class="sign-in__brand">Knowledge Hub</p>
+      <h1 class="sign-in__title">Sign in</h1>
+      <p class="sign-in__supporting">University and Notes stay private.</p>
+      <div class="sign-in__field">
+        <label class="sign-in__label" for="sign-in-passphrase">Passphrase</label>
+        <input class="sign-in__input" id="sign-in-passphrase" name="passphrase" type="password" required autocomplete="current-password" />
+      </div>
+      <p class="sign-in__error" role="alert" hidden></p>
+      <button class="btn btn--primary sign-in__submit" type="submit">Sign in</button>
     </form>
   </div>`;
   app.querySelector("form")!.onsubmit = async event => {
     event.preventDefault();
-    const passphrase = app.querySelector<HTMLInputElement>("input")!.value;
+    const passphrase = app.querySelector<HTMLInputElement>("#sign-in-passphrase")!.value;
     const ok = await login(passphrase);
     if (!ok) {
-      const error = app.querySelector<HTMLParagraphElement>(".login__error")!;
+      const error = app.querySelector<HTMLParagraphElement>(".sign-in__error")!;
       error.hidden = false;
       error.textContent = "That passphrase didn’t work.";
       return;
@@ -608,7 +607,7 @@ async function boot() {
     render();
   } catch {
     if (USE_LOCAL_DATA) {
-      app.innerHTML = `<div class="login"><div class="login__card glass-panel"><h1>Local data missing</h1><p>Run the migrator first, then restart <code>npm run dev</code>.</p></div></div>`;
+      app.innerHTML = `<div class="sign-in"><div class="sign-in__card"><h1 class="sign-in__title">Local data missing</h1><p class="sign-in__supporting">Run the migrator first, then restart <code>npm run dev</code>.</p></div></div>`;
       return;
     }
     renderLogin();
