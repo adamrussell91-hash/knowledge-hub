@@ -20,6 +20,8 @@ describe("podcast naturalness gate", () => {
     "Your essay needs a stronger warrant.",
     "If you're writing across both clusters, cite this.",
     "When you write the paper, anchor the claim.",
+    "If you’re writing across both clusters, cite this.",
+    "You’ll need to cite the note.",
   ])("detects a fourth-wall leak: %s", text => {
     expect(breaksFourthWall(text)).toBe(true);
   });

@@ -35,7 +35,8 @@ function normalize(text: string): string {
 }
 
 export function breaksFourthWall(text: string): boolean {
-  return FOURTH_WALL_PATTERNS.some(pattern => pattern.test(text));
+  const normalized = normalize(text);
+  return FOURTH_WALL_PATTERNS.some(pattern => pattern.test(normalized));
 }
 
 export function filterFourthWallTurns(turns: PodcastTurn[]): PodcastTurn[] {
