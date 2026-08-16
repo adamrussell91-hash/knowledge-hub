@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildPodcastPrompt, parsePodcastScript } from "./script";
+import { buildPodcastEditorPrompt, buildPodcastPrompt, parsePodcastScript } from "./script";
+import { annPodcast, clementinePodcast, podcastEditor } from "../clementine/pack";
 import type { PodcastDials } from "./schema";
 
 const dials: PodcastDials = {
@@ -28,6 +29,52 @@ describe("podcast script", () => {
     expect(prompt).toContain("Return only JSON");
     expect(prompt).toContain("p1");
     expect(prompt).not.toMatch(/search the web/i);
+  });
+
+  it("uses podcast identities without coaching context", () => {
+    const prompt = buildPodcastPrompt({
+      mode: "recap",
+      dials,
+      modeDial: { cadence: "weekly" },
+      notes: [{ pageId: "p1", title: "SDT", excerpt: "Three basic needs." }],
+      memories: [],
+    });
+
+    expect(prompt).toContain("Professor Clementine Haig");
+    expect(prompt).toContain("Ann O’Tation");
+    expect(prompt).toMatch(/immediately preceding turn/i);
+    expect(prompt).not.toMatch(/Every turn must reply to the immediately preceding turn/i);
+    expect(prompt).not.toMatch(/academic writing coach/i);
+    expect(prompt).not.toContain("Adam's Academic Context");
+    expect(prompt).not.toMatch(/lesson mentor in this surface/i);
+  });
+
+  it("builds an editor prompt from the draft and archive notes", () => {
+    const prompt = buildPodcastEditorPrompt({
+      mode: "recap",
+      dials,
+      modeDial: { cadence: "weekly" },
+      notes: [{ pageId: "p1", title: "SDT", excerpt: "Three basic needs." }],
+      draft: [
+        {
+          id: "draft-1",
+          speaker: "clementine",
+          kind: "content",
+          text: "A manuscript needs a spine.",
+          citations: [{ pageId: "p1", title: "SDT" }],
+        },
+      ],
+    });
+
+    expect(prompt).toMatch(/rewrite the entire episode/i);
+    expect(prompt).toContain("This is the mandatory editorial pass. Preserve valid turn kinds and citations.");
+    expect(prompt).toMatch(/read-aloud/i);
+    expect(prompt).toMatch(/cold open/i);
+    expect(prompt).toMatch(/paraphrase/i);
+    expect(prompt).toContain("draft-1");
+    expect(prompt).toContain("A manuscript needs a spine.");
+    expect(prompt).toContain("p1");
+    expect(prompt).not.toMatch(/academic writing coach/i);
   });
 
   it("injects series bible when present", () => {
@@ -106,5 +153,48 @@ describe("podcast script", () => {
 
   it("mentions a preview when nothing usable can be parsed", () => {
     expect(() => parsePodcastScript("Sorry, I cannot help with that.")).toThrow(/preview:/i);
+  });
+});
+
+describe("podcast prompts", () => {
+  it("makes Clementine answer the previous turn and never address Adam", () => {
+    expect(clementinePodcast).toMatch(/immediately preceding turn/i);
+    expect(clementinePodcast).toMatch(/never address Adam by name/i);
+  });
+
+  it("makes Ann a skeptic who speaks in shorter bursts", () => {
+    expect(annPodcast).toMatch(/skeptic/i);
+    expect(annPodcast).toMatch(/complicat/i);
+    expect(annPodcast).toMatch(/shorter bursts than Clementine/i);
+  });
+
+  it("makes the editor rewrite the whole episode and read it aloud", () => {
+    expect(podcastEditor).toMatch(/rewrite the entire episode/i);
+    expect(podcastEditor).toMatch(/read.{0,20}aloud/i);
+  });
+
+  it("cold-opens by saying what today is about, not mid-thought", () => {
+    expect(clementinePodcast).toMatch(/what today is about/i);
+    expect(clementinePodcast).toMatch(/why it matters/i);
+    expect(clementinePodcast).not.toMatch(/mid-thought/i);
+    expect(podcastEditor).toMatch(/what today is about/i);
+    expect(podcastEditor).toMatch(/why it matters/i);
+    expect(podcastEditor).not.toMatch(/mid-thought/i);
+    expect(podcastEditor).not.toMatch(/no premise announcement/i);
+  });
+
+  it("strips Adam address and draft talk from the editor fourth wall", () => {
+    expect(podcastEditor).toMatch(/no ["']?Adam["']?/i);
+    expect(podcastEditor).toMatch(/draft|essay|paper|assignment|thesis/i);
+  });
+
+  it("encodes build cadence, metaphor returns, and spoken repair", () => {
+    expect(clementinePodcast).toMatch(/every third or fourth turn/i);
+    expect(clementinePodcast).toMatch(/3.?5 sentence/i);
+    expect(clementinePodcast).toMatch(/return 2.?3 times/i);
+    expect(clementinePodcast).toMatch(/I mean/i);
+    expect(podcastEditor).toMatch(/every third or fourth turn/i);
+    expect(podcastEditor).toMatch(/return 2.?3 times/i);
+    expect(podcastEditor).toMatch(/I mean/i);
   });
 });

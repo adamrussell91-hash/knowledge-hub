@@ -142,6 +142,7 @@ async function answerEpisode(env: WorkerEnv, id: string, body: unknown) {
     followupInput(body, "text") as { afterTurn: string; text: string },
     podcastKernelDeps(env),
   );
+  if (isPodcastStatusError(result)) return result;
   return saveEpisode(env, markEpisodeRecording(result));
 }
 

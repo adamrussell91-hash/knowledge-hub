@@ -1,6 +1,7 @@
 import type { ResearchScope } from "../research/scope";
 import { groundTurns } from "./ground";
 import { pickMemories } from "./memory";
+import { filterFourthWallTurns, podcastNaturalnessError } from "./naturalness";
 import {
   PodcastEpisodeSchema,
   PodcastSeriesSchema,
@@ -13,7 +14,7 @@ import {
   type PodcastTurn,
   type SeriesSlot,
 } from "./schema";
-import { buildPodcastPrompt, parsePodcastScript } from "./script";
+import { buildPodcastEditorPrompt, buildPodcastPrompt, parsePodcastScript } from "./script";
 import { filterByUpdatedAt, recapCutoff, selectQuery } from "./select";
 import { buildSeriesPlanPrompt, groundSeriesPlan, type RawSeriesPlan } from "./seriesPlan";
 
@@ -162,26 +163,32 @@ export async function runGenerate(input: RunGenerateInput, deps: RunGenerateDeps
     scopeTags: input.scope?.tags,
     episodes,
   });
-  const raw = await deps.complete(
-    buildPodcastPrompt({
-      mode: input.mode,
-      dials: input.dials,
-      modeDial: input.modeDial,
-      notes,
-      memories,
-      bible: input.series?.bible,
-    }),
+  const promptInput = {
+    mode: input.mode,
+    dials: input.dials,
+    modeDial: input.modeDial,
+    notes,
+    bible: input.series?.bible,
+  };
+  const draft = parsePodcastScript(
+    await deps.complete(buildPodcastPrompt({ ...promptInput, memories })),
+  );
+  const edited = parsePodcastScript(
+    await deps.complete(buildPodcastEditorPrompt({ ...promptInput, draft })),
   );
   const { kept } = groundTurns(
-    parsePodcastScript(raw),
+    edited,
     notes.map(note => ({ pageId: note.pageId, title: note.title })),
   );
+  const turns = kept.slice(0, turnCap(input.dials.length));
+  const naturalnessError = podcastNaturalnessError(turns);
 
   return PodcastEpisodeSchema.parse({
     ...episodeBase(input, deps),
-    status: "running",
+    status: naturalnessError ? "error" : "running",
     sourcePageIds: notes.map(note => note.pageId),
-    turns: kept.slice(0, turnCap(input.dials.length)),
+    turns: naturalnessError ? [] : turns,
+    error: naturalnessError ?? undefined,
   });
 }
 
@@ -291,7 +298,16 @@ export type RunFollowupDeps = {
   complete: (prompt: string) => Promise<string>;
 };
 
-export type RunInterruptConflict = { status: 409; error: "still generating" };
+export type RunFollowupError = {
+  status: 409 | 422;
+  error: string;
+};
+
+const FOLLOWUP_NATURALNESS = [
+  "This is spoken podcast dialogue: never address the requester by name and never discuss their draft, essay, paper, assignment, or writing.",
+  "Reply directly to the listener question or quiz answer and react to the existing transcript.",
+  "Paraphrase source names in speech; keep exact titles only in citation metadata.",
+].join(" ");
 
 function transcriptSnippet(turns: PodcastTurn[]) {
   return turns
@@ -333,6 +349,7 @@ function buildInterruptPrompt(episode: PodcastEpisode, question: string, notes: 
   return [
     "Both hosts may speak. Return 1-3 turns with kind interrupt. JSON only.",
     "Cite only the provided notes. Do not use the open web. Do not invent sources.",
+    FOLLOWUP_NATURALNESS,
     `Question: ${question}`,
     `Notes:\n${noteLines(notes)}`,
     `Transcript snippet:\n${transcriptSnippet(episode.turns)}`,
@@ -348,6 +365,7 @@ function buildQuizAnswerPrompt(
   return [
     "The listener answered a quiz prompt. Return 1 turn: kind model-answer or a short host reaction.",
     "JSON only. Cite only the provided notes. Do not use the open web.",
+    FOLLOWUP_NATURALNESS,
     `Quiz prompt: ${quiz.text}`,
     `Listener answer: ${text}`,
     `Notes:\n${noteLines(notes)}`,
@@ -355,26 +373,39 @@ function buildQuizAnswerPrompt(
   ].join("\n\n");
 }
 
+function naturalFollowupOrError(grounded: PodcastTurn[]): PodcastTurn[] | RunFollowupError {
+  const natural = filterFourthWallTurns(grounded);
+  if (grounded.length > 0 && natural.length === 0) {
+    return { status: 422, error: "Podcast follow-up broke the fourth wall" };
+  }
+  return natural;
+}
+
 export async function runInterrupt(
   episode: PodcastEpisode,
   input: { afterTurn: string; question: string },
   deps: RunFollowupDeps,
-): Promise<PodcastEpisode | RunInterruptConflict> {
+): Promise<PodcastEpisode | RunFollowupError> {
   if (episode.status === "running") {
     return { status: 409, error: "still generating" };
   }
 
   const notes = await retrieveForEpisode(episode, input.question, deps.retrieve);
-  const kept = groundAgainstNotes(await deps.complete(buildInterruptPrompt(episode, input.question, notes)), notes);
+  const grounded = groundAgainstNotes(
+    await deps.complete(buildInterruptPrompt(episode, input.question, notes)),
+    notes,
+  );
+  const natural = naturalFollowupOrError(grounded);
+  if (!Array.isArray(natural)) return natural;
   const afterIndex = episode.turns.findIndex(turn => turn.id === input.afterTurn);
-  return spliceAfter(episode, afterIndex, kept);
+  return spliceAfter(episode, afterIndex, natural);
 }
 
 export async function runQuizAnswer(
   episode: PodcastEpisode,
   input: { afterTurn: string; text: string },
   deps: RunFollowupDeps,
-): Promise<PodcastEpisode> {
+): Promise<PodcastEpisode | RunFollowupError> {
   const start = episode.turns.findIndex(turn => turn.id === input.afterTurn);
   const from = start < 0 ? 0 : start;
   const quizIndex = episode.turns.findIndex((turn, index) => index >= from && turn.kind === "quiz-prompt");
@@ -382,6 +413,11 @@ export async function runQuizAnswer(
 
   const quiz = episode.turns[quizIndex]!;
   const notes = await retrieveForEpisode(episode, input.text, deps.retrieve);
-  const kept = groundAgainstNotes(await deps.complete(buildQuizAnswerPrompt(episode, quiz, input.text, notes)), notes);
-  return spliceAfter(episode, quizIndex, kept);
+  const grounded = groundAgainstNotes(
+    await deps.complete(buildQuizAnswerPrompt(episode, quiz, input.text, notes)),
+    notes,
+  );
+  const natural = naturalFollowupOrError(grounded);
+  if (!Array.isArray(natural)) return natural;
+  return spliceAfter(episode, quizIndex, natural);
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { assembleClementinePrompt } from "../clementine/assemble";
-import { annotationVoice, clementinePodcast, voice } from "../clementine/pack";
+import { annPodcast, clementinePodcast, podcastEditor } from "../clementine/pack";
 import { PodcastTurnSchema, turnCap, type PodcastDials, type PodcastMode, type PodcastTurn } from "./schema";
 
 export type PodcastScriptNote = {
@@ -16,51 +16,87 @@ export type PodcastBible = {
   runningMotifs: string[];
 };
 
-export function buildPodcastPrompt(input: {
+const PODCAST_VOICE =
+  "You are Professor Clementine Haig, co-hosting an archive-grounded podcast with Ann O’Tation.";
+
+const EDITOR_SURFACE =
+  "This is the mandatory editorial pass. Preserve valid turn kinds and citations.";
+
+export type PodcastPromptInput = {
   mode: PodcastMode;
   dials: PodcastDials;
   modeDial: Record<string, string>;
   notes: PodcastScriptNote[];
-  memories: string[];
   bible?: PodcastBible;
-}): string {
-  const surface = [
-    "This is a two-host podcast. Professor Clementine Haig and Ann O’Tation speak from archive notes only.",
+};
+
+export type PodcastWriterPromptInput = PodcastPromptInput & {
+  memories: string[];
+};
+
+function noteLines(notes: PodcastScriptNote[]): string {
+  return notes.map(note => `- ${note.pageId} "${note.title}": ${note.excerpt}`).join("\n");
+}
+
+function bibleLines(bible?: PodcastBible): string {
+  if (!bible) return "";
+  return [
+    "Series bible:",
+    `showTitle: ${bible.showTitle}`,
+    `openingRitual: ${bible.openingRitual}`,
+    `vibe: ${bible.vibe}`,
+    `runningMotifs: ${bible.runningMotifs.join("; ") || "(none)"}`,
+    "Honour openingRitual on turn 1 so this sounds like the same programme.",
+  ].join("\n");
+}
+
+function jsonSurface(turnLimit: number): string {
+  return [
     "Do not use the open web. Do not invent sources.",
-    "Ann is a co-host close-reading the notes as texts, not a lesson mentor in this surface.",
     "Return only JSON. JSON-only. Do not wrap the response in markdown.",
     "Each turn must include: id, speaker (clementine | ann), kind (content | banter | quiz-prompt | model-answer | interrupt | cue | empty), text, citations (array of { pageId, title, sourceUrl? }).",
-    `Write at most ${turnCap(input.dials.length)} turns. Turns past that are discarded.`,
+    `Write at most ${turnLimit} turns. Turns past that are discarded.`,
   ].join(" ");
+}
 
-  const notes = input.notes
-    .map(note => `- ${note.pageId} "${note.title}": ${note.excerpt}`)
-    .join("\n");
+export function buildPodcastPrompt(input: PodcastWriterPromptInput): string {
   const memories = input.memories.length
     ? `Previous shows (not citable):\n${input.memories.map(memory => `- ${memory}`).join("\n")}`
     : "Previous shows: none.";
-  const bible = input.bible
-    ? [
-        "Series bible:",
-        `showTitle: ${input.bible.showTitle}`,
-        `openingRitual: ${input.bible.openingRitual}`,
-        `vibe: ${input.bible.vibe}`,
-        `runningMotifs: ${input.bible.runningMotifs.join("; ") || "(none)"}`,
-        "Honour openingRitual on turn 1 so this sounds like the same programme.",
-      ].join("\n")
-    : "";
 
   return assembleClementinePrompt({
-    voice,
+    voice: PODCAST_VOICE,
     job: clementinePodcast,
-    surface: [annotationVoice, surface].join("\n\n"),
+    surface: [annPodcast, jsonSurface(turnCap(input.dials.length))].join("\n\n"),
     payload: [
       `Mode: ${input.mode}`,
       `Mode dials: ${JSON.stringify(input.modeDial)}`,
       `Dials: ${JSON.stringify(input.dials)}`,
-      `Notes:\n${notes || "(none)"}`,
+      `Notes:\n${noteLines(input.notes) || "(none)"}`,
       memories,
-      bible,
+      bibleLines(input.bible),
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  });
+}
+
+export function buildPodcastEditorPrompt(input: PodcastPromptInput & { draft: PodcastTurn[] }): string {
+  return assembleClementinePrompt({
+    voice: PODCAST_VOICE,
+    job: podcastEditor,
+    surface: [
+      annPodcast,
+      EDITOR_SURFACE,
+      jsonSurface(turnCap(input.dials.length)),
+    ].join("\n\n"),
+    payload: [
+      `Mode: ${input.mode}`,
+      `Mode dials: ${JSON.stringify(input.modeDial)}`,
+      `Dials: ${JSON.stringify(input.dials)}`,
+      `Notes:\n${noteLines(input.notes) || "(none)"}`,
+      bibleLines(input.bible),
+      `Draft turns:\n${JSON.stringify({ turns: input.draft })}`,
     ]
       .filter(Boolean)
       .join("\n\n"),
