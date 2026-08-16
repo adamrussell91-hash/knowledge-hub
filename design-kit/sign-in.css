@@ -1,23 +1,43 @@
-/* Shared passphrase gate. Brand eyebrow + Sign in + labelled field + .btn submit. */
+/* Shared passphrase gate — locked across every hub.
+ *
+ * Markup: snippets/sign-in.html
+ * Do not restyle per hub. Brand / supporting copy may change; structure and
+ * chrome must not. Glass density overlays do not apply here on purpose.
+ */
 
 .sign-in {
+  /* Own the viewport so hub body washes (Life blue, Knowledge sage, grids)
+     cannot diverge the gate. Matches chrome.css cotton wash. */
+  --sign-in-glass-fill: rgba(255, 255, 255, 0.72);
+  --sign-in-glass-blur: 22px;
+
   display: grid;
   place-items: center;
+  box-sizing: border-box;
   min-height: 100dvh;
+  margin: 0;
   padding: var(--space-8) var(--space-5);
+  background-color: var(--cotton);
+  background-image:
+    radial-gradient(760px 540px at 4% 0%, rgba(207, 223, 241, 0.62), transparent 70%),
+    radial-gradient(720px 500px at 98% 8%, rgba(237, 216, 197, 0.5), transparent 72%),
+    linear-gradient(145deg, var(--cotton), var(--paper) 48%, var(--cotton));
+  color: var(--ink);
 }
 
 .sign-in__card {
+  box-sizing: border-box;
   width: min(100%, 24rem);
+  margin: 0;
   padding: var(--space-8) var(--space-6);
   display: grid;
   gap: var(--space-5);
-  background: var(--hub-glass-fill);
+  background: var(--sign-in-glass-fill);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--hub-elev-card);
-  backdrop-filter: blur(var(--hub-glass-blur));
-  -webkit-backdrop-filter: blur(var(--hub-glass-blur));
+  box-shadow: var(--elev-3);
+  backdrop-filter: blur(var(--sign-in-glass-blur));
+  -webkit-backdrop-filter: blur(var(--sign-in-glass-blur));
 }
 
 .sign-in__brand {
@@ -42,7 +62,9 @@
 
 .sign-in__supporting {
   margin: 0;
+  font-family: var(--font-ui);
   font-size: var(--text-md);
+  line-height: var(--leading-normal);
   color: var(--muted);
 }
 
@@ -64,7 +86,9 @@
 }
 
 .sign-in__input {
+  box-sizing: border-box;
   width: 100%;
+  min-height: 2.5rem;
   padding: var(--space-3);
   font: inherit;
   font-family: var(--font-ui);
@@ -88,4 +112,8 @@
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   color: var(--danger);
+}
+
+.sign-in__error[hidden] {
+  display: none;
 }

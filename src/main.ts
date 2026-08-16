@@ -686,15 +686,21 @@ function renderLogin() {
   </div>`;
   app.querySelector("form")!.onsubmit = async event => {
     event.preventDefault();
+    const error = app.querySelector<HTMLParagraphElement>(".sign-in__error")!;
+    error.hidden = true;
     const passphrase = app.querySelector<HTMLInputElement>("#sign-in-passphrase")!.value;
-    const ok = await login(passphrase);
-    if (!ok) {
-      const error = app.querySelector<HTMLParagraphElement>(".sign-in__error")!;
+    try {
+      const ok = await login(passphrase);
+      if (!ok) {
+        error.hidden = false;
+        error.textContent = "Invalid passphrase";
+        return;
+      }
+      await boot();
+    } catch {
       error.hidden = false;
-      error.textContent = "That passphrase didn’t work.";
-      return;
+      error.textContent = "Unable to sign in. Please try again.";
     }
-    await boot();
   };
 }
 

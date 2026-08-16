@@ -9,9 +9,21 @@ Tasks Hub agents: also read `TASKS.md` (Teaching chrome, board home, graph/chart
 1. `css/tokens.css` — closed palette, type, space, radius, elevation
 2. `css/overlays.css` — the only per-hub differences (glass / tile density)
 3. `css/actions.css` — `.btn`, Wave `:focus-visible`, `.confirm-card` (import in existing hubs)
-4. `css/sign-in.css` — passphrase gate (brand, Sign in, labelled field)
+4. `css/sign-in.css` — **locked** passphrase gate (same on every hub)
 5. `css/chrome.css` — rail, page header, buttons, confirm cards (new hubs)
 6. `snippets/` — copy the HTML, then wire behaviour
+
+### Passphrase gate (mandatory)
+
+Every hub’s front loading / password page uses `snippets/sign-in.html` + `css/sign-in.css` + `.btn` from `actions.css`. Do not invent a parallel login layout.
+
+| Locked | Per-hub only |
+|--------|----------------|
+| Structure, classes, field label `Passphrase`, title `Sign in`, submit `Sign in` | Brand eyebrow text |
+| Page wash + card glass (not `data-hub` overlays) | One supporting line |
+| Input `id="sign-in-passphrase"` | Auth wiring / API |
+
+No privacy notes, extra rows, hero art, or hub-only login CSS.
 
 Canonical repo: `/Users/adamrussell/Projects/hub-design-kit`  
 GitHub: https://github.com/adamrussell91-hash/hub-design-kit  
