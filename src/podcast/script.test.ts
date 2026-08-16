@@ -75,4 +75,36 @@ describe("podcast script", () => {
     expect(turns[0]?.speaker).toBe("ann");
     expect(turns[0]?.id).toBe("2");
   });
+
+  it("accepts a bare turns array", () => {
+    const turns = parsePodcastScript(
+      `[{"id":"1","speaker":"clementine","kind":"content","text":"Hello","citations":[{"pageId":"p1","title":"SDT"}]}]`,
+    );
+    expect(turns).toHaveLength(1);
+    expect(turns[0]?.speaker).toBe("clementine");
+  });
+
+  it("keeps complete turns when the JSON is truncated mid-object", () => {
+    const turns = parsePodcastScript(
+      `{"turns":[{"id":"1","speaker":"clementine","kind":"content","text":"Hello","citations":[]},{"id":"2","speaker":"ann","kind":"content","text":"Half`,
+    );
+    expect(turns.map(turn => turn.id)).toEqual(["1"]);
+  });
+
+  it("skips malformed turns and keeps valid ones", () => {
+    const turns = parsePodcastScript(
+      JSON.stringify({
+        turns: [
+          { id: "1", speaker: "clementine", kind: "content", text: "Hello", citations: [] },
+          { id: "bad", speaker: "robot", kind: "content", text: "Nope", citations: [] },
+          { id: "3", speaker: "ann", kind: "content", text: "Still here", citations: [] },
+        ],
+      }),
+    );
+    expect(turns.map(turn => turn.id)).toEqual(["1", "3"]);
+  });
+
+  it("mentions a preview when nothing usable can be parsed", () => {
+    expect(() => parsePodcastScript("Sorry, I cannot help with that.")).toThrow(/preview:/i);
+  });
 });
