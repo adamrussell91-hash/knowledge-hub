@@ -9,6 +9,7 @@ import {
 } from "../api/client";
 import { topicKeywords } from "../archive/keywordGraph";
 import { escapeHtml } from "../lib/dom";
+import { hubUtilitiesActionsHtml } from "../lib/hubChrome";
 import type { ResearchScope } from "../research/scope";
 import { playerHtml, bindPlayer, resetPlayer } from "./playerView";
 import {
@@ -572,11 +573,12 @@ export function renderPodcastRail(host: PodcastRailHost) {
   ensureLibrary(host);
   host.shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · podcast needs the Netlify API (session). The browser never talks to the research kernel.</p>` : ""}
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Professor Clementine Haig &amp; Ann O’Tation</p>
-        <h1>Podcast</h1>
+    <header class="topbar page-header">
+      <div class="page-header__copy">
+        <p class="eyebrow page-header__eyebrow">Professor Clementine Haig &amp; Ann O’Tation</p>
+        <h1 class="page-header__title">Podcast</h1>
       </div>
+      ${hubUtilitiesActionsHtml()}
     </header>
     <section class="alchemist podcast">
       <form class="alchemist__form glass-panel">
