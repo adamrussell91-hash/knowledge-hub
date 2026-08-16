@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPodcastPrompt, parsePodcastScript } from "./script";
+import { annPodcast, clementinePodcast, podcastEditor } from "../clementine/pack";
 import type { PodcastDials } from "./schema";
 
 const dials: PodcastDials = {
@@ -106,5 +107,23 @@ describe("podcast script", () => {
 
   it("mentions a preview when nothing usable can be parsed", () => {
     expect(() => parsePodcastScript("Sorry, I cannot help with that.")).toThrow(/preview:/i);
+  });
+});
+
+describe("podcast prompts", () => {
+  it("makes Clementine answer the previous turn and never address Adam", () => {
+    expect(clementinePodcast).toMatch(/immediately preceding turn/i);
+    expect(clementinePodcast).toMatch(/never address Adam by name/i);
+  });
+
+  it("makes Ann a skeptic who speaks in shorter bursts", () => {
+    expect(annPodcast).toMatch(/skeptic/i);
+    expect(annPodcast).toMatch(/complicat/i);
+    expect(annPodcast).toMatch(/shorter bursts than Clementine/i);
+  });
+
+  it("makes the editor rewrite the whole episode and read it aloud", () => {
+    expect(podcastEditor).toMatch(/rewrite the entire episode/i);
+    expect(podcastEditor).toMatch(/read.{0,20}aloud/i);
   });
 });
