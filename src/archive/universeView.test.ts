@@ -287,8 +287,12 @@ describe("mountUniverseView", () => {
   });
 
   it("dims search without remounting the canvas", () => {
+    let invokeOnce = true;
     vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-      cb(16);
+      if (invokeOnce) {
+        invokeOnce = false;
+        cb(16);
+      }
       return 1;
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});

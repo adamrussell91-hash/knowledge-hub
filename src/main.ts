@@ -18,11 +18,17 @@ import type { ResearchFinding } from "./research/schema";
 import { escapeHtml, showToast } from "./lib/dom";
 import { renderMarkdown } from "./lib/markdown";
 import { archiveEmptyHtml } from "./archive/emptyList";
+import { searchCluster } from "./archive/graphFocus";
+import { mountGraphPreview } from "./archive/graphPreview";
 import { buildArchiveGraph, topicKeywords } from "./archive/keywordGraph";
 import { mountForceGraph } from "./archive/forceGraph";
+import { buildShowAllGraph } from "./archive/showAllGraph";
+import { buildUniverseGraph } from "./archive/universeGraph";
+import { mountUniverseView, universeHotIds } from "./archive/universeView";
 
 type AreaFilter = "all" | "university" | "notes";
 type View = "list" | "graph" | "page" | "alchemist" | "coach";
+type GraphMode = "constellation" | "showAll" | "universe";
 
 type CoachTurn = CoachMessage & {
   findings?: ResearchFinding[];
@@ -42,6 +48,8 @@ let keywordFilter = "";
 let activePage: Page | null = null;
 let listScrollTop = 0;
 let graphTeardown: (() => void) | null = null;
+let graphMode: GraphMode = "constellation";
+let graphSearch = "";
 let alchemistLesson = "";
 let alchemistBusy = false;
 let alchemistError = "";
@@ -300,10 +308,33 @@ function renderList() {
 }
 
 function renderGraph() {
-  const model = buildArchiveGraph(entries);
+  const constellation = buildArchiveGraph(entries);
+  const excerptFor = (pageId: string) => entries.find(entry => entry.id === pageId)?.excerpt ?? "";
+
+  const meta =
+    constellation.majorCount === 0
+      ? "No topic keywords yet · Universe still has a sun"
+      : graphMode === "constellation"
+        ? `${constellation.majorCount} majors · ${constellation.minorCount} sub-themes · click a hub to open its constellation`
+        : graphMode === "showAll"
+          ? "Every note · hubs as landmarks · lines where notes share tags"
+          : "Universe View · a fake sun · planets and moons";
+
+  const searching = graphSearch.trim();
+  let searchHint = searching ? ` · search “${escapeHtml(searching)}”` : "";
+  if (searching) {
+    const hits =
+      graphMode === "universe"
+        ? universeHotIds(buildUniverseGraph(entries).bodies, graphSearch).size
+        : searchCluster(
+            (graphMode === "showAll" ? buildShowAllGraph(entries, constellation) : constellation).nodes,
+            graphSearch,
+          ).size;
+    if (!hits) searchHint += " · no matches";
+  }
 
   shell(`
-    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · major → minor → notes · click major to focus · click minor + for notes · double-click for list</p>` : ""}
+    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · graph stays on this canvas</p>` : ""}
     ${pageHeader(
       "Private archive",
       "Keyword graph",
@@ -313,7 +344,15 @@ function renderGraph() {
       </div>`,
     )}
     <div class="graph-wrap">
-      <div class="graph-toolbar glass-panel">${model.majorCount} majors · ${model.minorCount} sub-themes · backbone co-occurrence · expand minors for notes</div>
+      <div class="graph-toolbar glass-panel">
+        <div class="graph-modes">
+          <button type="button" data-graph-mode="constellation" class="${graphMode === "constellation" ? "is-active" : ""}">Constellation</button>
+          <button type="button" data-graph-mode="showAll" class="${graphMode === "showAll" ? "is-active" : ""}">Show All</button>
+          <button type="button" data-graph-mode="universe" class="${graphMode === "universe" ? "is-active" : ""}">Universe</button>
+        </div>
+        <input class="graph-search" type="search" placeholder="Search keywords and notes" value="${escapeHtml(graphSearch)}" />
+        <p class="graph-toolbar__meta">${meta}${searchHint}</p>
+      </div>
       <div class="graph-stage"></div>
     </div>
   `);
@@ -323,20 +362,57 @@ function renderGraph() {
     render();
   };
 
-  const stage = app.querySelector<HTMLElement>(".graph-stage")!;
-  graphTeardown = mountForceGraph(stage, model, {
-    onKeywordFilter: keyword => {
-      keywordFilter = keyword;
-      area = "all";
-      query = "";
-      view = "list";
-      listScrollTop = 0;
-      void refreshVisible().then(render);
-    },
-    onPageClick: pageId => {
-      void openPage(pageId);
-    },
+  app.querySelectorAll<HTMLButtonElement>("[data-graph-mode]").forEach(button => {
+    button.onclick = () => {
+      graphMode = button.dataset.graphMode as GraphMode;
+      render();
+    };
   });
+
+  const search = app.querySelector<HTMLInputElement>(".graph-search")!;
+  search.oninput = () => {
+    graphSearch = search.value;
+    render();
+    const next = app.querySelector<HTMLInputElement>(".graph-search")!;
+    next.focus();
+    next.setSelectionRange(graphSearch.length, graphSearch.length);
+  };
+
+  const stage = app.querySelector<HTMLElement>(".graph-stage")!;
+  const preview = mountGraphPreview(stage, { onOpen: pageId => void openPage(pageId) });
+  const onNoteSelect = (note: { pageId: string; title: string; excerpt: string } | null) => {
+    if (!note) {
+      preview.clear();
+      return;
+    }
+    preview.show({ ...note, excerpt: note.excerpt || excerptFor(note.pageId) });
+  };
+
+  document.onkeydown = event => {
+    if (event.key !== "Enter") return;
+    const open = stage.querySelector<HTMLButtonElement>("[data-open-note]");
+    if (open && !preview.el.hidden) open.click();
+  };
+
+  let stop = () => {};
+  if (graphMode === "universe") {
+    stop = mountUniverseView(stage, buildUniverseGraph(entries), {
+      search: graphSearch,
+      onNoteSelect,
+    });
+  } else {
+    const model = graphMode === "showAll" ? buildShowAllGraph(entries, constellation) : constellation;
+    stop = mountForceGraph(
+      stage,
+      model,
+      { onNoteSelect },
+      { variant: graphMode, search: graphSearch, excerptFor },
+    );
+  }
+  graphTeardown = () => {
+    document.onkeydown = null;
+    stop();
+  };
 }
 
 async function openPage(id: string) {
