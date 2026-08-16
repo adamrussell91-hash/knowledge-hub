@@ -19,11 +19,8 @@ export type PodcastBible = {
 const PODCAST_VOICE =
   "You are Professor Clementine Haig, co-hosting an archive-grounded podcast with Ann O’Tation.";
 
-const DIALOGUE_SURFACE =
-  "Every turn must reply to the immediately preceding turn: pick up its specific word, claim, objection, or example.";
-
 const EDITOR_SURFACE =
-  "This is the mandatory editorial pass: rewrite the entire supplied episode and return a complete replacement turn list. Preserve valid turn kinds and citations.";
+  "This is the mandatory editorial pass. Preserve valid turn kinds and citations.";
 
 export type PodcastPromptInput = {
   mode: PodcastMode;
@@ -70,7 +67,7 @@ export function buildPodcastPrompt(input: PodcastWriterPromptInput): string {
   return assembleClementinePrompt({
     voice: PODCAST_VOICE,
     job: clementinePodcast,
-    surface: [annPodcast, DIALOGUE_SURFACE, jsonSurface(turnCap(input.dials.length))].join("\n\n"),
+    surface: [annPodcast, jsonSurface(turnCap(input.dials.length))].join("\n\n"),
     payload: [
       `Mode: ${input.mode}`,
       `Mode dials: ${JSON.stringify(input.modeDial)}`,
@@ -91,7 +88,6 @@ export function buildPodcastEditorPrompt(input: PodcastPromptInput & { draft: Po
     surface: [
       annPodcast,
       EDITOR_SURFACE,
-      DIALOGUE_SURFACE,
       jsonSurface(turnCap(input.dials.length)),
     ].join("\n\n"),
     payload: [

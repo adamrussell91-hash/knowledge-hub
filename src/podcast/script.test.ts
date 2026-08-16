@@ -42,7 +42,8 @@ describe("podcast script", () => {
 
     expect(prompt).toContain("Professor Clementine Haig");
     expect(prompt).toContain("Ann O’Tation");
-    expect(prompt).toMatch(/reply to the immediately preceding turn/i);
+    expect(prompt).toMatch(/immediately preceding turn/i);
+    expect(prompt).not.toMatch(/Every turn must reply to the immediately preceding turn/i);
     expect(prompt).not.toMatch(/academic writing coach/i);
     expect(prompt).not.toContain("Adam's Academic Context");
     expect(prompt).not.toMatch(/lesson mentor in this surface/i);
@@ -65,7 +66,8 @@ describe("podcast script", () => {
       ],
     });
 
-    expect(prompt).toMatch(/rewrite the entire supplied episode/i);
+    expect(prompt).toMatch(/rewrite the entire episode/i);
+    expect(prompt).toContain("This is the mandatory editorial pass. Preserve valid turn kinds and citations.");
     expect(prompt).toMatch(/read-aloud/i);
     expect(prompt).toMatch(/cold open/i);
     expect(prompt).toMatch(/paraphrase/i);
