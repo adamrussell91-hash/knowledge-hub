@@ -153,10 +153,6 @@ function patch(root: ParentNode, episode: PodcastEpisode, onOpenPage?: (pageId: 
   if (label) label.textContent = playerBoxLabel(waitingAnswer);
   const skip = root.querySelector<HTMLButtonElement>("[data-player='skip-quiz']");
   if (skip) skip.hidden = !waitingAnswer;
-  const label = root.querySelector("[data-interrupt-label]");
-  if (label) label.textContent = playerBoxLabel(waitingAnswer);
-  const skip = root.querySelector<HTMLButtonElement>("[data-player='skip-quiz']");
-  if (skip) skip.hidden = !waitingAnswer;
   root.querySelectorAll<HTMLElement>("[data-turn-index]").forEach(item => {
     item.classList.toggle("is-current", Number(item.dataset.turnIndex) === state.index);
   });
@@ -226,33 +222,6 @@ async function apply(root: ParentNode, host: PlayerViewHost, next: ReturnType<ty
       host.onError?.(error instanceof Error ? error.message : "Podcast failed.");
     }
   }
-}
-
-async function submitFollowup(
-  root: ParentNode,
-  host: PlayerViewHost,
-  payload: ReturnType<typeof submitQuiz>,
-) {
-  if (payload.type === "noop") return;
-  if (payload.type === "answer") {
-    try {
-      const episode = await answerPodcastQuiz(host.episode.id, {
-        afterTurn: payload.afterTurn,
-        text: payload.text,
-      });
-      waitingAnswer = false;
-      state = pauseAfterInterrupt(state);
-      host.onEpisode?.(episode);
-    } catch (error) {
-      host.onError?.(error instanceof Error ? error.message : "Podcast failed.");
-    }
-    return;
-  }
-  void apply(
-    root,
-    host,
-    nextAction(state, "interrupt", host.episode.turns, sensitivity(host.episode), payload.question),
-  );
 }
 
 async function submitFollowup(
