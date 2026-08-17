@@ -29,37 +29,32 @@ export const MOONETS_PER_MOON = 3;
 export const MOONS_PER_MINOR = 3;
 const NOTES_PER_MINOR = NOTES_PER_MOONET * MOONETS_PER_MOON * MOONS_PER_MINOR;
 
-const PLANET_INNER = 5200;
-const PLANET_GAP = 4000;
-const PLANET_RINGS = 8;
-const MINOR_INNER = 900;
-const MINOR_GAP = 480;
-const MINOR_RINGS = 12;
-const MOON_INNER = 220;
-const MOON_GAP = 160;
-const MOON_RINGS = 7;
-const MOONET_INNER = 90;
-const MOONET_GAP = 70;
-const MOONET_RINGS = 7;
-const NOTE_INNER = 36;
-const NOTE_GAP = 28;
+export const SUN_RADIUS = 46;
+/** No body may ever come this close to the centre, so nothing crosses the sun or its corona. */
+export const SUN_KEEP_OUT = SUN_RADIUS * 4;
+export const PLANET_ORBIT = 13000;
 
-export function minorOrbitRadius(weight: number, maxWeight: number) {
-  const t = maxWeight <= 0 ? 0 : weight / maxWeight;
-  return MINOR_INNER + (1 - t) * 70;
+/** Each level gets a slice of its planet's budget; the slices sum to 1 so a full chain still fits. */
+const LEVEL_SHARE = { minorPlanet: 0.55, moon: 0.25, moonet: 0.13, note: 0.07 };
+const BODY_RADIUS = { minorPlanet: 6, moon: 4.2, moonet: 2.8, note: 2.2 };
+
+type ClusterBudget = { minorPlanet: number; moon: number; moonet: number; note: number };
+
+/** A cluster may not reach the sun, nor stretch into the neighbouring planet's share of the ring. */
+export function clusterBudget(planetCount: number): ClusterBudget {
+  const half = planetCount > 1 ? PLANET_ORBIT * Math.sin(Math.PI / planetCount) : PLANET_ORBIT;
+  const budget = Math.min(PLANET_ORBIT - SUN_KEEP_OUT, half * 0.8);
+  return {
+    minorPlanet: budget * LEVEL_SHARE.minorPlanet,
+    moon: budget * LEVEL_SHARE.moon,
+    moonet: budget * LEVEL_SHARE.moonet,
+    note: budget * LEVEL_SHARE.note,
+  };
 }
 
-export function orbitLanes(count: number, inner: number, gap: number) {
-  return Array.from({ length: Math.max(count, 0) }, (_, i) => inner + i * gap);
-}
-
-/** Place n bodies across `ringCount` solar-system lanes so they use the full inner→outer span. */
-export function spreadOnRings(count: number, ringCount: number, inner: number, gap: number) {
-  const rings = orbitLanes(Math.max(ringCount, 1), inner, gap);
-  if (count <= 0) return [];
-  if (count === 1) return [rings[0]!];
-  const last = rings.length - 1;
-  return Array.from({ length: count }, (_, i) => rings[Math.round((i / (count - 1)) * last)]!);
+/** Stronger co-occurrence sorts a minor planet earlier around its shared orbit. */
+export function minorOrbitOrder(weight: number, maxWeight: number) {
+  return maxWeight <= 0 ? 1 : 1 - weight / maxWeight;
 }
 
 function periodFor(radius: number, base: number, scale: number) {
@@ -85,6 +80,9 @@ export function orbitSpeedJitter(id: string) {
 function applySpeedJitter(bodies: UniverseBody[]) {
   for (const body of bodies) {
     if (body.periodSec === 0) continue;
+    // Planets share one orbit, so they also share one period: uneven speeds would let their
+    // clusters drift into each other and undo the even spread around the sun.
+    if (body.kind === "planet") continue;
     body.periodSec /= orbitSpeedJitter(body.id);
   }
   return bodies;
@@ -94,25 +92,49 @@ export function evenPhase(index: number, count: number) {
   return (Math.PI * 2 * index) / Math.max(count, 1);
 }
 
-/** Same-level siblings sit on concentric circles, evenly spaced — never a radius+angle spiral. */
-export function placeOnCircularRings(
+const SOLO_CIRCLE_SHARE = 0.8;
+const INNER_CIRCLE_SHARE = 0.45;
+const MAX_CIRCLES = 14;
+
+function circleCapacity(radius: number, spacing: number) {
+  return Math.max(4, Math.floor((Math.PI * 2 * radius) / spacing));
+}
+
+function circleRadii(circles: number, maxRadius: number) {
+  if (circles <= 1) return [maxRadius * SOLO_CIRCLE_SHARE];
+  const span = SOLO_CIRCLE_SHARE - INNER_CIRCLE_SHARE;
+  return Array.from(
+    { length: circles },
+    (_, i) => maxRadius * (INNER_CIRCLE_SHARE + (span * i) / (circles - 1)),
+  );
+}
+
+/**
+ * Siblings share full circles: one circle holds them all unless they would touch, and only then
+ * does a second evenly filled circle open. A body never gets a radius of its own, which is what
+ * turns an even spread of angles into a spiral arm.
+ */
+export function evenOrbitSlots(
   count: number,
-  ringCount: number,
-  inner: number,
-  gap: number,
+  maxRadius: number,
+  bodyRadius: number,
 ): { radius: number; phase: number }[] {
   if (count <= 0) return [];
-  const lanes = Math.max(ringCount, 1);
-  const ringRadii = [...new Set(spreadOnRings(Math.min(count, lanes), lanes, inner, gap))];
-  const nRings = ringRadii.length;
-  const base = Math.floor(count / nRings);
-  const extra = count % nRings;
+  const spacing = Math.max(bodyRadius * 3.2, 7);
+  let radii = circleRadii(1, maxRadius);
+  for (let circles = 1; circles <= MAX_CIRCLES; circles++) {
+    radii = circleRadii(circles, maxRadius);
+    const room = radii.reduce((sum, radius) => sum + circleCapacity(radius, spacing), 0);
+    if (room >= count) break;
+  }
+  const base = Math.floor(count / radii.length);
+  const extra = count % radii.length;
   const out: { radius: number; phase: number }[] = [];
-  ringRadii.forEach((radius, ring) => {
-    const n = base + (ring < extra ? 1 : 0);
-    // Offset by a fraction of this ring's own spacing: one body per ring then lands on an
-    // even full-circle spread, and busier rings interleave instead of lining up on a spoke.
-    const offset = evenPhase(ring, nRings) / Math.max(n, 1);
+  radii.forEach((radius, circle) => {
+    const n = base + (circle < extra ? 1 : 0);
+    if (!n) return;
+    // Half-step neighbouring circles so their bodies interleave instead of lining up on a spoke.
+    const offset = (circle % 2) * (Math.PI / n);
     for (let i = 0; i < n; i++) out.push({ radius, phase: evenPhase(i, n) + offset });
   });
   return out;
@@ -135,11 +157,16 @@ function body(partial: UniverseBody): UniverseBody {
 
 type DraftNote = UniverseBody & { share: number };
 
-function fanOutFromMinor(minor: UniverseBody, notes: DraftNote[], sink: UniverseBody[]) {
+function fanOutFromMinor(
+  minor: UniverseBody,
+  notes: DraftNote[],
+  sink: UniverseBody[],
+  budget: ClusterBudget,
+) {
   const moonGroups = chunk(notes, NOTES_PER_MOONET * MOONETS_PER_MOON);
-  const moonSlots = placeOnCircularRings(moonGroups.length, MOON_RINGS, MOON_INNER, MOON_GAP);
+  const moonSlots = evenOrbitSlots(moonGroups.length, budget.moon, BODY_RADIUS.moon);
   moonGroups.forEach((moonNotes, moonIndex) => {
-    const slot = moonSlots[moonIndex] ?? { radius: MOON_INNER, phase: 0 };
+    const slot = moonSlots[moonIndex] ?? { radius: budget.moon, phase: 0 };
     const moon = body({
       id: `moon:${minor.id}:${moonIndex}`,
       kind: "moon",
@@ -147,16 +174,16 @@ function fanOutFromMinor(minor: UniverseBody, notes: DraftNote[], sink: Universe
       parentId: minor.id,
       count: moonNotes.length,
       ...paint(minor),
-      r: 4.2,
+      r: BODY_RADIUS.moon,
       orbitRadius: slot.radius,
       periodSec: periodFor(slot.radius, 14, 0.04),
       phase: slot.phase,
     });
     sink.push(moon);
     const moonetGroups = chunk(moonNotes, NOTES_PER_MOONET);
-    const moonetSlots = placeOnCircularRings(moonetGroups.length, MOONET_RINGS, MOONET_INNER, MOONET_GAP);
+    const moonetSlots = evenOrbitSlots(moonetGroups.length, budget.moonet, BODY_RADIUS.moonet);
     moonetGroups.forEach((bunch, moonetIndex) => {
-      const moonetSlot = moonetSlots[moonetIndex] ?? { radius: MOONET_INNER, phase: 0 };
+      const moonetSlot = moonetSlots[moonetIndex] ?? { radius: budget.moonet, phase: 0 };
       const moonet = body({
         id: `moonet:${moon.id}:${moonetIndex}`,
         kind: "moonet",
@@ -164,15 +191,15 @@ function fanOutFromMinor(minor: UniverseBody, notes: DraftNote[], sink: Universe
         parentId: moon.id,
         count: bunch.length,
         ...paint(minor),
-        r: 2.8,
+        r: BODY_RADIUS.moonet,
         orbitRadius: moonetSlot.radius,
         periodSec: periodFor(moonetSlot.radius, 8, 0.05),
         phase: moonetSlot.phase,
       });
       sink.push(moonet);
-      const noteSlots = placeOnCircularRings(bunch.length, 1, NOTE_INNER, NOTE_GAP);
+      const noteSlots = evenOrbitSlots(bunch.length, budget.note, BODY_RADIUS.note);
       bunch.forEach((note, noteIndex) => {
-        const noteSlot = noteSlots[noteIndex] ?? { radius: NOTE_INNER, phase: evenPhase(noteIndex, bunch.length) };
+        const noteSlot = noteSlots[noteIndex] ?? { radius: budget.note, phase: evenPhase(noteIndex, bunch.length) };
         note.parentId = moonet.id;
         note.color = moonet.color;
         note.soft = moonet.soft;
@@ -191,31 +218,30 @@ function splitEven<T>(items: T[], parts: number) {
   return chunk(items, size);
 }
 
-function fanOutFromPlanet(planet: UniverseBody, notes: DraftNote[], sink: UniverseBody[]) {
-  if (!notes.length) return;
+type MinorSeed = { minor: UniverseBody; notes: DraftNote[] };
+
+/** Bundle a planet's loose notes into unnamed minor planets; positions come later, with the named ones. */
+function packMinors(planet: UniverseBody, notes: DraftNote[]): MinorSeed[] {
+  if (!notes.length) return [];
   const target =
     notes.length >= 40
       ? Math.max(8, Math.ceil(notes.length / NOTES_PER_MINOR))
       : Math.max(1, Math.ceil(notes.length / (NOTES_PER_MOONET * MOONETS_PER_MOON)));
-  const packs = splitEven(notes, target);
-  const slots = placeOnCircularRings(packs.length, MINOR_RINGS, MINOR_INNER, MINOR_GAP);
-  packs.forEach((pack, index) => {
-    const slot = slots[index] ?? { radius: MINOR_INNER, phase: 0 };
-    const minor = body({
+  return splitEven(notes, target).map((pack, index) => ({
+    minor: body({
       id: `minorPlanet:${planet.id}:pack:${index}`,
       kind: "minorPlanet",
       label: "",
       parentId: planet.id,
       count: pack.length,
       ...paint(planet),
-      r: 6,
-      orbitRadius: slot.radius,
-      periodSec: periodFor(slot.radius, 18, 0.03),
-      phase: slot.phase,
-    });
-    sink.push(minor);
-    fanOutFromMinor(minor, pack, sink);
-  });
+      r: BODY_RADIUS.minorPlanet,
+      orbitRadius: 0,
+      periodSec: 0,
+      phase: 0,
+    }),
+    notes: pack,
+  }));
 }
 
 export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphModel {
@@ -228,7 +254,7 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
     color: "#ffb347",
     soft: "rgba(255, 179, 71, 0.35)",
     ink: "#6c581f",
-    r: 18,
+    r: SUN_RADIUS,
     orbitRadius: 0,
     periodSec: 0,
     phase: 0,
@@ -240,24 +266,22 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
   const majorNodes = base.nodes
     .filter(node => node.kind === "major")
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  const planetSlots = placeOnCircularRings(majorNodes.length, PLANET_RINGS, PLANET_INNER, PLANET_GAP);
-  const planets: UniverseBody[] = majorNodes.map((node, index) => {
-    const slot = planetSlots[index] ?? { radius: PLANET_INNER, phase: evenPhase(index, majorNodes.length) };
-    return {
-      id: node.id,
-      kind: "planet" as const,
-      label: node.label,
-      parentId: sun.id,
-      count: node.count,
-      color: node.color,
-      soft: node.soft,
-      ink: node.ink,
-      r: Math.max(10, node.r * 0.48),
-      orbitRadius: slot.radius,
-      periodSec: periodFor(slot.radius, 40, 0.006),
-      phase: slot.phase,
-    };
-  });
+  // Every planet shares one orbit, evenly spread: distinct radii plus even angles is a spiral.
+  const planets: UniverseBody[] = majorNodes.map((node, index) => ({
+    id: node.id,
+    kind: "planet" as const,
+    label: node.label,
+    parentId: sun.id,
+    count: node.count,
+    color: node.color,
+    soft: node.soft,
+    ink: node.ink,
+    r: Math.max(10, node.r * 0.48),
+    orbitRadius: PLANET_ORBIT,
+    periodSec: periodFor(PLANET_ORBIT, 40, 0.006),
+    phase: evenPhase(index, majorNodes.length),
+  }));
+  const budget = clusterBudget(planets.length);
 
   const planetByLabel = new Map(planets.map(planet => [planet.label, planet]));
   const pairMax = Math.max(
@@ -270,7 +294,6 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
     .map(node => {
       const planet = planetByLabel.get(node.parentKeyword ?? "") ?? planets[0];
       const orbit = base.links.find(link => link.kind === "orbit" && String(link.target) === node.id);
-      const weight = orbit?.weight ?? 1;
       return {
         id: node.id,
         kind: "minorPlanet" as const,
@@ -281,28 +304,14 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
         soft: node.soft,
         ink: node.ink,
         r: Math.max(5.5, node.r * 0.55),
-        orbitRadius: minorOrbitRadius(weight, pairMax),
-        periodSec: periodFor(minorOrbitRadius(weight, pairMax), 18, 0.03),
+        orbitRadius: 0,
+        periodSec: 0,
         phase: 0,
+        order: minorOrbitOrder(orbit?.weight ?? 1, pairMax),
       };
     })
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-
-  const minorsByPlanet = new Map<string, UniverseBody[]>();
-  for (const minor of namedMinors) {
-    const list = minorsByPlanet.get(minor.parentId ?? sun.id) ?? [];
-    list.push(minor);
-    minorsByPlanet.set(minor.parentId ?? sun.id, list);
-  }
-  for (const siblings of minorsByPlanet.values()) {
-    const slots = placeOnCircularRings(siblings.length, MINOR_RINGS, MINOR_INNER, MINOR_GAP);
-    siblings.forEach((minor, index) => {
-      const slot = slots[index] ?? { radius: MINOR_INNER, phase: evenPhase(index, siblings.length) };
-      minor.orbitRadius = slot.radius;
-      minor.periodSec = periodFor(minor.orbitRadius, 18, 0.03);
-      minor.phase = slot.phase;
-    });
-  }
+    .sort((a, b) => a.order - b.order || b.count - a.count || a.label.localeCompare(b.label))
+    .map(({ order: _order, ...minor }) => minor);
 
   const parentByKeyword = new Map<string, UniverseBody>();
   for (const planet of planets) parentByKeyword.set(planet.label, planet);
@@ -327,8 +336,8 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
         color: parent.color,
         soft: parent.soft,
         ink: parent.ink,
-        r: 2.2,
-        orbitRadius: NOTE_INNER,
+        r: BODY_RADIUS.note,
+        orbitRadius: budget.note,
         periodSec: 14,
         phase: 0,
         share,
@@ -347,11 +356,31 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
     notesByParent.set(key, list);
   }
 
+  // Named minors and note packs orbit the same planet, so they take slots from one shared spread.
+  const namedIds = new Set(namedMinors.map(minor => minor.id));
+  const seedsByPlanet = new Map<string, MinorSeed[]>();
   for (const minor of namedMinors) {
-    fanOutFromMinor(minor, notesByParent.get(minor.id) ?? [], extras);
+    const key = minor.parentId ?? sun.id;
+    const list = seedsByPlanet.get(key) ?? [];
+    list.push({ minor, notes: notesByParent.get(minor.id) ?? [] });
+    seedsByPlanet.set(key, list);
   }
   for (const planet of planets) {
-    fanOutFromPlanet(planet, notesByParent.get(planet.id) ?? [], extras);
+    const list = seedsByPlanet.get(planet.id) ?? [];
+    list.push(...packMinors(planet, notesByParent.get(planet.id) ?? []));
+    seedsByPlanet.set(planet.id, list);
+  }
+
+  for (const seeds of seedsByPlanet.values()) {
+    const slots = evenOrbitSlots(seeds.length, budget.minorPlanet, BODY_RADIUS.minorPlanet);
+    seeds.forEach(({ minor, notes: pack }, index) => {
+      const slot = slots[index] ?? { radius: budget.minorPlanet, phase: evenPhase(index, seeds.length) };
+      minor.orbitRadius = slot.radius;
+      minor.periodSec = periodFor(slot.radius, 18, 0.03);
+      minor.phase = slot.phase;
+      if (!namedIds.has(minor.id)) extras.push(minor);
+      fanOutFromMinor(minor, pack, extras, budget);
+    });
   }
 
   const notes: UniverseBody[] = draftNotes.map(({ share: _share, ...note }) => note);

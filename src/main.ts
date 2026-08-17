@@ -39,8 +39,6 @@ import { buildUniverseGraph } from "./archive/universeGraph";
 import { mountUniverseView, universeHotIds } from "./archive/universeView";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
-import { buildTimeline } from "./timeline/build";
-import { mountKeywordTimeline } from "./timeline/mount";
 import { enterWikiRail, leaveWikiRail, renderWikiRail } from "./wiki/rail";
 import { connectedLinksHtml } from "./wiki/connectedHtml";
 
@@ -50,7 +48,6 @@ type View =
   | "graph"
   | "page"
   | "compose"
-  | "timeline"
   | "alchemist"
   | "coach"
   | "podcast"
@@ -90,12 +87,6 @@ let coachInput = "";
 let coachBusy = false;
 let coachError = "";
 let coachTurns: CoachTurn[] = [];
-let timelineQuery = "";
-let timelineArea: AreaFilter = "all";
-let timelineBusy = false;
-let timelineError = "";
-let timelineTeardown: (() => void) | null = null;
-let timelinePaintGen = 0;
 
 type ComposeState = {
   id: string;
@@ -150,7 +141,6 @@ function composeFromPage(page: Page): ComposeState {
 const icons = {
   archive: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z"/><path d="M9 7V5h6v2"/><path d="M8 12h8"/></svg>`,
   graph: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="6" r="2.2"/><circle cx="18" cy="14" r="2.2"/><path d="M8 11l3-3M13.5 8l3 4"/></svg>`,
-  timeline: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18"/><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="18" cy="12" r="2.2"/></svg>`,
   university: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10l9-5 9 5-9 5-9-5z"/><path d="M7 12.5V17c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/></svg>`,
   notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>`,
   alchemist: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l-1 4H9L8 3z"/><path d="M9 7l-3 12h12l-3-12"/><path d="M10 12h4"/></svg>`,
@@ -234,10 +224,6 @@ function shell(main: string) {
     graphTeardown();
     graphTeardown = null;
   }
-  if (timelineTeardown) {
-    timelineTeardown();
-    timelineTeardown = null;
-  }
   app.innerHTML = `<div class="app-shell">
     <aside class="rail" aria-label="Knowledge Hub">
       <p class="rail__brand">Knowledge Hub</p>
@@ -246,7 +232,6 @@ function shell(main: string) {
         <button class="rail__btn ${area === "university" && view === "list" ? "is-active" : ""}" data-nav="university" type="button">${icons.university}<span>Uni</span></button>
         <button class="rail__btn ${area === "notes" && view === "list" ? "is-active" : ""}" data-nav="notes" type="button">${icons.notes}<span>Notes</span></button>
         <button class="rail__btn ${view === "graph" ? "is-active" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
-        <button class="rail__btn ${view === "timeline" ? "is-active" : ""}" data-nav="timeline" type="button">${icons.timeline}<span>Timeline</span></button>
         <button class="rail__btn ${view === "alchemist" ? "is-active" : ""}" data-nav="alchemist" type="button">${icons.alchemist}<span>Alchemist</span></button>
         <button class="rail__btn ${view === "coach" ? "is-active" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
         <button class="rail__btn ${view === "podcast" ? "is-active" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
@@ -262,7 +247,6 @@ function shell(main: string) {
       const next = button.dataset.nav!;
       const special: Record<string, View> = {
         graph: "graph",
-        timeline: "timeline",
         alchemist: "alchemist",
         coach: "coach",
         podcast: "podcast",
@@ -788,78 +772,6 @@ function renderPage(page: Page) {
   });
 }
 
-function renderTimeline() {
-  shell(`
-    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · reading migrated data · no Netlify deploy</p>` : ""}
-    ${pageHeader("Private archive", "Timeline")}
-    <div class="toolbar">
-      <input class="search" value="${escapeHtml(timelineQuery)}" placeholder="Search a topic — e.g. self determination theory" aria-label="Search timeline" />
-      <div class="filters">
-        <button class="filter-chip ${timelineArea === "all" ? "is-active" : ""}" data-timeline-area="all" type="button">All</button>
-        <button class="filter-chip ${timelineArea === "university" ? "is-active" : ""}" data-timeline-area="university" type="button">University</button>
-        <button class="filter-chip ${timelineArea === "notes" ? "is-active" : ""}" data-timeline-area="notes" type="button">Notes</button>
-      </div>
-    </div>
-    <p class="list-count">${timelineBusy ? "Searching…" : timelineError ? escapeHtml(timelineError) : ""}</p>
-    <div class="timeline-stage" data-timeline-stage></div>
-  `);
-
-  const input = app.querySelector<HTMLInputElement>(".search")!;
-  input.oninput = async event => {
-    timelineQuery = (event.target as HTMLInputElement).value;
-    render();
-    const next = app.querySelector<HTMLInputElement>(".search")!;
-    next.focus();
-    next.setSelectionRange(timelineQuery.length, timelineQuery.length);
-  };
-  app.querySelectorAll<HTMLButtonElement>("[data-timeline-area]").forEach(button => {
-    button.onclick = () => {
-      timelineArea = button.dataset.timelineArea as AreaFilter;
-      render();
-    };
-  });
-  const stage = app.querySelector<HTMLElement>("[data-timeline-stage]")!;
-  void paintTimeline(stage);
-}
-
-async function paintTimeline(stage: HTMLElement) {
-  const gen = ++timelinePaintGen;
-  const needle = timelineQuery.trim();
-  if (!needle) {
-    stage.innerHTML = `<p class="empty">Search a topic to see when those notes landed.</p>`;
-    return;
-  }
-  timelineBusy = true;
-  try {
-    const hits = (await searchPages(needle)).filter(item => timelineArea === "all" || item.area === timelineArea);
-    if (gen !== timelinePaintGen || view !== "timeline") return;
-    const model = buildTimeline(hits);
-    const count =
-      model.truncated > 0
-        ? `Showing ${model.nodes.length} of ${model.total.toLocaleString()} notes${model.spanLabel ? ` · ${model.spanLabel}` : ""}`
-        : `${model.total.toLocaleString()} notes${model.spanLabel ? ` · ${model.spanLabel}` : ""}`;
-    const countEl = app.querySelector(".list-count");
-    if (countEl) countEl.textContent = count;
-    if (!model.nodes.length) {
-      stage.innerHTML = `<p class="empty">No notes match.</p>`;
-      return;
-    }
-    timelineTeardown = () => {
-      stage.innerHTML = "";
-    };
-    mountKeywordTimeline(stage, {
-      model,
-      onPageClick: pageId => void openPage(pageId),
-    });
-  } catch (error) {
-    timelineError = error instanceof Error ? error.message : "Search failed";
-    showToast(timelineError);
-    stage.innerHTML = `<p class="empty">${escapeHtml(timelineError)}</p>`;
-  } finally {
-    timelineBusy = false;
-  }
-}
-
 function renderCompose(state: ComposeState) {
   const files = [
     ...state.existing.map(
@@ -1065,7 +977,6 @@ function render() {
   if (view === "compose" && compose) return renderCompose(compose);
   if (view === "page" && activePage) return renderPage(activePage);
   if (view === "graph") return renderGraph();
-  if (view === "timeline") return renderTimeline();
   if (view === "alchemist") return renderAlchemist();
   if (view === "coach") return renderCoach();
   if (view === "podcast") {

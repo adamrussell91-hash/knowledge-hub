@@ -119,7 +119,7 @@ function sunRadius(body: UniverseBody, timeSec: number, freeze: boolean, bump: b
 }
 
 const MIN_SCREEN_R: Record<UniverseBodyKind, number> = {
-  sun: 8,
+  sun: 15,
   planet: 6,
   minorPlanet: 4,
   moon: 3.2,

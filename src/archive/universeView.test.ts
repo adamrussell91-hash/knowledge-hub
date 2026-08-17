@@ -1,7 +1,7 @@
 /** @vitest-environment node */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UniverseBody } from "./universeGraph";
-import { buildUniverseGraph } from "./universeGraph";
+import { SUN_RADIUS, buildUniverseGraph } from "./universeGraph";
 import {
   advanceOrbitClock,
   isUniverseHot,
@@ -107,9 +107,10 @@ describe("positionAt", () => {
     expect(positionAt(sun, new Map(), 12, false)).toEqual({ x: 0, y: 0 });
   });
 
-  it("keeps planets visible when the camera is zoomed out to the full solar system", () => {
+  it("keeps planets visible and the sun dominant when zoomed out to the full solar system", () => {
     expect(visualRadius("planet", 12, 0.034) * 0.034).toBeCloseTo(6);
-    expect(visualRadius("sun", 18, 0.034) * 0.034).toBeCloseTo(8);
+    const sunOnScreen = visualRadius("sun", SUN_RADIUS, 0.034) * 0.034;
+    expect(sunOnScreen).toBeGreaterThan(visualRadius("planet", 12, 0.034) * 0.034 * 2);
   });
 
   it("scales each frame by the speed control and freezes when asked", () => {
