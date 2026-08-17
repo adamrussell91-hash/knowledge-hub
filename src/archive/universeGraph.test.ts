@@ -7,6 +7,7 @@ import {
   evenOrbitSlots,
   minorOrbitOrder,
   orbitSpeedJitter,
+  pickAsteroidBelt,
   type UniverseBody,
 } from "./universeGraph";
 
@@ -102,37 +103,92 @@ describe("buildUniverseGraph", () => {
 
     const model = buildUniverseGraph(pages);
     expect(model.bodies.some(body => body.kind === "sun")).toBe(true);
-    expect(model.bodies.filter(body => body.kind === "planet")).toHaveLength(8);
+    expect(model.bodies.filter(body => body.kind === "planet")).toHaveLength(7);
 
     const twins = model.bodies.filter(body => body.pageId === "twin");
     expect(twins).toHaveLength(2);
-    expect(new Set(twins.map(body => body.parentId)).size).toBe(2);
-    expect(twins.every(body => model.bodies.find(item => item.id === body.parentId)?.kind === "moonet")).toBe(true);
+    expect(twins.some(body => body.kind === "asteroid")).toBe(true);
+    expect(
+      twins.some(body => model.bodies.find(item => item.id === body.parentId)?.kind === "moonet"),
+    ).toBe(true);
   });
 
   it("places stronger co-occurrence minors earlier around their shared orbit", () => {
     expect(minorOrbitOrder(8, 8)).toBeLessThan(minorOrbitOrder(1, 8));
   });
 
-  it("starts every planet on one shared orbit, evenly spread around the sun", () => {
+  it("picks Cognitive Psychology as the asteroid belt when that major exists", () => {
+    expect(
+      pickAsteroidBelt([
+        { label: "Gifted Education", count: 40 },
+        { label: "Cognitive Psychology", count: 12 },
+        { label: "Educational Psychology", count: 80 },
+      ]),
+    ).toBe("Cognitive Psychology");
+  });
+
+  it("falls back to Educational Psychology, then the busiest major", () => {
+    expect(pickAsteroidBelt([{ label: "Educational Psychology", count: 10 }, { label: "Gifted Education", count: 80 }])).toBe(
+      "Educational Psychology",
+    );
+    expect(pickAsteroidBelt([{ label: "Pedagogy & Instructional Design", count: 3 }, { label: "Gifted Education", count: 9 }])).toBe(
+      "Gifted Education",
+    );
+  });
+
+  it("puts planets on at least 6 separate solar rings, not one orbit, a line, or a spiral", () => {
     const pages = MAJORS.flatMap((tag, index) => {
-      const copies = tag === "Educational Psychology" ? 12 : tag === "Gifted Education" ? 2 : 4;
+      const copies = tag === "Educational Psychology" ? 40 : tag === "Gifted Education" ? 2 : 6;
       return Array.from({ length: copies }, (_, copy) =>
         page(`${index}-${copy}`, `${tag} ${copy}`, [tag, MAJORS[(index + 1) % MAJORS.length]]),
       );
     });
-    const planets = buildUniverseGraph(pages).bodies.filter(body => body.kind === "planet");
-    expect(new Set(planets.map(planet => planet.orbitRadius)).size).toBe(1);
-    const phases = planets.map(planet => planet.phase).sort((a, b) => a - b);
-    const step = (Math.PI * 2) / planets.length;
-    phases.forEach((phase, index) => expect(phase).toBeCloseTo(index * step, 8));
+    const model = buildUniverseGraph(pages);
+    const planets = model.bodies.filter(body => body.kind === "planet");
+    expect(planets.some(planet => planet.label === "Educational Psychology")).toBe(false);
+    expect(planets).toHaveLength(7);
+    const radii = planets.map(planet => planet.orbitRadius).sort((a, b) => a - b);
+    expect(new Set(radii).size).toBe(planets.length);
+    expect(radii.length).toBeGreaterThanOrEqual(6);
+    for (let i = 1; i < radii.length; i++) {
+      expect(radii[i]! - radii[i - 1]!).toBeGreaterThan(5000);
+    }
+    expect(radii.at(-1)! - radii[0]!).toBeGreaterThan(30000);
+    expect(new Set(planets.map(planet => planet.phase.toFixed(4))).size).toBe(planets.length);
+    const byRadius = [...planets].sort((a, b) => a.orbitRadius - b.orbitRadius);
+    const spiralSteps = byRadius.slice(1).map((planet, index) => planet.phase - byRadius[index]!.phase);
+    const mean = spiralSteps.reduce((sum, step) => sum + step, 0) / spiralSteps.length;
+    const spiral = spiralSteps.every(step => Math.abs(step - mean) < 0.05 && step > 0.2);
+    expect(spiral).toBe(false);
   });
 
-  it("keeps the planets in lockstep so the even spread never decays into overlapping clusters", () => {
-    const model = buildUniverseGraph(busyArchive());
+  it("parks four smaller planets inside the psychology belt, then the remaining planets outside", () => {
+    const pages = MAJORS.flatMap((tag, index) => {
+      const copies = tag === "Educational Psychology" ? 50 : 4 + index;
+      return Array.from({ length: copies }, (_, copy) => page(`${tag}-${copy}`, `${tag} ${copy}`, [tag]));
+    });
+    const model = buildUniverseGraph(pages);
     const planets = model.bodies.filter(body => body.kind === "planet");
-    expect(new Set(planets.map(planet => planet.periodSec)).size).toBe(1);
-    const notes = model.bodies.filter(body => body.kind === "note");
+    const belt = model.bodies.filter(body => body.kind === "asteroid");
+    expect(belt.length).toBeGreaterThan(20);
+    const beltMin = Math.min(...belt.map(body => body.orbitRadius));
+    const beltMax = Math.max(...belt.map(body => body.orbitRadius));
+    const inner = planets.filter(planet => planet.orbitRadius < beltMin);
+    const outer = planets.filter(planet => planet.orbitRadius > beltMax);
+    expect(inner).toHaveLength(4);
+    expect(outer.length).toBe(planets.length - 4);
+    expect(inner.every(planet => planet.count <= Math.max(...outer.map(item => item.count)))).toBe(true);
+    expect(new Set(belt.map(body => body.orbitRadius)).size).toBeGreaterThan(1);
+    expect(belt.every(body => body.parentId === "sun:hub")).toBe(true);
+  });
+
+  it("gives outer planets slower years so the solar system is not a carousel", () => {
+    const model = buildUniverseGraph(busyArchive());
+    const planets = [...model.bodies.filter(body => body.kind === "planet")].sort(
+      (a, b) => a.orbitRadius - b.orbitRadius,
+    );
+    expect(planets[0]!.periodSec).toBeLessThan(planets.at(-1)!.periodSec);
+    const notes = model.bodies.filter(body => body.kind === "note" || body.kind === "asteroid");
     expect(new Set(notes.map(note => note.periodSec.toFixed(4))).size).toBeGreaterThan(1);
   });
 
@@ -140,6 +196,7 @@ describe("buildUniverseGraph", () => {
     const model = buildUniverseGraph(busyArchive());
     for (const group of siblingGroups(model.bodies)) {
       if (group.length < 2) continue;
+      if (group[0]?.parentId === "sun:hub") continue;
       for (const [, phases] of circlesIn(group)) {
         expect(phases.length).toBeGreaterThan(1);
         expectEvenlySpaced(phases);
@@ -158,20 +215,28 @@ describe("buildUniverseGraph", () => {
     }
   });
 
-  it("keeps each planet's cluster inside its own share of the ring", () => {
+  it("keeps each planet's cluster inside the gap to the next solar ring", () => {
     const model = buildUniverseGraph(busyArchive());
     const byId = new Map(model.bodies.map(body => [body.id, body]));
     const planets = model.bodies.filter(body => body.kind === "planet");
-    const halfGap = planets[0]!.orbitRadius * Math.sin(Math.PI / planets.length);
+    const belt = model.bodies.filter(body => body.kind === "asteroid");
+    const fences = [
+      ...planets.map(planet => planet.orbitRadius),
+      ...(belt.length ? [Math.min(...belt.map(body => body.orbitRadius)), Math.max(...belt.map(body => body.orbitRadius))] : []),
+    ].sort((a, b) => a - b);
     for (const body of model.bodies) {
-      if (body.kind === "sun" || body.kind === "planet") continue;
+      if (body.kind === "sun" || body.kind === "planet" || body.kind === "asteroid") continue;
       let reach = 0;
       let node: UniverseBody | undefined = body;
       while (node?.parentId && node.kind !== "planet") {
         reach += node.orbitRadius;
         node = byId.get(node.parentId);
       }
-      expect(reach).toBeLessThan(halfGap);
+      if (node?.kind !== "planet") continue;
+      const orbit = node.orbitRadius;
+      const prev = Math.max(SUN_KEEP_OUT, ...fences.filter(fence => fence < orbit));
+      const next = Math.min(...fences.filter(fence => fence > orbit), orbit * 2);
+      expect(reach).toBeLessThan(0.45 * Math.min(orbit - prev, next - orbit));
     }
   });
 
@@ -199,7 +264,7 @@ describe("buildUniverseGraph", () => {
   });
 
   it("varies orbit speed by up to 10% per body, and always by the same amount for a given body", () => {
-    const tag = "Educational Psychology";
+    const tag = "Gifted Education";
     const pages = Array.from({ length: 60 }, (_, index) => page(`n${index}`, `Note ${index}`, [tag]));
     const first = buildUniverseGraph(pages).bodies;
     const second = buildUniverseGraph(pages).bodies;
@@ -217,7 +282,7 @@ describe("buildUniverseGraph", () => {
   });
 
   it("puts notes around a moonet on one circular orbit", () => {
-    const tag = "Educational Psychology";
+    const tag = "Gifted Education";
     const pages = Array.from({ length: 5 }, (_, index) => page(`n${index}`, `Note ${index}`, [tag]));
     const model = buildUniverseGraph(pages);
     const notes = model.bodies.filter(body => body.kind === "note");
@@ -243,7 +308,7 @@ describe("buildUniverseGraph", () => {
   });
 
   it("fans a crowded planet into minor planets, moons, and moonets so notes never pile on one host", () => {
-    const tag = "Educational Psychology";
+    const tag = "Gifted Education";
     const pages = Array.from({ length: 80 }, (_, index) => page(`n${index}`, `Note ${index}`, [tag]));
     const model = buildUniverseGraph(pages);
     const planet = model.bodies.find(body => body.kind === "planet")!;

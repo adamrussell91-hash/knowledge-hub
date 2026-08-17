@@ -11,10 +11,10 @@ export type UniverseViewOptions = {
 
 type Placed = UniverseBody & { x: number; y: number };
 
-const KIND_ORDER: UniverseBodyKind[] = ["sun", "planet", "minorPlanet", "moon", "moonet", "note"];
+const KIND_ORDER: UniverseBodyKind[] = ["sun", "planet", "asteroid", "minorPlanet", "moon", "moonet", "note"];
 const ENTER_MS = 800;
-const K_START = 0.012;
-const K_END = 0.018;
+const K_START = 0.0045;
+const K_END = 0.007;
 const NOTE_DRAW_LIMIT = 1500;
 const PULSE_HZ = 0.6;
 const PULSE_AMP = 0.06;
@@ -121,6 +121,7 @@ function sunRadius(body: UniverseBody, timeSec: number, freeze: boolean, bump: b
 const MIN_SCREEN_R: Record<UniverseBodyKind, number> = {
   sun: 15,
   planet: 6,
+  asteroid: 1.4,
   minorPlanet: 4,
   moon: 3.2,
   moonet: 2.4,
@@ -182,7 +183,7 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
   function layoutLive(timeSec: number) {
     for (const group of liveByKind) {
       for (const body of group) {
-        if (body.kind === "note") {
+        if (body.kind === "note" || body.kind === "asteroid") {
           const parent = body.parentId ? liveById.get(body.parentId) : null;
           if (parent && !onScreen(parent.x, parent.y, 120)) {
             body.x = parent.x;
@@ -214,7 +215,7 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
       const body = lastPlaced[i];
       if (skipNotes && body.kind === "note") continue;
       const r = visualRadius(body.kind, body.kind === "sun" ? lastSunR : body.r, view.k);
-      const pad = (body.kind === "note" ? 4 : body.kind === "moonet" ? 5 : body.kind === "moon" ? 6 : 8) / view.k;
+      const pad = (body.kind === "note" || body.kind === "asteroid" ? 4 : body.kind === "moonet" ? 5 : body.kind === "moon" ? 6 : 8) / view.k;
       const dist = Math.hypot(body.x - x, body.y - y);
       if (dist <= r + pad && dist < best) {
         best = dist;
@@ -255,7 +256,9 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
     const hotIds = universeHotIds(model.bodies, options.search);
     const centre = { x: (width / 2 - view.x) / view.k, y: (height / 2 - view.y) / view.k };
     const notes = placed.filter(
-      body => body.kind === "note" && (hotIds.has(body.id) || onScreen(body.x, body.y)),
+      body =>
+        (body.kind === "note" || body.kind === "asteroid") &&
+        (hotIds.has(body.id) || onScreen(body.x, body.y)),
     );
     const keepNotes = notesToKeep(notes, centre, hotIds);
 
@@ -266,9 +269,9 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
     ctx.scale(view.k, view.k);
 
     for (const body of placed) {
-      if (body.kind !== "note" || !keepNotes.has(body.id)) continue;
+      if ((body.kind !== "note" && body.kind !== "asteroid") || !keepNotes.has(body.id)) continue;
       const alpha = bodyAlpha(body, hotIds, searching);
-      const drawR = visualRadius("note", body.r, view.k);
+      const drawR = visualRadius(body.kind, body.r, view.k);
       ctx.beginPath();
       ctx.arc(body.x, body.y, drawR, 0, Math.PI * 2);
       ctx.fillStyle = body.color;
@@ -404,7 +407,7 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
         canvas.removeEventListener("pointerup", onUp);
         const still = findBody(toWorld(up.clientX, up.clientY).x, toWorld(up.clientX, up.clientY).y);
         if (!(still && still.id === body.id)) return;
-        if (body.kind === "note" && body.pageId) {
+        if ((body.kind === "note" || body.kind === "asteroid") && body.pageId) {
           selectedId = body.id;
           onNoteSelect({ pageId: body.pageId, title: body.label, excerpt: body.excerpt ?? "" });
           return;
@@ -450,7 +453,7 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
     if (body) {
       tip.hidden = false;
       tip.textContent =
-        body.kind === "sun" || body.kind === "note"
+        body.kind === "sun" || body.kind === "note" || body.kind === "asteroid"
           ? body.label
           : body.label
             ? `${body.label} · ${body.count}`

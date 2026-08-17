@@ -33,7 +33,7 @@ const timeSec = Number(process.argv[3] ?? 0);
 const model = buildUniverseGraph(entries);
 const byId = new Map<string, UniverseBody & { x: number; y: number }>();
 const placed: Array<UniverseBody & { x: number; y: number }> = [];
-const order = ["sun", "planet", "minorPlanet", "moon", "moonet", "note"];
+const order = ["sun", "planet", "asteroid", "minorPlanet", "moon", "moonet", "note"];
 for (const kind of order) {
   for (const b of model.bodies.filter(item => item.kind === kind)) {
     const parent = b.parentId ? byId.get(b.parentId) : undefined;
