@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { SHOW_ALL_LAYOUT_SCALE, buildShowAllGraph } from "./showAllGraph";
+import {
+  SHOW_ALL_CLUSTER_GAP,
+  buildShowAllGraph,
+  showAllClusterRadius,
+} from "./showAllGraph";
 
 function page(id: string, title: string, tags: string[]) {
   return { id, title, area: "notes" as const, tags, excerpt: `${title} excerpt` };
@@ -35,8 +39,7 @@ describe("buildShowAllGraph", () => {
     expect(model.links.every(link => link.kind !== "overlap")).toBe(true);
   });
 
-  it("seeds majors on distinct radii around the layout centre", () => {
-    expect(SHOW_ALL_LAYOUT_SCALE).toBe(10);
+  it("separates major anchors by their cluster footprints", () => {
     const majors = [
       "Educational Psychology",
       "Pedagogy & Instructional Design",
@@ -47,16 +50,27 @@ describe("buildShowAllGraph", () => {
       "Neurodiversity & Special Education",
       "Cognitive Neuroscience",
     ];
-    const model = buildShowAllGraph(
-      majors.map((tag, index) => page(`m${index}`, `Major ${index}`, [tag, majors[(index + 1) % majors.length]])),
+    const pages = majors.flatMap((tag, index) =>
+      Array.from({ length: (index + 1) * 4 }, (_, note) => page(`${index}-${note}`, `${tag} ${note}`, [tag])),
     );
+    const model = buildShowAllGraph(pages);
     const majorsPlaced = model.nodes.filter(node => node.kind === "major");
-    const dists = majorsPlaced.map(node => Math.hypot((node.x ?? 0) - 760, (node.y ?? 0) - 560)).sort((a, b) => a - b);
-    expect(new Set(dists.map(dist => Math.round(dist))).size).toBe(majorsPlaced.length);
-    expect(dists[0]).toBeGreaterThan(2000);
-    for (let i = 1; i < dists.length; i++) {
-      expect(dists[i]! - dists[i - 1]!).toBeGreaterThan(1000);
+    expect(majorsPlaced).toHaveLength(8);
+    for (let i = 0; i < majorsPlaced.length; i++) {
+      for (let j = i + 1; j < majorsPlaced.length; j++) {
+        const left = majorsPlaced[i]!;
+        const right = majorsPlaced[j]!;
+        const distance = Math.hypot((left.x ?? 0) - (right.x ?? 0), (left.y ?? 0) - (right.y ?? 0));
+        expect(distance).toBeGreaterThanOrEqual(
+          showAllClusterRadius(left.count) + showAllClusterRadius(right.count) + SHOW_ALL_CLUSTER_GAP,
+        );
+      }
     }
+  });
+
+  it("gives busier hubs more cluster clearance", () => {
+    expect(showAllClusterRadius(100)).toBeGreaterThan(showAllClusterRadius(25));
+    expect(showAllClusterRadius(25)).toBeGreaterThan(showAllClusterRadius(1));
   });
 
   it("finds a two-tag overlap without pairing every note that shares one popular tag", () => {
@@ -68,7 +82,7 @@ describe("buildShowAllGraph", () => {
     expect(overlaps[0].weight).toBe(2);
   });
 
-  it("sits notes on concentric circles around their hub, not a 20-slot spiral", () => {
+  it("seeds notes at distinct organic positions inside their hub cluster", () => {
     const pages = Array.from({ length: 40 }, (_, index) =>
       page(`n${index}`, `Note ${index}`, ["Educational Psychology"]),
     );
@@ -76,10 +90,9 @@ describe("buildShowAllGraph", () => {
     const hub = model.nodes.find(node => node.kind === "major")!;
     const leaves = model.nodes.filter(node => node.kind === "leaf");
     const radii = leaves.map(node => Math.hypot((node.x ?? 0) - (hub.x ?? 0), (node.y ?? 0) - (hub.y ?? 0)));
-    const rounded = [...new Set(radii.map(radius => Math.round(radius)))].sort((a, b) => a - b);
-    expect(rounded.length).toBeGreaterThanOrEqual(1);
-    expect(rounded.length).toBeLessThan(40);
-    const inner = leaves.filter(node => Math.round(Math.hypot((node.x ?? 0) - (hub.x ?? 0), (node.y ?? 0) - (hub.y ?? 0))) === rounded[0]);
-    expect(inner.length).toBeGreaterThan(20);
+    const positions = new Set(leaves.map(node => `${node.x?.toFixed(3)},${node.y?.toFixed(3)}`));
+    expect(positions.size).toBe(leaves.length);
+    expect(new Set(radii.map(radius => Math.round(radius))).size).toBeGreaterThan(10);
+    expect(Math.max(...radii)).toBeLessThan(showAllClusterRadius(leaves.length));
   });
 });

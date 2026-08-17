@@ -3,11 +3,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import type { UniverseBody } from "./universeGraph";
 import { buildUniverseGraph } from "./universeGraph";
 import {
+  advanceOrbitClock,
   isUniverseHot,
   isUniverseSearching,
   mountUniverseView,
   notesToKeep,
-  orbitTimeSec,
   positionAt,
   universeHotIds,
   universeSubtreeIds,
@@ -112,11 +112,17 @@ describe("positionAt", () => {
     expect(visualRadius("sun", 18, 0.034) * 0.034).toBeCloseTo(8);
   });
 
-  it("scales orbit time by the speed control and freezes when asked", () => {
-    expect(orbitTimeSec(2000, 1, false)).toBe(2);
-    expect(orbitTimeSec(2000, 2, false)).toBe(4);
-    expect(orbitTimeSec(2000, 0, false)).toBe(0);
-    expect(orbitTimeSec(2000, 2, true)).toBe(0);
+  it("scales each frame by the speed control and freezes when asked", () => {
+    expect(advanceOrbitClock(0, 2000, 1, false)).toBe(2);
+    expect(advanceOrbitClock(0, 2000, 2, false)).toBe(4);
+    expect(advanceOrbitClock(5, 2000, 0, false)).toBe(5);
+    expect(advanceOrbitClock(5, 2000, 2, true)).toBe(0);
+  });
+
+  it("changes pace without jumping the orbits when the speed slider moves", () => {
+    const slow = advanceOrbitClock(0, 10000, 0.25, false);
+    expect(slow).toBe(2.5);
+    expect(advanceOrbitClock(slow, 1000, 1, false)).toBe(3.5);
   });
 
   it("places a child at orbitRadius along phase when frozen or at time 0", () => {

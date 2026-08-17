@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
 import {
   OVERLAP_LINK_ALPHA,
+  SHOW_ALL_SETTLE_TICKS,
   fitViewToNodes,
   initialForceView,
   isGraphSearching,
@@ -13,6 +14,10 @@ import {
   resolveEnterKey,
   resolveNodeClick,
   showAllLinkShouldDraw,
+  showAllCollisionRadius,
+  showAllLinkDistance,
+  showAllLinkStrength,
+  shouldLockShowAll,
   simulationNodes,
 } from "./forceGraphBehavior";
 
@@ -174,8 +179,8 @@ describe("force graph chrome", () => {
     expect(view).toEqual({ k, x: 200 - 100 * k, y: 150 - 50 * k });
   });
 
-  it("draws overlap links at a stronger idle alpha", () => {
-    expect(OVERLAP_LINK_ALPHA).toBe(0.28);
+  it("keeps overlap links visually subordinate", () => {
+    expect(OVERLAP_LINK_ALPHA).toBeLessThanOrEqual(0.16);
   });
 
   it("keeps zoomed-out Show All notes larger than a pixel", () => {
@@ -185,15 +190,39 @@ describe("force graph chrome", () => {
 });
 
 describe("show all draw budget", () => {
-  it("keeps leaves out of the force simulation", () => {
-    expect(simulationNodes("showAll", nodes).every(item => item.kind !== "leaf")).toBe(true);
+  it("includes leaves so note clouds can settle organically", () => {
+    expect(simulationNodes("showAll", nodes)).toEqual(nodes);
     expect(simulationNodes("constellation", nodes)).toEqual(nodes);
   });
 
+  it("keeps local spokes stronger and shorter than cross-cluster overlaps", () => {
+    expect(showAllLinkStrength("spoke")).toBeGreaterThan(showAllLinkStrength("overlap"));
+    expect(showAllLinkDistance("spoke")).toBeLessThan(showAllLinkDistance("overlap"));
+    expect(showAllLinkStrength("overlap")).toBeLessThanOrEqual(0.01);
+  });
+
+  it("lets busier hubs hold wider note clouds", () => {
+    const busy = { ...major, count: 100 };
+    const quiet = { ...major, count: 4 };
+    const busySpoke: GraphLinkDatum = { source: busy, target: leaf, kind: "spoke", weight: 1, color: busy.color };
+    const quietSpoke: GraphLinkDatum = { source: quiet, target: leaf, kind: "spoke", weight: 1, color: quiet.color };
+    expect(showAllLinkDistance(busySpoke)).toBeGreaterThan(showAllLinkDistance(quietSpoke));
+  });
+
+  it("gives hubs more collision clearance than notes", () => {
+    expect(showAllCollisionRadius(major)).toBeGreaterThan(showAllCollisionRadius(leaf));
+    expect(showAllCollisionRadius(minor)).toBeGreaterThan(showAllCollisionRadius(leaf));
+  });
+
+  it("locks the settled map at a bounded tick budget", () => {
+    expect(shouldLockShowAll(SHOW_ALL_SETTLE_TICKS - 1)).toBe(false);
+    expect(shouldLockShowAll(SHOW_ALL_SETTLE_TICKS)).toBe(true);
+  });
+
   it("only draws a spoke when the leaf is on screen and zoomed in", () => {
-    expect(showAllLinkShouldDraw("spoke", 0.19, true)).toBe(false);
-    expect(showAllLinkShouldDraw("spoke", 0.2, false)).toBe(false);
-    expect(showAllLinkShouldDraw("spoke", 0.2, true)).toBe(true);
+    expect(showAllLinkShouldDraw("spoke", 0.11, true)).toBe(false);
+    expect(showAllLinkShouldDraw("spoke", 0.12, false)).toBe(false);
+    expect(showAllLinkShouldDraw("spoke", 0.12, true)).toBe(true);
     expect(showAllLinkShouldDraw("overlap", 0.08, true)).toBe(false);
     expect(showAllLinkShouldDraw("overlap", 0.09, true)).toBe(true);
     expect(showAllLinkShouldDraw("backbone", 0.01, false)).toBe(true);

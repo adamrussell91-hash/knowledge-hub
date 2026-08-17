@@ -66,6 +66,30 @@ function periodFor(radius: number, base: number, scale: number) {
   return base + radius * scale;
 }
 
+const SPEED_JITTER = 0.1;
+
+function hashUnit(id: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967296;
+}
+
+/** Each body keeps its own speed within ±10%, derived from its id so it never changes between loads. */
+export function orbitSpeedJitter(id: string) {
+  return 1 + (hashUnit(id) * 2 - 1) * SPEED_JITTER;
+}
+
+function applySpeedJitter(bodies: UniverseBody[]) {
+  for (const body of bodies) {
+    if (body.periodSec === 0) continue;
+    body.periodSec /= orbitSpeedJitter(body.id);
+  }
+  return bodies;
+}
+
 export function evenPhase(index: number, count: number) {
   return (Math.PI * 2 * index) / Math.max(count, 1);
 }
@@ -86,7 +110,9 @@ export function placeOnCircularRings(
   const out: { radius: number; phase: number }[] = [];
   ringRadii.forEach((radius, ring) => {
     const n = base + (ring < extra ? 1 : 0);
-    const offset = evenPhase(ring, Math.max(nRings * 2, 1));
+    // Offset by a fraction of this ring's own spacing: one body per ring then lands on an
+    // even full-circle spread, and busier rings interleave instead of lining up on a spoke.
+    const offset = evenPhase(ring, nRings) / Math.max(n, 1);
     for (let i = 0; i < n; i++) out.push({ radius, phase: evenPhase(i, n) + offset });
   });
   return out;
@@ -329,5 +355,5 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
   }
 
   const notes: UniverseBody[] = draftNotes.map(({ share: _share, ...note }) => note);
-  return { bodies: [sun, ...planets, ...namedMinors, ...extras, ...notes] };
+  return { bodies: applySpeedJitter([sun, ...planets, ...namedMinors, ...extras, ...notes]) };
 }

@@ -19,11 +19,13 @@ import {
   resolveEnterKey,
   resolveNodeClick,
   showAllLinkShouldDraw,
+  shouldLockShowAll,
   simulationNodes,
   type ForceGraphVariant,
   type GraphMount,
 } from "./forceGraphBehavior";
 import type { ArchiveGraphModel, GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
+import { createShowAllSimulation, lockShowAllNodes } from "./showAllSimulation";
 
 export type { ForceGraphVariant };
 
@@ -123,11 +125,17 @@ export function mountForceGraph(
   function createSimulation() {
     const nodesForSim = simulationNodes(options.variant, simNodes);
     if (options.variant === "showAll") {
-      for (const node of simNodes) {
-        node.fx = node.x ?? 0;
-        node.fy = node.y ?? 0;
-      }
-      return forceSimulation(nodesForSim).alpha(0).stop();
+      let ticks = 0;
+      const sim = createShowAllSimulation(nodesForSim, simLinks)
+        .on("tick", () => {
+          ticks += 1;
+          if (shouldLockShowAll(ticks)) {
+            lockShowAllNodes(simNodes);
+            sim.stop();
+          }
+          scheduleDraw();
+        });
+      return sim;
     }
     const sim = forceSimulation(nodesForSim)
       .force(
@@ -136,8 +144,8 @@ export function mountForceGraph(
           .id(node => node.id)
           .distance(link => {
             if (link.kind === "spoke") return 72;
-            if (link.kind === "orbit") return options.variant === "showAll" ? 980 : 140;
-            return (240 + Math.min(140, link.weight / 5)) * (options.variant === "showAll" ? 8 : 1);
+            if (link.kind === "orbit") return 140;
+            return 240 + Math.min(140, link.weight / 5);
           })
           .strength(link => {
             if (link.kind === "spoke") return 0.65;
@@ -150,15 +158,11 @@ export function mountForceGraph(
         forceManyBody<GraphNodeDatum>()
           .strength(node => {
             if (node.kind === "leaf") return 0;
-            if (options.variant === "showAll") {
-              if (node.kind === "major") return -2600;
-              return -700;
-            }
             if (node.kind === "major") return -2400;
             if (node.kind === "minor") return -320;
             return -28;
           })
-          .distanceMax(options.variant === "showAll" ? 7000 : 1200),
+          .distanceMax(1200),
       )
       .force(
         "x",
@@ -183,17 +187,13 @@ export function mountForceGraph(
         forceCollide<GraphNodeDatum>()
           .radius(node => {
             if (node.kind === "leaf") return 0;
-            if (options.variant === "showAll") {
-              if (node.kind === "major") return node.r + 80;
-              return node.r + 36;
-            }
             if (node.kind === "major") return node.r + 44;
             if (node.kind === "minor") return node.r + 18;
             return node.r + 8;
           })
           .strength(0.95),
       )
-      .alphaDecay(options.variant === "showAll" ? 0.08 : 0.02)
+      .alphaDecay(0.02)
       .velocityDecay(0.4)
       .on("tick", scheduleDraw);
 
@@ -361,7 +361,10 @@ export function mountForceGraph(
         ctx.lineWidth = 1.4 / view.k;
       } else {
         ctx.setLineDash([]);
-        const thick = 1 + (link.weight / maxWeight) * 4.5;
+        const thick =
+          showAll && link.kind === "overlap"
+            ? 0.75 + (link.weight / maxWeight) * 1.5
+            : 1 + (link.weight / maxWeight) * 4.5;
         if (active) {
           ctx.strokeStyle = "#e07a2f";
           ctx.globalAlpha = 0.9;
@@ -562,7 +565,7 @@ export function mountForceGraph(
     if (!dragged) return;
     const node = dragged;
     dragged = null;
-    if (options.variant === "showAll" && node.kind === "leaf") {
+    if (options.variant === "showAll") {
       node.fx = node.x ?? 0;
       node.fy = node.y ?? 0;
     } else {

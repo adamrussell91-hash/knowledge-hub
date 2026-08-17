@@ -78,6 +78,7 @@ let listScrollTop = 0;
 let graphTeardown: (() => void) | null = null;
 let graphMode: GraphMode = "constellation";
 let graphSearch = "";
+let orbitSpeed = 0.5;
 let alchemistLesson = "";
 let alchemistBusy = false;
 let alchemistError = "";
@@ -418,6 +419,10 @@ function renderList() {
   };
 }
 
+function orbitSpeedLabel(speed: number) {
+  return speed === 0 ? "Paused" : `${speed.toFixed(2)}×`;
+}
+
 function renderGraph() {
   const constellation = buildArchiveGraph(entries);
   const excerptFor = (pageId: string) => entries.find(entry => entry.id === pageId)?.excerpt ?? "";
@@ -462,6 +467,15 @@ function renderGraph() {
           <button type="button" data-graph-mode="universe" class="${graphMode === "universe" ? "is-active" : ""}">Universe</button>
         </div>
         <input class="graph-search" type="search" placeholder="Search keywords and notes" value="${escapeHtml(graphSearch)}" />
+        ${
+          graphMode === "universe"
+            ? `<label class="graph-speed">
+                <span class="graph-speed__label">Orbit speed</span>
+                <input type="range" min="0" max="1" step="0.05" value="${orbitSpeed}" data-orbit-speed />
+                <output class="graph-speed__value" data-orbit-speed-value>${orbitSpeedLabel(orbitSpeed)}</output>
+              </label>`
+            : ""
+        }
         <p class="graph-toolbar__meta">${meta}${searchHint}</p>
       </div>
       <div class="graph-stage"></div>
@@ -507,9 +521,20 @@ function renderGraph() {
 
   let stop = () => {};
   if (graphMode === "universe") {
+    const clock = { speed: orbitSpeed };
+    const slider = app.querySelector<HTMLInputElement>("[data-orbit-speed]");
+    const readout = app.querySelector<HTMLOutputElement>("[data-orbit-speed-value]");
+    if (slider) {
+      slider.oninput = () => {
+        orbitSpeed = Number(slider.value);
+        clock.speed = orbitSpeed;
+        if (readout) readout.textContent = orbitSpeedLabel(orbitSpeed);
+      };
+    }
     stop = mountUniverseView(stage, buildUniverseGraph(entries), {
       search: graphSearch,
       onNoteSelect,
+      clock,
     });
   } else {
     const model = graphMode === "showAll" ? buildShowAllGraph(entries, constellation) : constellation;

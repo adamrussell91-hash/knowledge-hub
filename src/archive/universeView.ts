@@ -37,9 +37,10 @@ export function positionAt(
   };
 }
 
-export function orbitTimeSec(elapsedMs: number, speed: number, freeze: boolean) {
+/** Scale each frame's own slice of time, so moving the speed slider changes pace without jumping the orbits. */
+export function advanceOrbitClock(seconds: number, deltaMs: number, speed: number, freeze: boolean) {
   if (freeze) return 0;
-  return (elapsedMs / 1000) * speed;
+  return seconds + (Math.max(deltaMs, 0) / 1000) * speed;
 }
 
 export function isUniverseSearching(query: string) {
@@ -165,6 +166,8 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
   let raf = 0;
   let stopped = false;
   let lastPlaced: Placed[] = [];
+  let orbitSeconds = 0;
+  let lastFrame = start;
   let lastSunR = model.bodies.find(body => body.kind === "sun")?.r ?? 18;
   const live = model.bodies.map(body => ({ ...body, x: 0, y: 0 }));
   const liveById = new Map(live.map(body => [body.id, body]));
@@ -231,7 +234,9 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
   }
 
   function draw(now: number) {
-    const timeSec = orbitTimeSec(now - start, options.clock?.speed ?? 1, freeze);
+    orbitSeconds = advanceOrbitClock(orbitSeconds, now - lastFrame, options.clock?.speed ?? 1, freeze);
+    lastFrame = now;
+    const timeSec = orbitSeconds;
     if (!freeze && !userCamera) {
       const t = easeOutCubic((now - start) / ENTER_MS);
       view.k = K_START + (K_END - K_START) * t;

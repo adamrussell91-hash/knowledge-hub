@@ -3,6 +3,7 @@ import {
   NOTES_PER_MOONET,
   buildUniverseGraph,
   minorOrbitRadius,
+  orbitSpeedJitter,
   placeOnCircularRings,
   spreadOnRings,
 } from "./universeGraph";
@@ -71,6 +72,42 @@ describe("buildUniverseGraph", () => {
     expect(sorted.at(-1)! - sorted[0]!).toBeGreaterThan(20000);
     const phases = planets.map(planet => planet.phase);
     expect(new Set(phases.map(phase => phase.toFixed(4))).size).toBe(planets.length);
+  });
+
+  it("starts the planets evenly around the sun instead of stacked in one spiral arm", () => {
+    const majors = [
+      "Educational Psychology",
+      "Pedagogy & Instructional Design",
+      "Wellbeing & Mental Health in Schools",
+      "Child Development & Wellbeing",
+      "Learning Strategies",
+      "Gifted Education",
+      "Neurodiversity & Special Education",
+      "Cognitive Neuroscience",
+    ];
+    const pages = majors.map((tag, index) => page(`m${index}`, `Major ${index}`, [tag, majors[(index + 1) % majors.length]]));
+    const planets = buildUniverseGraph(pages).bodies.filter(body => body.kind === "planet");
+    const phases = planets.map(planet => planet.phase).sort((a, b) => a - b);
+    const step = (Math.PI * 2) / planets.length;
+    phases.forEach((phase, index) => expect(phase).toBeCloseTo(index * step, 8));
+  });
+
+  it("varies orbit speed by up to 10% per body, and always by the same amount for a given body", () => {
+    const tag = "Educational Psychology";
+    const pages = Array.from({ length: 60 }, (_, index) => page(`n${index}`, `Note ${index}`, [tag]));
+    const first = buildUniverseGraph(pages).bodies;
+    const second = buildUniverseGraph(pages).bodies;
+    const periodById = new Map(second.map(body => [body.id, body.periodSec]));
+    for (const body of first) expect(periodById.get(body.id)).toBe(body.periodSec);
+
+    const jitters = first.filter(body => body.kind === "note").map(body => orbitSpeedJitter(body.id));
+    expect(Math.min(...jitters)).toBeGreaterThanOrEqual(0.9);
+    expect(Math.max(...jitters)).toBeLessThanOrEqual(1.1);
+    expect(new Set(jitters.map(value => value.toFixed(4))).size).toBeGreaterThan(1);
+
+    const notes = first.filter(body => body.kind === "note");
+    const sameOrbit = notes.filter(note => note.orbitRadius === notes[0]!.orbitRadius);
+    expect(new Set(sameOrbit.map(note => note.periodSec.toFixed(4))).size).toBeGreaterThan(1);
   });
 
   it("spreads bodies across the full inner-to-outer ring span", () => {
