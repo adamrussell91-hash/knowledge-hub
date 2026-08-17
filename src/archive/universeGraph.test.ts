@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  NOTES_PER_MOONET,
+  NOTE_RINGS,
   SUN_KEEP_OUT,
   SUN_RADIUS,
   buildUniverseGraph,
@@ -109,7 +109,7 @@ describe("buildUniverseGraph", () => {
     expect(twins).toHaveLength(2);
     expect(twins.some(body => body.kind === "asteroid")).toBe(true);
     expect(
-      twins.some(body => model.bodies.find(item => item.id === body.parentId)?.kind === "moonet"),
+      twins.some(body => model.bodies.find(item => item.id === body.parentId)?.kind === "planet"),
     ).toBe(true);
   });
 
@@ -198,7 +198,7 @@ describe("buildUniverseGraph", () => {
       if (group.length < 2) continue;
       if (group[0]?.parentId === "sun:hub") continue;
       for (const [, phases] of circlesIn(group)) {
-        expect(phases.length).toBeGreaterThan(1);
+        if (phases.length < 2) continue;
         expectEvenlySpaced(phases);
       }
     }
@@ -215,28 +215,59 @@ describe("buildUniverseGraph", () => {
     }
   });
 
-  it("keeps each planet's cluster inside the gap to the next solar ring", () => {
+  it("spreads each planet's notes on 5 concentric orbits that meet the next planet's outer ring", () => {
     const model = buildUniverseGraph(busyArchive());
     const byId = new Map(model.bodies.map(body => [body.id, body]));
-    const planets = model.bodies.filter(body => body.kind === "planet");
+    const planets = [...model.bodies.filter(body => body.kind === "planet")].sort(
+      (a, b) => a.orbitRadius - b.orbitRadius,
+    );
     const belt = model.bodies.filter(body => body.kind === "asteroid");
     const fences = [
       ...planets.map(planet => planet.orbitRadius),
       ...(belt.length ? [Math.min(...belt.map(body => body.orbitRadius)), Math.max(...belt.map(body => body.orbitRadius))] : []),
     ].sort((a, b) => a - b);
-    for (const body of model.bodies) {
-      if (body.kind === "sun" || body.kind === "planet" || body.kind === "asteroid") continue;
-      let reach = 0;
-      let node: UniverseBody | undefined = body;
-      while (node?.parentId && node.kind !== "planet") {
-        reach += node.orbitRadius;
-        node = byId.get(node.parentId);
+
+    function clusterReach(planet: UniverseBody) {
+      let max = 0;
+      for (const body of model.bodies) {
+        if (body.kind === "sun" || body.kind === "planet" || body.kind === "asteroid") continue;
+        let reach = 0;
+        let node: UniverseBody | undefined = body;
+        while (node?.parentId && node.kind !== "planet") {
+          reach += node.orbitRadius;
+          node = byId.get(node.parentId);
+        }
+        if (node?.id !== planet.id) continue;
+        max = Math.max(max, reach);
       }
-      if (node?.kind !== "planet") continue;
-      const orbit = node.orbitRadius;
+      return max;
+    }
+
+    for (const planet of planets) {
+      const notes = model.bodies.filter(body => body.kind === "note" && body.parentId === planet.id);
+      if (notes.length < NOTE_RINGS) continue;
+      const radii = [...new Set(notes.map(note => note.orbitRadius))].sort((a, b) => a - b);
+      expect(radii).toHaveLength(NOTE_RINGS);
+      const sizes = radii.map(radius => notes.filter(note => note.orbitRadius === radius).length);
+      expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
+      for (const radius of radii) expectEvenlySpaced(notes.filter(note => note.orbitRadius === radius).map(note => note.phase));
+
+      const orbit = planet.orbitRadius;
       const prev = Math.max(SUN_KEEP_OUT, ...fences.filter(fence => fence < orbit));
       const next = Math.min(...fences.filter(fence => fence > orbit), orbit * 2);
-      expect(reach).toBeLessThan(0.45 * Math.min(orbit - prev, next - orbit));
+      const gap = Math.min(orbit - prev, next - orbit);
+      const reach = clusterReach(planet);
+      expect(reach).toBeGreaterThan(gap * 0.45);
+      expect(reach).toBeLessThan(gap * 0.52);
+    }
+
+    for (let i = 1; i < planets.length; i++) {
+      const inner = planets[i - 1]!;
+      const outer = planets[i]!;
+      if (fences.some(fence => fence > inner.orbitRadius && fence < outer.orbitRadius && !planets.some(planet => planet.orbitRadius === fence))) {
+        continue;
+      }
+      expect(clusterReach(inner) + clusterReach(outer)).toBeGreaterThan((outer.orbitRadius - inner.orbitRadius) * 0.9);
     }
   });
 
@@ -281,15 +312,14 @@ describe("buildUniverseGraph", () => {
     expect(new Set(sameOrbit.map(note => note.periodSec.toFixed(4))).size).toBeGreaterThan(1);
   });
 
-  it("puts notes around a moonet on one circular orbit", () => {
+  it("puts a handful of notes on concentric rings around their planet", () => {
     const tag = "Gifted Education";
     const pages = Array.from({ length: 5 }, (_, index) => page(`n${index}`, `Note ${index}`, [tag]));
     const model = buildUniverseGraph(pages);
+    const planet = model.bodies.find(body => body.kind === "planet")!;
     const notes = model.bodies.filter(body => body.kind === "note");
-    expect(new Set(notes.map(note => note.parentId)).size).toBe(1);
-    expect(new Set(notes.map(note => note.orbitRadius)).size).toBe(1);
-    const phases = notes.map(note => note.phase).sort((a, b) => a - b);
-    expect(phases[1]! - phases[0]!).toBeCloseTo((Math.PI * 2) / 5, 8);
+    expect(notes.every(note => note.parentId === planet.id)).toBe(true);
+    expect(new Set(notes.map(note => note.orbitRadius)).size).toBe(NOTE_RINGS);
   });
 
   it("shares one orbit between the minor planets and note packs around the same planet", () => {
@@ -307,27 +337,15 @@ describe("buildUniverseGraph", () => {
     }
   });
 
-  it("fans a crowded planet into minor planets, moons, and moonets so notes never pile on one host", () => {
+  it("fans a crowded planet's notes across 5 concentric rings instead of one clump", () => {
     const tag = "Gifted Education";
     const pages = Array.from({ length: 80 }, (_, index) => page(`n${index}`, `Note ${index}`, [tag]));
     const model = buildUniverseGraph(pages);
     const planet = model.bodies.find(body => body.kind === "planet")!;
     const notes = model.bodies.filter(body => body.kind === "note");
-    expect(notes.every(note => note.parentId !== planet.id)).toBe(true);
-    expect(model.bodies.filter(body => body.kind === "minorPlanet").length).toBeGreaterThanOrEqual(8);
-    expect(model.bodies.some(body => body.kind === "moon")).toBe(true);
-    expect(model.bodies.some(body => body.kind === "moonet")).toBe(true);
-    expect(notes.every(note => model.bodies.find(item => item.id === note.parentId)?.kind === "moonet")).toBe(true);
-
-    const childCount = new Map<string, number>();
-    for (const body of model.bodies) {
-      if (!body.parentId) continue;
-      childCount.set(body.parentId, (childCount.get(body.parentId) ?? 0) + 1);
-    }
-    const noteLoads = [...childCount.entries()]
-      .filter(([id]) => model.bodies.find(body => body.id === id)?.kind === "moonet")
-      .map(([, count]) => count);
-    expect(Math.max(...noteLoads)).toBeLessThanOrEqual(NOTES_PER_MOONET);
+    expect(notes.every(note => note.parentId === planet.id)).toBe(true);
+    expect(new Set(notes.map(note => note.orbitRadius)).size).toBe(NOTE_RINGS);
+    expect(notes.every(note => note.orbitRadius > planet.r * 2)).toBe(true);
   });
 
   it("still builds a sun when there are no topic keywords", () => {
@@ -371,11 +389,9 @@ describe("buildUniverseGraph", () => {
     const model = buildUniverseGraph(pages);
     const note = model.bodies.find(body => body.pageId === "leadership")!;
     const parent = model.bodies.find(body => body.id === note.parentId)!;
-    expect(parent.kind).toBe("moonet");
-    const moon = model.bodies.find(body => body.id === parent.parentId)!;
-    expect(moon.kind).toBe("moon");
-    const minor = model.bodies.find(body => body.id === moon.parentId)!;
-    expect(minor.kind).toBe("minorPlanet");
-    expect(minor.label).toBe(minors[0]);
+    expect(parent.kind).toBe("minorPlanet");
+    expect(parent.label).toBe(minors[0]);
+    const rings = model.bodies.filter(body => body.kind === "note" && body.parentId === parent.id);
+    expect(new Set(rings.map(body => body.orbitRadius)).size).toBe(NOTE_RINGS);
   });
 });

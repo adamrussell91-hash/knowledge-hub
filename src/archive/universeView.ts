@@ -268,6 +268,25 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
     ctx.translate(view.x, view.y);
     ctx.scale(view.k, view.k);
 
+    for (const host of placed) {
+      if (host.kind !== "planet" && host.kind !== "minorPlanet") continue;
+      if (!onScreen(host.x, host.y, 160)) continue;
+      const radii = new Set<number>();
+      for (const child of placed) {
+        if (child.parentId !== host.id || child.kind !== "note") continue;
+        radii.add(child.orbitRadius);
+      }
+      ctx.strokeStyle = host.soft;
+      ctx.lineWidth = 1.1 / view.k;
+      ctx.globalAlpha = host.kind === "planet" ? 0.45 : 0.28;
+      for (const radius of radii) {
+        ctx.beginPath();
+        ctx.arc(host.x, host.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
     for (const body of placed) {
       if ((body.kind !== "note" && body.kind !== "asteroid") || !keepNotes.has(body.id)) continue;
       const alpha = bodyAlpha(body, hotIds, searching);
