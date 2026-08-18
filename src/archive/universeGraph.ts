@@ -24,34 +24,34 @@ export type UniverseGraphModel = {
   bodies: UniverseBody[];
 };
 
-export const NOTES_PER_MOONET = 5;
-export const MOONETS_PER_MOON = 3;
-export const MOONS_PER_MINOR = 3;
-const NOTES_PER_MINOR = NOTES_PER_MOONET * MOONETS_PER_MOON * MOONS_PER_MINOR;
+export const NOTE_RINGS = 10;
+const NOTE_INNER_SHARE = 0.18;
+/** Each planet takes half the gap, so neighbouring outer note rings meet. */
+const CLUSTER_FILL = 0.5;
 
 export const SUN_RADIUS = 46;
 /** No body may ever come this close to the centre, so nothing crosses the sun or its corona. */
 export const SUN_KEEP_OUT = SUN_RADIUS * 4;
 export const INNER_PLANET_SLOTS = 4;
 export const MIN_PLANET_RINGS = 6;
-export const PLANET_INNER = 12000;
-export const PLANET_GAP = 9000;
+export const PLANET_INNER = 60000;
+export const PLANET_GAP = 2000;
+/** World units between consecutive note rings around a planet. */
+export const NOTE_RING_GAP = 5500;
 export const BELT_RINGS = 6;
 
-/** Each level gets a slice of its planet's budget; the slices sum to 1 so a full chain still fits. */
-const LEVEL_SHARE = { minorPlanet: 0.55, moon: 0.25, moonet: 0.13, note: 0.07 };
-const BODY_RADIUS = { minorPlanet: 6, moon: 4.2, moonet: 2.8, note: 2.2 };
+const LEVEL_SHARE = { minorPlanet: 0.55, note: 0.4 };
+const NOTE_RADIUS = 4.4;
 
-type ClusterBudget = { minorPlanet: number; moon: number; moonet: number; note: number };
+type ClusterBudget = { outer: number; minorPlanet: number; note: number };
 
 /** A cluster may not reach the sun, nor stretch into the neighbouring planet's or belt's orbit. */
 export function clusterBudget(orbitRadius: number, prevFence: number, nextFence: number): ClusterBudget {
-  const room = Math.min(orbitRadius - prevFence, nextFence - orbitRadius) * 0.4;
+  const room = Math.min(orbitRadius - prevFence, nextFence - orbitRadius) * CLUSTER_FILL;
   const budget = Math.max(40, Math.min(orbitRadius - SUN_KEEP_OUT, room));
   return {
+    outer: budget,
     minorPlanet: budget * LEVEL_SHARE.minorPlanet,
-    moon: budget * LEVEL_SHARE.moon,
-    moonet: budget * LEVEL_SHARE.moonet,
     note: budget * LEVEL_SHARE.note,
   };
 }
@@ -199,109 +199,38 @@ export function evenOrbitSlots(
   return out;
 }
 
-function chunk<T>(items: T[], size: number) {
-  if (items.length === 0) return [];
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
-}
-
-function paint(parent: UniverseBody) {
-  return { color: parent.color, soft: parent.soft, ink: parent.ink };
-}
-
-function body(partial: UniverseBody): UniverseBody {
-  return partial;
-}
-
 type DraftNote = UniverseBody & { share: number };
 
-function fanOutFromMinor(
-  minor: UniverseBody,
-  notes: DraftNote[],
-  sink: UniverseBody[],
-  budget: ClusterBudget,
-) {
-  const moonGroups = chunk(notes, NOTES_PER_MOONET * MOONETS_PER_MOON);
-  const moonSlots = evenOrbitSlots(moonGroups.length, budget.moon, BODY_RADIUS.moon);
-  moonGroups.forEach((moonNotes, moonIndex) => {
-    const slot = moonSlots[moonIndex] ?? { radius: budget.moon, phase: 0 };
-    const moon = body({
-      id: `moon:${minor.id}:${moonIndex}`,
-      kind: "moon",
-      label: moonGroups.length === 1 ? minor.label : `${minor.label} ${moonIndex + 1}`,
-      parentId: minor.id,
-      count: moonNotes.length,
-      ...paint(minor),
-      r: BODY_RADIUS.moon,
-      orbitRadius: slot.radius,
-      periodSec: periodFor(slot.radius, 14, 0.04),
-      phase: slot.phase,
-    });
-    sink.push(moon);
-    const moonetGroups = chunk(moonNotes, NOTES_PER_MOONET);
-    const moonetSlots = evenOrbitSlots(moonetGroups.length, budget.moonet, BODY_RADIUS.moonet);
-    moonetGroups.forEach((bunch, moonetIndex) => {
-      const moonetSlot = moonetSlots[moonetIndex] ?? { radius: budget.moonet, phase: 0 };
-      const moonet = body({
-        id: `moonet:${moon.id}:${moonetIndex}`,
-        kind: "moonet",
-        label: "",
-        parentId: moon.id,
-        count: bunch.length,
-        ...paint(minor),
-        r: BODY_RADIUS.moonet,
-        orbitRadius: moonetSlot.radius,
-        periodSec: periodFor(moonetSlot.radius, 8, 0.05),
-        phase: moonetSlot.phase,
-      });
-      sink.push(moonet);
-      const noteSlots = evenOrbitSlots(bunch.length, budget.note, BODY_RADIUS.note);
-      bunch.forEach((note, noteIndex) => {
-        const noteSlot = noteSlots[noteIndex] ?? { radius: budget.note, phase: evenPhase(noteIndex, bunch.length) };
-        note.parentId = moonet.id;
-        note.color = moonet.color;
-        note.soft = moonet.soft;
-        note.ink = moonet.ink;
-        note.orbitRadius = noteSlot.radius;
-        note.periodSec = periodFor(note.orbitRadius, 6, 0.05);
-        note.phase = noteSlot.phase;
-      });
-    });
+function stretchedRingSpan(hostR: number) {
+  const inner = Math.max(hostR * 3, NOTE_RING_GAP);
+  const outer = inner + (NOTE_RINGS - 1) * NOTE_RING_GAP;
+  return { inner, outer };
+}
+
+function noteRingSpan(outer: number, hostR: number) {
+  const stretched = stretchedRingSpan(hostR);
+  const rim = Math.max(outer, hostR * 4);
+  if (rim >= stretched.outer) return stretched;
+  const inner = Math.max(hostR * 3, Math.min(stretched.inner, rim * NOTE_INNER_SHARE));
+  return { inner: Math.min(inner, rim * 0.85), outer: rim };
+}
+
+function placeNotesOnRings(parent: UniverseBody, notes: DraftNote[], outer: number) {
+  const { inner, outer: rim } = noteRingSpan(Math.max(outer, parent.r * 4), parent.r);
+  const slots = beltOrbitSlots(notes.length, inner, rim, NOTE_RINGS);
+  notes.forEach((note, index) => {
+    const slot = slots[index] ?? { radius: rim, phase: evenPhase(index, notes.length) };
+    note.parentId = parent.id;
+    note.color = parent.color;
+    note.soft = parent.soft;
+    note.ink = parent.ink;
+    note.orbitRadius = slot.radius;
+    note.periodSec = periodFor(slot.radius, 6, 0.05);
+    note.phase = slot.phase;
   });
 }
 
-function splitEven<T>(items: T[], parts: number) {
-  const count = Math.max(1, parts);
-  const size = Math.ceil(items.length / count);
-  return chunk(items, size);
-}
-
 type MinorSeed = { minor: UniverseBody; notes: DraftNote[] };
-
-/** Bundle a planet's loose notes into unnamed minor planets; positions come later, with the named ones. */
-function packMinors(planet: UniverseBody, notes: DraftNote[]): MinorSeed[] {
-  if (!notes.length) return [];
-  const target =
-    notes.length >= 40
-      ? Math.max(8, Math.ceil(notes.length / NOTES_PER_MINOR))
-      : Math.max(1, Math.ceil(notes.length / (NOTES_PER_MOONET * MOONETS_PER_MOON)));
-  return splitEven(notes, target).map((pack, index) => ({
-    minor: body({
-      id: `minorPlanet:${planet.id}:pack:${index}`,
-      kind: "minorPlanet",
-      label: "",
-      parentId: planet.id,
-      count: pack.length,
-      ...paint(planet),
-      r: BODY_RADIUS.minorPlanet,
-      orbitRadius: 0,
-      periodSec: 0,
-      phase: 0,
-    }),
-    notes: pack,
-  }));
-}
 
 export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphModel {
   const sun: UniverseBody = {
@@ -345,17 +274,6 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
       phase: solarPhase(index),
     };
   });
-  const fences = [
-    SUN_KEEP_OUT,
-    ...[...layout.planetRadii.values()],
-    ...(beltLabel ? [layout.beltInner, layout.beltOuter] : []),
-  ].sort((a, b) => a - b);
-  const budgetFor = (orbitRadius: number) => {
-    const prev = Math.max(SUN_KEEP_OUT, ...fences.filter(fence => fence < orbitRadius));
-    const nextCands = fences.filter(fence => fence > orbitRadius);
-    const next = nextCands.length ? Math.min(...nextCands) : orbitRadius + PLANET_GAP;
-    return clusterBudget(orbitRadius, prev, next);
-  };
 
   const planetByLabel = new Map(planets.map(planet => [planet.label, planet]));
   const pairMax = Math.max(
@@ -431,8 +349,8 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
         color: parent.color,
         soft: parent.soft,
         ink: parent.ink,
-        r: BODY_RADIUS.note,
-        orbitRadius: BODY_RADIUS.note,
+        r: NOTE_RADIUS,
+        orbitRadius: NOTE_RADIUS,
         periodSec: 14,
         phase: 0,
         share,
@@ -442,7 +360,6 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
 
   draftNotes.sort((a, b) => b.share - a.share || a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 
-  const extras: UniverseBody[] = [];
   const notesByParent = new Map<string, DraftNote[]>();
   const asteroids: DraftNote[] = [];
   for (const note of draftNotes) {
@@ -456,7 +373,6 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
     notesByParent.set(key, list);
   }
 
-  const namedIds = new Set(namedMinors.map(minor => minor.id));
   const seedsByPlanet = new Map<string, MinorSeed[]>();
   for (const minor of namedMinors) {
     const key = minor.parentId ?? sun.id;
@@ -464,29 +380,31 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
     list.push({ minor, notes: notesByParent.get(minor.id) ?? [] });
     seedsByPlanet.set(key, list);
   }
-  for (const planet of planets) {
-    const list = seedsByPlanet.get(planet.id) ?? [];
-    list.push(...packMinors(planet, notesByParent.get(planet.id) ?? []));
-    seedsByPlanet.set(planet.id, list);
-  }
 
   for (const planet of planets) {
     const seeds = seedsByPlanet.get(planet.id) ?? [];
-    const budget = budgetFor(planet.orbitRadius);
-    const slots = evenOrbitSlots(seeds.length, budget.minorPlanet, BODY_RADIUS.minorPlanet);
+    const rings = stretchedRingSpan(planet.r);
+    const minorInner = rings.inner + NOTE_RING_GAP / 2;
+    const slots = beltOrbitSlots(
+      seeds.length,
+      minorInner,
+      minorInner + (NOTE_RINGS - 1) * NOTE_RING_GAP * LEVEL_SHARE.minorPlanet,
+      NOTE_RINGS,
+    );
     seeds.forEach(({ minor, notes: pack }, index) => {
-      const slot = slots[index] ?? { radius: budget.minorPlanet, phase: evenPhase(index, seeds.length) };
+      const slot = slots[index] ?? { radius: rings.outer * LEVEL_SHARE.minorPlanet, phase: evenPhase(index, seeds.length) };
       minor.orbitRadius = slot.radius;
       minor.periodSec = periodFor(slot.radius, 18, 0.03);
       minor.phase = slot.phase;
-      if (!namedIds.has(minor.id)) extras.push(minor);
-      fanOutFromMinor(minor, pack, extras, budget);
+      const noteOuter = Math.max(rings.outer * LEVEL_SHARE.note, Math.max(40, rings.outer - minor.orbitRadius));
+      placeNotesOnRings(minor, pack, noteOuter);
     });
+    placeNotesOnRings(planet, notesByParent.get(planet.id) ?? [], rings.outer);
   }
 
   const beltMinors = seedsByPlanet.get(sun.id) ?? [];
   if (beltMinors.length) {
-    const slots = beltOrbitSlots(beltMinors.length, layout.beltInner, layout.beltOuter, Math.min(3, BELT_RINGS));
+    const slots = beltOrbitSlots(beltMinors.length, layout.beltInner, layout.beltOuter, Math.min(NOTE_RINGS, BELT_RINGS));
     const budget = clusterBudget(
       (layout.beltInner + layout.beltOuter) / 2,
       layout.beltInner,
@@ -497,7 +415,7 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
       minor.orbitRadius = slot.radius;
       minor.periodSec = periodFor(slot.radius, 18, 0.03);
       minor.phase = slot.phase;
-      fanOutFromMinor(minor, pack, extras, budget);
+      placeNotesOnRings(minor, pack, budget.note);
     });
   }
 
@@ -510,5 +428,5 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
   });
 
   const notes: UniverseBody[] = draftNotes.map(({ share: _share, ...note }) => note);
-  return { bodies: applySpeedJitter([sun, ...planets, ...namedMinors, ...extras, ...notes]) };
+  return { bodies: applySpeedJitter([sun, ...planets, ...namedMinors, ...notes]) };
 }

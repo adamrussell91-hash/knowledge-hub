@@ -12,6 +12,11 @@ import {
   universeHotIds,
   universeSubtreeIds,
   visualRadius,
+  universeCamera,
+  universeFocusPlanet,
+  UNIVERSE_K_END,
+  dotIdsToDraw,
+  layoutFromHost,
 } from "./universeView";
 
 function body(partial: Partial<UniverseBody> & Pick<UniverseBody, "id" | "kind">): UniverseBody {
@@ -107,10 +112,47 @@ describe("positionAt", () => {
     expect(positionAt(sun, new Map(), 12, false)).toEqual({ x: 0, y: 0 });
   });
 
+  it("opens at panel-2 zoom so a planet cluster is spread, not fitted", () => {
+    expect(UNIVERSE_K_END).toBeCloseTo(0.0312);
+  });
+
+  it("centres the camera so the focus body sits in the middle of the canvas", () => {
+    const camera = universeCamera({ x: 100, y: 40 }, UNIVERSE_K_END, 800, 720);
+    expect(camera.x + 100 * UNIVERSE_K_END).toBeCloseTo(400);
+    expect(camera.y + 40 * UNIVERSE_K_END).toBeCloseTo(360);
+  });
+
+  it("locks onto the planet with the most notes", () => {
+    const pages = [
+      ...Array.from({ length: 6 }, (_, index) => ({
+        id: `g${index}`,
+        title: `Gifted ${index}`,
+        area: "notes" as const,
+        tags: ["Gifted Education"],
+        excerpt: "",
+      })),
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `l${index}`,
+        title: `Learning ${index}`,
+        area: "notes" as const,
+        tags: ["Learning Strategies"],
+        excerpt: "",
+      })),
+    ];
+    const focus = universeFocusPlanet(buildUniverseGraph(pages).bodies);
+    expect(focus?.kind).toBe("planet");
+    expect(focus?.label).toBe("Gifted Education");
+  });
+
   it("keeps planets visible and the sun dominant when zoomed out to the full solar system", () => {
     expect(visualRadius("planet", 12, 0.034) * 0.034).toBeCloseTo(6);
     const sunOnScreen = visualRadius("sun", SUN_RADIUS, 0.034) * 0.034;
     expect(sunOnScreen).toBeGreaterThan(visualRadius("planet", 12, 0.034) * 0.034 * 2);
+  });
+
+  it("draws notes at twice the previous on-screen size when zoomed out", () => {
+    expect(visualRadius("note", 2.2, 0.0312) * 0.0312).toBeCloseTo(3.6);
+    expect(visualRadius("note", 2.2, 0.007) * 0.007).toBeCloseTo(3.6);
   });
 
   it("scales each frame by the speed control and freezes when asked", () => {
@@ -233,6 +275,31 @@ describe("universe subtree and LOD", () => {
     expect(kept.has("n1500")).toBe(false);
     expect(kept.has("n1599")).toBe(true);
     expect(kept.size).toBe(1501);
+  });
+
+  it("still draws every asteroid when note LOD would drop them", () => {
+    const dots = [
+      ...Array.from({ length: 1600 }, (_, index) => ({
+        id: `n${index}`,
+        kind: "note" as const,
+        x: index,
+        y: 0,
+      })),
+      ...Array.from({ length: 8 }, (_, index) => ({
+        id: `a${index}`,
+        kind: "asteroid" as const,
+        x: 8000 + index,
+        y: 0,
+      })),
+    ];
+    const kept = dotIdsToDraw(dots, { x: 0, y: 0 }, new Set());
+    for (let i = 0; i < 8; i++) expect(kept.has(`a${i}`)).toBe(true);
+  });
+
+  it("keeps asteroid belt rocks on their orbit when the sun is off-screen", () => {
+    expect(layoutFromHost("asteroid", false)).toBe(true);
+    expect(layoutFromHost("note", false)).toBe(false);
+    expect(layoutFromHost("note", true)).toBe(true);
   });
 });
 

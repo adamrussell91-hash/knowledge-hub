@@ -59,7 +59,7 @@ const minScreen: Record<string, number> = {
   minorPlanet: 4,
   moon: 3.2,
   moonet: 2.4,
-  note: 1.8,
+  note: 3.6,
 };
 
 const closest = Math.min(...placed.filter(b => b.kind !== "sun").map(b => Math.hypot(b.x, b.y)));
