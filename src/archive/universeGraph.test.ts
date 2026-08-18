@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   NOTE_RINGS,
   PLANET_GAP,
+  PLANET_INNER,
   PLANET_ORBITS,
+  ASTEROID_RADIUS,
+  NOTE_RADIUS,
   SUN_KEEP_OUT,
   SUN_RADIUS,
   buildUniverseGraph,
@@ -217,7 +220,8 @@ describe("buildUniverseGraph", () => {
     }
   });
 
-  it("keeps each planet's notes in its own solar lane, not spilling onto the next planet's orbit", () => {
+  it("doubles each planet's local system without moving the eight solar orbits", () => {
+    expect(PLANET_INNER).toBe(60000);
     expect(PLANET_GAP).toBe(45000);
     expect(NOTE_RINGS).toBe(10);
     const model = buildUniverseGraph(busyArchive());
@@ -225,20 +229,16 @@ describe("buildUniverseGraph", () => {
       (a, b) => a.orbitRadius - b.orbitRadius,
     );
     expect(planets).toHaveLength(8);
+    expect(planets[0]!.orbitRadius).toBe(PLANET_INNER);
     for (let i = 1; i < planets.length; i++) {
       expect(planets[i]!.orbitRadius - planets[i - 1]!.orbitRadius).toBe(PLANET_GAP);
     }
 
-    for (const planet of planets) {
-      const notes = model.bodies.filter(body => body.kind === "note" && body.parentId === planet.id);
-      if (notes.length < NOTE_RINGS) continue;
-      const radii = [...new Set(notes.map(note => note.orbitRadius))].sort((a, b) => a - b);
-      expect(radii).toHaveLength(NOTE_RINGS);
-      expect(Math.max(...radii)).toBeLessThanOrEqual(PLANET_GAP / 2);
-      const sizes = radii.map(radius => notes.filter(note => note.orbitRadius === radius).length);
-      expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
-      for (const radius of radii) expectEvenlySpaced(notes.filter(note => note.orbitRadius === radius).map(note => note.phase));
-    }
+    const notes = model.bodies.filter(body => body.kind === "note" && body.parentId === planets[0]!.id);
+    const radii = [...new Set(notes.map(note => note.orbitRadius))].sort((a, b) => a - b);
+    expect(radii).toHaveLength(NOTE_RINGS);
+    expect(Math.max(...radii)).toBeGreaterThan(PLANET_GAP * 0.9);
+    expect(Math.max(...radii)).toBeLessThanOrEqual(PLANET_GAP);
   });
 
   it("fills one circle before starting another, and fills every circle evenly", () => {
@@ -290,7 +290,20 @@ describe("buildUniverseGraph", () => {
     const notes = model.bodies.filter(body => body.kind === "note");
     expect(notes.every(note => note.parentId === planet.id)).toBe(true);
     expect(new Set(notes.map(note => note.orbitRadius)).size).toBe(NOTE_RINGS);
-    expect(notes[0]!.r).toBe(4.4);
+    expect(notes[0]!.r).toBe(NOTE_RADIUS);
+    expect(NOTE_RADIUS).toBe(2.2);
+  });
+
+  it("makes asteroid notes 15% larger and planet notes 50% smaller", () => {
+    expect(NOTE_RADIUS).toBeCloseTo(4.4 * 0.5);
+    expect(ASTEROID_RADIUS).toBeCloseTo(1.8 * 1.15);
+    const model = buildUniverseGraph(busyArchive());
+    const planetNotes = model.bodies.filter(body => body.kind === "note");
+    const rocks = model.bodies.filter(body => body.kind === "asteroid");
+    expect(planetNotes.length).toBeGreaterThan(0);
+    expect(rocks.length).toBeGreaterThan(0);
+    expect(planetNotes.every(note => note.r === NOTE_RADIUS)).toBe(true);
+    expect(rocks.every(rock => rock.r === ASTEROID_RADIUS)).toBe(true);
   });
 
   it("shares one orbit between the minor planets and note packs around the same planet", () => {

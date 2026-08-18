@@ -174,9 +174,10 @@ describe("positionAt", () => {
     expect(sunOnScreen).toBeGreaterThan(visualRadius("planet", 12, 0.034) * 0.034 * 2);
   });
 
-  it("draws notes at twice the previous on-screen size when zoomed out", () => {
-    expect(visualRadius("note", 2.2, 0.0312) * 0.0312).toBeCloseTo(3.6);
-    expect(visualRadius("note", 2.2, 0.007) * 0.007).toBeCloseTo(3.6);
+  it("draws planet notes half size and asteroid notes 15% larger when zoomed out", () => {
+    expect(visualRadius("note", 2.2, 0.0312) * 0.0312).toBeCloseTo(1.8);
+    expect(visualRadius("note", 2.2, 0.007) * 0.007).toBeCloseTo(1.8);
+    expect(visualRadius("asteroid", 2.07, 0.0312) * 0.0312).toBeCloseTo(1.61);
   });
 
   it("scales each frame by the speed control and freezes when asked", () => {

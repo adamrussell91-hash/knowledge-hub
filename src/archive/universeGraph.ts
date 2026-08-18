@@ -26,8 +26,8 @@ export type UniverseGraphModel = {
 
 export const NOTE_RINGS = 10;
 const NOTE_INNER_SHARE = 0.18;
-/** Each planet takes half the gap, so neighbouring outer note rings meet. */
-const CLUSTER_FILL = 0.5;
+/** Each planet fills the gap to the next solar orbit. */
+const CLUSTER_FILL = 1;
 
 export const SUN_RADIUS = 46;
 /** No body may ever come this close to the centre, so nothing crosses the sun or its corona. */
@@ -42,7 +42,8 @@ export const NOTE_RING_GAP = 5500;
 export const BELT_RINGS = 6;
 
 const LEVEL_SHARE = { minorPlanet: 0.55, note: 0.4 };
-const NOTE_RADIUS = 4.4;
+export const NOTE_RADIUS = 2.2;
+export const ASTEROID_RADIUS = 1.8 * 1.15;
 
 type ClusterBudget = { outer: number; minorPlanet: number; note: number };
 
@@ -345,7 +346,7 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
           color: beltPaint?.color ?? "#c9a35c",
           soft: beltPaint?.soft ?? "rgba(201, 163, 92, 0.7)",
           ink: beltPaint?.ink ?? "#6c581f",
-          r: 1.8,
+          r: ASTEROID_RADIUS,
           orbitRadius: layout.beltInner,
           periodSec: 14,
           phase: 0,
