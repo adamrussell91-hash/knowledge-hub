@@ -13,8 +13,12 @@ import {
   universeSubtreeIds,
   visualRadius,
   universeCamera,
+  universeFitScale,
+  universeReach,
+  universeZoomClamp,
   universeFocusPlanet,
-  UNIVERSE_K_END,
+  UNIVERSE_K_MAX,
+  DRAW_ORBIT_GUIDES,
   dotIdsToDraw,
   layoutFromHost,
 } from "./universeView";
@@ -112,14 +116,34 @@ describe("positionAt", () => {
     expect(positionAt(sun, new Map(), 12, false)).toEqual({ x: 0, y: 0 });
   });
 
-  it("opens at panel-2 zoom so a planet cluster is spread, not fitted", () => {
-    expect(UNIVERSE_K_END).toBeCloseTo(0.0312);
+  it("never strokes concentric orbit guide rings", () => {
+    expect(DRAW_ORBIT_GUIDES).toBe(false);
   });
 
-  it("centres the camera so the focus body sits in the middle of the canvas", () => {
-    const camera = universeCamera({ x: 100, y: 40 }, UNIVERSE_K_END, 800, 720);
-    expect(camera.x + 100 * UNIVERSE_K_END).toBeCloseTo(400);
-    expect(camera.y + 40 * UNIVERSE_K_END).toBeCloseTo(360);
+  it("fits the whole universe on the canvas at the default zoom", () => {
+    const pages = Array.from({ length: 40 }, (_, index) => ({
+      id: `p${index}`,
+      title: `Note ${index}`,
+      area: "notes" as const,
+      tags: [["Gifted Education", "Learning Strategies", "Cognitive Neuroscience"][index % 3]!],
+      excerpt: "",
+    }));
+    const reach = universeReach(buildUniverseGraph(pages).bodies);
+    const k = universeFitScale(reach, 800, 720);
+    expect(k * reach * 2).toBeLessThanOrEqual(720);
+    expect(k).toBeLessThan(0.01);
+  });
+
+  it("lets the wheel zoom out to that fitted view, not a planet close-up floor", () => {
+    expect(universeZoomClamp(0.001, 0.003)).toBeCloseTo(0.003 * 0.85);
+    expect(universeZoomClamp(0.02, 0.003)).toBeCloseTo(0.02);
+    expect(universeZoomClamp(9, 0.003)).toBe(UNIVERSE_K_MAX);
+  });
+
+  it("centres the camera so the sun sits in the middle of the canvas", () => {
+    const camera = universeCamera({ x: 0, y: 0 }, 0.01, 800, 720);
+    expect(camera.x).toBeCloseTo(400);
+    expect(camera.y).toBeCloseTo(360);
   });
 
   it("locks onto the planet with the most notes", () => {
@@ -263,18 +287,16 @@ describe("universe subtree and LOD", () => {
     expect(ids).toEqual(new Set(["planet", "moon", "note"]));
   });
 
-  it("keeps the nearest 1500 notes plus search-hot notes", () => {
+  it("keeps every note, so far ones do not pop in and out as they orbit", () => {
     const notes = Array.from({ length: 1600 }, (_, index) => ({
       id: `n${index}`,
       x: index * 10,
       y: 0,
     }));
-    const kept = notesToKeep(notes, { x: 0, y: 0 }, new Set(["n1599"]));
+    const kept = notesToKeep(notes, { x: 0, y: 0 }, new Set());
+    expect(kept.size).toBe(1600);
     expect(kept.has("n0")).toBe(true);
-    expect(kept.has("n1499")).toBe(true);
-    expect(kept.has("n1500")).toBe(false);
     expect(kept.has("n1599")).toBe(true);
-    expect(kept.size).toBe(1501);
   });
 
   it("still draws every asteroid when note LOD would drop them", () => {
@@ -296,9 +318,9 @@ describe("universe subtree and LOD", () => {
     for (let i = 0; i < 8; i++) expect(kept.has(`a${i}`)).toBe(true);
   });
 
-  it("keeps asteroid belt rocks on their orbit when the sun is off-screen", () => {
+  it("keeps notes and asteroid rocks on their orbits when the host is off-screen", () => {
     expect(layoutFromHost("asteroid", false)).toBe(true);
-    expect(layoutFromHost("note", false)).toBe(false);
+    expect(layoutFromHost("note", false)).toBe(true);
     expect(layoutFromHost("note", true)).toBe(true);
   });
 });

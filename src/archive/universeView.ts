@@ -12,10 +12,9 @@ export type UniverseViewOptions = {
 type Placed = UniverseBody & { x: number; y: number };
 
 const KIND_ORDER: UniverseBodyKind[] = ["sun", "planet", "asteroid", "minorPlanet", "moon", "moonet", "note"];
-const ENTER_MS = 800;
-export const UNIVERSE_K_START = 0.02;
-export const UNIVERSE_K_END = 0.0312;
-const NOTE_DRAW_LIMIT = 1500;
+export const DRAW_ORBIT_GUIDES = false;
+export const UNIVERSE_K_MAX = 2.4;
+const NOTE_DRAW_LIMIT = Number.POSITIVE_INFINITY;
 const PULSE_HZ = 0.6;
 const PULSE_AMP = 0.06;
 const PULSE_BUMP_AMP = 0.18;
@@ -103,11 +102,8 @@ export function notesToKeep(
   return kept;
 }
 
-/** Notes hug a nearby host, so they can skip orbit math when that host is off-screen.
- *  Asteroids orbit the sun on a wide belt — the sun can be off-screen while the belt is visible. */
-export function layoutFromHost(kind: UniverseBodyKind, hostOnScreen: boolean) {
-  if (kind === "asteroid") return true;
-  if (kind === "note") return hostOnScreen;
+/** Always keep notes and belt rocks on their orbits. Skipping layout is what makes them flicker. */
+export function layoutFromHost(_kind: UniverseBodyKind, _hostOnScreen: boolean) {
   return true;
 }
 
@@ -129,9 +125,30 @@ export function dotIdsToDraw(
   return kept;
 }
 
-function easeOutCubic(t: number) {
-  const x = Math.min(1, Math.max(0, t));
-  return 1 - (1 - x) ** 3;
+export function universeReach(bodies: UniverseBody[]) {
+  const byId = new Map(bodies.map(body => [body.id, body]));
+  let max = 0;
+  for (const body of bodies) {
+    let reach = body.r;
+    let node: UniverseBody | undefined = body;
+    const seen = new Set<string>();
+    while (node) {
+      reach += node.orbitRadius;
+      if (!node.parentId || seen.has(node.parentId)) break;
+      seen.add(node.parentId);
+      node = byId.get(node.parentId);
+    }
+    if (reach > max) max = reach;
+  }
+  return Math.max(max, 1);
+}
+
+export function universeFitScale(reach: number, width: number, height: number) {
+  return (Math.min(width, height) * 0.9) / Math.max(reach * 2, 1);
+}
+
+export function universeZoomClamp(k: number, fitK: number) {
+  return Math.min(UNIVERSE_K_MAX, Math.max(fitK * 0.85, k));
 }
 
 function prefersReducedMotion() {
@@ -217,8 +234,8 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
   host.appendChild(tip);
 
   const ctx = canvas.getContext("2d")!;
-  const focusId = universeFocusPlanet(model.bodies)?.id ?? null;
-  const view = { k: freeze ? UNIVERSE_K_END : UNIVERSE_K_START, x: width / 2, y: height / 2 };
+  const fitK = universeFitScale(universeReach(model.bodies), width, height);
+  const view = { k: fitK, x: width / 2, y: height / 2 };
   let userCamera = false;
   let hover: Placed | null = null;
   let selectedId: string | null = null;
@@ -242,15 +259,6 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
   function layoutLive(timeSec: number) {
     for (const group of liveByKind) {
       for (const body of group) {
-        if (body.kind === "note" || body.kind === "asteroid") {
-          const parent = body.parentId ? liveById.get(body.parentId) : null;
-          const hostOnScreen = !parent || onScreen(parent.x, parent.y, 120);
-          if (!layoutFromHost(body.kind, hostOnScreen) && parent) {
-            body.x = parent.x;
-            body.y = parent.y;
-            continue;
-          }
-        }
         const pos = positionAt(body, liveById, timeSec, freeze);
         body.x = pos.x;
         body.y = pos.y;
@@ -270,10 +278,8 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
   function findBody(x: number, y: number) {
     let hit: Placed | null = null;
     let best = Infinity;
-    const skipNotes = view.k < UNIVERSE_K_START;
     for (let i = lastPlaced.length - 1; i >= 0; i--) {
       const body = lastPlaced[i];
-      if (skipNotes && body.kind === "note") continue;
       const r = visualRadius(body.kind, body.kind === "sun" ? lastSunR : body.r, view.k);
       const pad = (body.kind === "note" || body.kind === "asteroid" ? 4 : body.kind === "moonet" ? 5 : body.kind === "moon" ? 6 : 8) / view.k;
       const dist = Math.hypot(body.x - x, body.y - y);
@@ -299,15 +305,6 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
     lastFrame = now;
     const timeSec = orbitSeconds;
     const placed = layoutLive(timeSec);
-    if (!userCamera) {
-      const t = freeze ? 1 : easeOutCubic((now - start) / ENTER_MS);
-      const k = UNIVERSE_K_START + (UNIVERSE_K_END - UNIVERSE_K_START) * t;
-      const focus = (focusId && placed.find(body => body.id === focusId)) || { x: 0, y: 0 };
-      const camera = universeCamera(focus, k, width, height);
-      view.k = camera.k;
-      view.x = camera.x;
-      view.y = camera.y;
-    }
     const bump = now < bumpUntil;
     const sun = placed.find(body => body.kind === "sun");
     const sunR = sun ? visualRadius("sun", sunRadius(sun, timeSec, freeze, bump), view.k) : 18;
@@ -317,11 +314,7 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
     const searching = isUniverseSearching(options.search);
     const hotIds = universeHotIds(model.bodies, options.search);
     const centre = { x: (width / 2 - view.x) / view.k, y: (height / 2 - view.y) / view.k };
-    const dots = placed.filter(
-      body =>
-        (body.kind === "note" || body.kind === "asteroid") &&
-        (hotIds.has(body.id) || onScreen(body.x, body.y)),
-    );
+    const dots = placed.filter(body => body.kind === "note" || body.kind === "asteroid");
     const keepNotes = dotIdsToDraw(dots, centre, hotIds);
 
     ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
@@ -329,25 +322,6 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
     ctx.save();
     ctx.translate(view.x, view.y);
     ctx.scale(view.k, view.k);
-
-    for (const host of placed) {
-      if (host.kind !== "planet" && host.kind !== "minorPlanet") continue;
-      if (!onScreen(host.x, host.y, 160)) continue;
-      const radii = new Set<number>();
-      for (const child of placed) {
-        if (child.parentId !== host.id || child.kind !== "note") continue;
-        radii.add(child.orbitRadius);
-      }
-      ctx.strokeStyle = host.soft;
-      ctx.lineWidth = 1.1 / view.k;
-      ctx.globalAlpha = host.kind === "planet" ? 0.45 : 0.28;
-      for (const radius of radii) {
-        ctx.beginPath();
-        ctx.arc(host.x, host.y, radius, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-    }
 
     for (const body of placed) {
       if ((body.kind !== "note" && body.kind !== "asteroid") || !keepNotes.has(body.id)) continue;
@@ -470,7 +444,7 @@ export function mountUniverseView(host: HTMLElement, model: UniverseGraphModel, 
       event.preventDefault();
       userCamera = true;
       const world = toWorld(event.clientX, event.clientY);
-      const next = Math.min(2.4, Math.max(UNIVERSE_K_START, view.k * (event.deltaY < 0 ? 1.08 : 0.92)));
+      const next = universeZoomClamp(view.k * (event.deltaY < 0 ? 1.08 : 0.92), fitK);
       const rect = canvas.getBoundingClientRect();
       view.x = event.clientX - rect.left - world.x * next;
       view.y = event.clientY - rect.top - world.y * next;
