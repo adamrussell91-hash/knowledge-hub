@@ -26,6 +26,8 @@ vi.mock("../api/wikiClient", async () => {
   };
 });
 
+import { listCuratorPending } from "../api/wikiClient";
+
 describe("renderWikiRail", () => {
   beforeEach(() => {
     enterWikiRail();
@@ -49,5 +51,23 @@ describe("renderWikiRail", () => {
     expect(app.innerHTML).toContain("Duty");
     expect(app.innerHTML).toContain("Approve");
     expect(app.innerHTML).toContain("Dismiss");
+  });
+
+  it("does not claim the queue is empty when the API failed", async () => {
+    vi.mocked(listCuratorPending).mockRejectedValueOnce(new Error("workflow dispatch failed 404"));
+    const app = document.createElement("div");
+    document.body.appendChild(app);
+    const host = {
+      app,
+      shell: (main: string) => {
+        app.innerHTML = main;
+      },
+      render: vi.fn(),
+    };
+    renderWikiRail(host);
+    await vi.waitFor(() => expect(host.render).toHaveBeenCalled());
+    renderWikiRail(host);
+    expect(app.innerHTML).toContain("workflow dispatch failed 404");
+    expect(app.innerHTML).not.toContain("No pending links");
   });
 });

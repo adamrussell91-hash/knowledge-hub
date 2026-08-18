@@ -6,6 +6,9 @@
 [functions]
   included_files = ["prompts/clementine-*.md", "prompts/annotation-voice.md"]
 
+[functions."curator-nightly"]
+  schedule = "17 14 * * *"
+
 [build.environment]
   SECRETS_SCAN_OMIT_KEYS = "SITE_ORIGIN"
 

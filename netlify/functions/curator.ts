@@ -5,33 +5,10 @@ import { DismissedPairSchema, PendingProposalSchema, type DismissedPair, type Pe
 import { cors, preflight } from "./_lib/cors";
 import { getContent, GitHubWriteError, putContent } from "./_lib/githubWrite";
 import { requireSession } from "./_lib/requireSession";
+import { queueCuratorRun } from "./curatorQueue";
 
 const PENDING = "_curator/pending-proposals.json";
 const DISMISSED = "_curator/dismissed.json";
-
-export async function dispatchCurator(input: {
-  repo: string;
-  token: string;
-  fetchImpl?: typeof fetch;
-  ref?: string;
-}) {
-  const fetchImpl = input.fetchImpl ?? fetch;
-  const response = await fetchImpl(
-    `https://api.github.com/repos/${input.repo}/actions/workflows/curator.yml/dispatches`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${input.token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ ref: input.ref ?? "main" }),
-    },
-  );
-  if (!response.ok && response.status !== 204) {
-    throw new GitHubWriteError(`workflow dispatch failed ${response.status}`, response.status);
-  }
-}
 
 function parseList<T>(text: string, parseOne: (item: unknown) => T): T[] {
   try {
@@ -103,9 +80,16 @@ export const handler: Handler = async event => {
     }
     const action = raw.action;
     if (action === "run") {
-      const codeRepo = process.env.GITHUB_CODE_REPO ?? "adamrussell91-hash/knowledge-hub";
-      const dispatchToken = process.env.GITHUB_WORKFLOW_TOKEN ?? token;
-      await dispatchCurator({ repo: codeRepo, token: dispatchToken });
+      const origin = process.env.URL ?? process.env.DEPLOY_PRIME_URL;
+      const runSecret = process.env.SESSION_SECRET;
+      if (!origin || !runSecret) {
+        return { statusCode: 503, headers: cors(), body: JSON.stringify({ error: "Curator run is not configured" }) };
+      }
+      await queueCuratorRun({
+        origin,
+        cookie: event.headers.cookie ?? event.headers.Cookie,
+        secret: runSecret,
+      });
       return { statusCode: 200, headers: cors(), body: JSON.stringify({ status: "queued" }) };
     }
 

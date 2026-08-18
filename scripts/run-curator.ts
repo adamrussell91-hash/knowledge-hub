@@ -3,11 +3,14 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import { PageSchema } from "../src/domain/page";
-import { embedQuery } from "../src/lib/embed";
+import { corpusFromResearchPack, loadResearchPack } from "../src/curator/corpusLoad";
 import { judgeLinks } from "../src/curator/propose";
 import { excerptLine, runCurator } from "../src/curator/run";
 import type { CorpusEntry } from "../src/curator/run";
 import type { DismissedPair, PendingProposal } from "../src/curator/schema";
+import { resolveStartSha } from "../src/curator/window";
+import { embedQuery } from "../src/lib/embed";
+import { r2ResearchLoader } from "../netlify/functions/curatorRun";
 import { loadDotEnv } from "./loadLocalPages";
 
 const exec = promisify(execFile);
@@ -34,15 +37,35 @@ async function loadCorpus(): Promise<CorpusEntry[]> {
       excerpt?: string;
       vector: number[];
     }[];
-    return rows.map(row => ({
-      pageId: row.pageId,
-      title: row.title,
-      excerpt: row.excerpt ?? "",
-      vector: row.vector,
-    }));
+    if (rows.length) {
+      return rows.map(row => ({
+        pageId: row.pageId,
+        title: row.title,
+        excerpt: row.excerpt ?? "",
+        vector: row.vector,
+      }));
+    }
   } catch {
-    return [];
+    /* fall through to R2 */
   }
+  const accountId = process.env.R2_ACCOUNT_ID;
+  const bucket = process.env.R2_BUCKET;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  if (!accountId || !bucket || !accessKeyId || !secretAccessKey) {
+    throw new Error("Research corpus missing: add migrated/index.json or R2 credentials");
+  }
+  const pack = await loadResearchPack(
+    await r2ResearchLoader({
+      R2_ACCOUNT_ID: accountId,
+      R2_BUCKET: bucket,
+      R2_ACCESS_KEY_ID: accessKeyId,
+      R2_SECRET_ACCESS_KEY: secretAccessKey,
+    }),
+  );
+  const corpus = corpusFromResearchPack(pack);
+  if (!corpus.length) throw new Error("Research corpus is empty");
+  return corpus;
 }
 
 async function main() {
@@ -63,8 +86,22 @@ async function main() {
 
   const head = await git(dataDir, ["rev-parse", "HEAD"]);
   const existingState = await readJson<{ lastProcessedSha?: string }>(statePath, {});
+  let recent: { sha: string; parents: string[] }[] = [];
   if (!existingState.lastProcessedSha) {
-    await writeFile(statePath, JSON.stringify({ lastProcessedSha: head }, null, 2) + "\n");
+    const log = await git(dataDir, ["log", "--since=14 days ago", "--format=%H %P", "--", "pages"]);
+    recent = log
+      .split("\n")
+      .filter(Boolean)
+      .map(line => {
+        const [sha, ...parents] = line.split(" ");
+        return { sha: sha ?? "", parents };
+      });
+  }
+  const start = resolveStartSha(existingState.lastProcessedSha, head, recent);
+  if (existingState.lastProcessedSha !== start.sha) {
+    await writeFile(statePath, JSON.stringify({ lastProcessedSha: start.sha }, null, 2) + "\n");
+  }
+  if (start.skip) {
     console.log(`Seeded curator state at ${head} (zero backlog).`);
     return;
   }

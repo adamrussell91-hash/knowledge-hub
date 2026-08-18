@@ -13,7 +13,16 @@ async function wikiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: "include",
     ...init,
   });
-  if (!response.ok) throw new Error(`API error ${response.status}: ${path}`);
+  if (!response.ok) {
+    let detail = `API error ${response.status}: ${path}`;
+    try {
+      const payload = (await response.json()) as { error?: string };
+      if (payload.error) detail = payload.error;
+    } catch {
+      /* keep status text */
+    }
+    throw new Error(detail);
+  }
   return response.json() as Promise<T>;
 }
 

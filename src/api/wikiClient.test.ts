@@ -24,4 +24,16 @@ describe("wiki client", () => {
     expect(String(init.body)).toContain("approve");
     expect(String(init.body)).toContain("a||b");
   });
+
+  it("surfaces the API error body instead of a bare status", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: async () => ({ error: "workflow dispatch failed 404" }),
+      }),
+    );
+    await expect(listCuratorPending()).rejects.toThrow("workflow dispatch failed 404");
+  });
 });

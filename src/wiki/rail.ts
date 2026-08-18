@@ -66,7 +66,7 @@ async function runAction(host: WikiRailHost, action: "approve" | "dismiss" | "ap
   try {
     const result = await curatorAction(action, id);
     if (action === "run") {
-      wikiError = "Curator queued. Proposals appear after the Action finishes.";
+      wikiError = "Curator running. Refresh this page in a minute for new proposals.";
     } else if (result.pending) {
       pending = result.pending;
     } else {
@@ -81,6 +81,7 @@ async function runAction(host: WikiRailHost, action: "approve" | "dismiss" | "ap
 }
 
 function cardsHtml() {
+  if (wikiError && !pending.length) return "";
   if (busy && !pending.length) return `<p class="empty">Loading proposals…</p>`;
   if (!busy && !pending.length) {
     return `<p class="empty">No pending links. Run now after you capture, or wait for the nightly pass.</p>`;

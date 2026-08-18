@@ -1,8 +1,6 @@
 name: Curator
 
 on:
-  schedule:
-    - cron: "17 14 * * *"
   workflow_dispatch:
 
 permissions:
@@ -32,6 +30,10 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           EMBEDDINGS_API_KEY: ${{ secrets.EMBEDDINGS_API_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: npx tsx scripts/run-curator.ts --data-dir data-repo
 
       - name: Commit curator artifacts

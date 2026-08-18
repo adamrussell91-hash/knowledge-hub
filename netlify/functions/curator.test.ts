@@ -63,6 +63,7 @@ describe("curator function", () => {
     delete process.env.SESSION_SECRET;
     delete process.env.GITHUB_DATA_REPO;
     delete process.env.GITHUB_DATA_REPO_TOKEN;
+    delete process.env.URL;
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
@@ -106,14 +107,16 @@ describe("curator function", () => {
     expect(pageA.connected).toEqual(["b"]);
   });
 
-  it("queues a curator workflow on run", async () => {
+  it("queues a background curator run", async () => {
+    process.env.URL = "https://knowledge-api.example";
     const response = await handler(
       event({ method: "POST", body: JSON.stringify({ action: "run" }) }) as never,
       {} as never,
     );
     expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? "{}")).toEqual({ status: "queued" });
     expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/actions/workflows/curator.yml/dispatches"),
+      "https://knowledge-api.example/.netlify/functions/curator-run-background",
       expect.objectContaining({ method: "POST" }),
     );
   });
