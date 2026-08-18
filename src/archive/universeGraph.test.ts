@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   NOTE_RINGS,
+  NOTE_RING_GAP,
+  PLANET_GAP,
   SUN_KEEP_OUT,
   SUN_RADIUS,
   buildUniverseGraph,
@@ -151,9 +153,9 @@ describe("buildUniverseGraph", () => {
     expect(new Set(radii).size).toBe(planets.length);
     expect(radii.length).toBeGreaterThanOrEqual(6);
     for (let i = 1; i < radii.length; i++) {
-      expect(radii[i]! - radii[i - 1]!).toBeGreaterThan(5000);
+      expect(radii[i]! - radii[i - 1]!).toBeGreaterThanOrEqual(PLANET_GAP);
     }
-    expect(radii.at(-1)! - radii[0]!).toBeGreaterThan(30000);
+    expect(radii.at(-1)! - radii[0]!).toBeGreaterThan(PLANET_GAP * 5);
     expect(new Set(planets.map(planet => planet.phase.toFixed(4))).size).toBe(planets.length);
     const byRadius = [...planets].sort((a, b) => a.orbitRadius - b.orbitRadius);
     const spiralSteps = byRadius.slice(1).map((planet, index) => planet.phase - byRadius[index]!.phase);
@@ -215,32 +217,16 @@ describe("buildUniverseGraph", () => {
     }
   });
 
-  it("spreads each planet's notes on 5 concentric orbits that meet the next planet's outer ring", () => {
+  it("spreads each planet's notes on 10 stretched concentric orbits", () => {
+    expect(PLANET_GAP).toBe(2000);
+    expect(NOTE_RINGS).toBe(10);
     const model = buildUniverseGraph(busyArchive());
-    const byId = new Map(model.bodies.map(body => [body.id, body]));
     const planets = [...model.bodies.filter(body => body.kind === "planet")].sort(
       (a, b) => a.orbitRadius - b.orbitRadius,
     );
-    const belt = model.bodies.filter(body => body.kind === "asteroid");
-    const fences = [
-      ...planets.map(planet => planet.orbitRadius),
-      ...(belt.length ? [Math.min(...belt.map(body => body.orbitRadius)), Math.max(...belt.map(body => body.orbitRadius))] : []),
-    ].sort((a, b) => a - b);
-
-    function clusterReach(planet: UniverseBody) {
-      let max = 0;
-      for (const body of model.bodies) {
-        if (body.kind === "sun" || body.kind === "planet" || body.kind === "asteroid") continue;
-        let reach = 0;
-        let node: UniverseBody | undefined = body;
-        while (node?.parentId && node.kind !== "planet") {
-          reach += node.orbitRadius;
-          node = byId.get(node.parentId);
-        }
-        if (node?.id !== planet.id) continue;
-        max = Math.max(max, reach);
-      }
-      return max;
+    for (let i = 1; i < planets.length; i++) {
+      if (planets[i]!.orbitRadius - planets[i - 1]!.orbitRadius > PLANET_GAP * 2) continue;
+      expect(planets[i]!.orbitRadius - planets[i - 1]!.orbitRadius).toBe(PLANET_GAP);
     }
 
     for (const planet of planets) {
@@ -251,23 +237,9 @@ describe("buildUniverseGraph", () => {
       const sizes = radii.map(radius => notes.filter(note => note.orbitRadius === radius).length);
       expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
       for (const radius of radii) expectEvenlySpaced(notes.filter(note => note.orbitRadius === radius).map(note => note.phase));
-
-      const orbit = planet.orbitRadius;
-      const prev = Math.max(SUN_KEEP_OUT, ...fences.filter(fence => fence < orbit));
-      const next = Math.min(...fences.filter(fence => fence > orbit), orbit * 2);
-      const gap = Math.min(orbit - prev, next - orbit);
-      const reach = clusterReach(planet);
-      expect(reach).toBeGreaterThan(gap * 0.45);
-      expect(reach).toBeLessThan(gap * 0.52);
-    }
-
-    for (let i = 1; i < planets.length; i++) {
-      const inner = planets[i - 1]!;
-      const outer = planets[i]!;
-      if (fences.some(fence => fence > inner.orbitRadius && fence < outer.orbitRadius && !planets.some(planet => planet.orbitRadius === fence))) {
-        continue;
+      for (let i = 1; i < radii.length; i++) {
+        expect(radii[i]! - radii[i - 1]!).toBeCloseTo(NOTE_RING_GAP, 5);
       }
-      expect(clusterReach(inner) + clusterReach(outer)).toBeGreaterThan((outer.orbitRadius - inner.orbitRadius) * 0.9);
     }
   });
 
@@ -314,12 +286,13 @@ describe("buildUniverseGraph", () => {
 
   it("puts a handful of notes on concentric rings around their planet", () => {
     const tag = "Gifted Education";
-    const pages = Array.from({ length: 5 }, (_, index) => page(`n${index}`, `Note ${index}`, [tag]));
+    const pages = Array.from({ length: 10 }, (_, index) => page(`n${index}`, `Note ${index}`, [tag]));
     const model = buildUniverseGraph(pages);
     const planet = model.bodies.find(body => body.kind === "planet")!;
     const notes = model.bodies.filter(body => body.kind === "note");
     expect(notes.every(note => note.parentId === planet.id)).toBe(true);
     expect(new Set(notes.map(note => note.orbitRadius)).size).toBe(NOTE_RINGS);
+    expect(notes[0]!.r).toBe(4.4);
   });
 
   it("shares one orbit between the minor planets and note packs around the same planet", () => {
@@ -337,7 +310,7 @@ describe("buildUniverseGraph", () => {
     }
   });
 
-  it("fans a crowded planet's notes across 5 concentric rings instead of one clump", () => {
+  it("fans a crowded planet's notes across 10 concentric rings instead of one clump", () => {
     const tag = "Gifted Education";
     const pages = Array.from({ length: 80 }, (_, index) => page(`n${index}`, `Note ${index}`, [tag]));
     const model = buildUniverseGraph(pages);

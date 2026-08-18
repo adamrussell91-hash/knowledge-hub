@@ -24,7 +24,7 @@ export type UniverseGraphModel = {
   bodies: UniverseBody[];
 };
 
-export const NOTE_RINGS = 5;
+export const NOTE_RINGS = 10;
 const NOTE_INNER_SHARE = 0.18;
 /** Each planet takes half the gap, so neighbouring outer note rings meet. */
 const CLUSTER_FILL = 0.5;
@@ -34,12 +34,14 @@ export const SUN_RADIUS = 46;
 export const SUN_KEEP_OUT = SUN_RADIUS * 4;
 export const INNER_PLANET_SLOTS = 4;
 export const MIN_PLANET_RINGS = 6;
-export const PLANET_INNER = 12000;
-export const PLANET_GAP = 9000;
+export const PLANET_INNER = 60000;
+export const PLANET_GAP = 2000;
+/** World units between consecutive note rings around a planet. */
+export const NOTE_RING_GAP = 5500;
 export const BELT_RINGS = 6;
 
 const LEVEL_SHARE = { minorPlanet: 0.55, note: 0.4 };
-const NOTE_RADIUS = 2.2;
+const NOTE_RADIUS = 4.4;
 
 type ClusterBudget = { outer: number; minorPlanet: number; note: number };
 
@@ -199,9 +201,18 @@ export function evenOrbitSlots(
 
 type DraftNote = UniverseBody & { share: number };
 
+function stretchedRingSpan(hostR: number) {
+  const inner = Math.max(hostR * 3, NOTE_RING_GAP);
+  const outer = inner + (NOTE_RINGS - 1) * NOTE_RING_GAP;
+  return { inner, outer };
+}
+
 function noteRingSpan(outer: number, hostR: number) {
-  const inner = Math.max(hostR * 3, outer * NOTE_INNER_SHARE);
-  return { inner: Math.min(inner, outer * 0.85), outer };
+  const stretched = stretchedRingSpan(hostR);
+  const rim = Math.max(outer, hostR * 4);
+  if (rim >= stretched.outer) return stretched;
+  const inner = Math.max(hostR * 3, Math.min(stretched.inner, rim * NOTE_INNER_SHARE));
+  return { inner: Math.min(inner, rim * 0.85), outer: rim };
 }
 
 function placeNotesOnRings(parent: UniverseBody, notes: DraftNote[], outer: number) {
@@ -263,17 +274,6 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
       phase: solarPhase(index),
     };
   });
-  const fences = [
-    SUN_KEEP_OUT,
-    ...[...layout.planetRadii.values()],
-    ...(beltLabel ? [layout.beltInner, layout.beltOuter] : []),
-  ].sort((a, b) => a - b);
-  const budgetFor = (orbitRadius: number) => {
-    const prev = Math.max(SUN_KEEP_OUT, ...fences.filter(fence => fence < orbitRadius));
-    const nextCands = fences.filter(fence => fence > orbitRadius);
-    const next = nextCands.length ? Math.min(...nextCands) : orbitRadius + PLANET_GAP;
-    return clusterBudget(orbitRadius, prev, next);
-  };
 
   const planetByLabel = new Map(planets.map(planet => [planet.label, planet]));
   const pairMax = Math.max(
@@ -383,18 +383,23 @@ export function buildUniverseGraph(entries: PageManifestEntry[]): UniverseGraphM
 
   for (const planet of planets) {
     const seeds = seedsByPlanet.get(planet.id) ?? [];
-    const budget = budgetFor(planet.orbitRadius);
-    const minorInner = Math.max(planet.r * 3, budget.minorPlanet * NOTE_INNER_SHARE);
-    const slots = beltOrbitSlots(seeds.length, minorInner, budget.minorPlanet, NOTE_RINGS);
+    const rings = stretchedRingSpan(planet.r);
+    const minorInner = rings.inner + NOTE_RING_GAP / 2;
+    const slots = beltOrbitSlots(
+      seeds.length,
+      minorInner,
+      minorInner + (NOTE_RINGS - 1) * NOTE_RING_GAP * LEVEL_SHARE.minorPlanet,
+      NOTE_RINGS,
+    );
     seeds.forEach(({ minor, notes: pack }, index) => {
-      const slot = slots[index] ?? { radius: budget.minorPlanet, phase: evenPhase(index, seeds.length) };
+      const slot = slots[index] ?? { radius: rings.outer * LEVEL_SHARE.minorPlanet, phase: evenPhase(index, seeds.length) };
       minor.orbitRadius = slot.radius;
       minor.periodSec = periodFor(slot.radius, 18, 0.03);
       minor.phase = slot.phase;
-      const noteOuter = Math.min(budget.note, Math.max(40, budget.outer - minor.orbitRadius));
+      const noteOuter = Math.max(rings.outer * LEVEL_SHARE.note, Math.max(40, rings.outer - minor.orbitRadius));
       placeNotesOnRings(minor, pack, noteOuter);
     });
-    placeNotesOnRings(planet, notesByParent.get(planet.id) ?? [], budget.outer);
+    placeNotesOnRings(planet, notesByParent.get(planet.id) ?? [], rings.outer);
   }
 
   const beltMinors = seedsByPlanet.get(sun.id) ?? [];
