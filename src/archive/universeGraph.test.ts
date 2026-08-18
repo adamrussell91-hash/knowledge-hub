@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   NOTE_RINGS,
-  NOTE_RING_GAP,
   PLANET_GAP,
+  PLANET_ORBITS,
   SUN_KEEP_OUT,
   SUN_RADIUS,
   buildUniverseGraph,
@@ -105,7 +105,7 @@ describe("buildUniverseGraph", () => {
 
     const model = buildUniverseGraph(pages);
     expect(model.bodies.some(body => body.kind === "sun")).toBe(true);
-    expect(model.bodies.filter(body => body.kind === "planet")).toHaveLength(7);
+    expect(model.bodies.filter(body => body.kind === "planet")).toHaveLength(8);
 
     const twins = model.bodies.filter(body => body.pageId === "twin");
     expect(twins).toHaveLength(2);
@@ -138,7 +138,7 @@ describe("buildUniverseGraph", () => {
     );
   });
 
-  it("puts planets on at least 6 separate solar rings, not one orbit, a line, or a spiral", () => {
+  it("puts planets on 8 separate solar orbits, not one ring, a line, or a spiral", () => {
     const pages = MAJORS.flatMap((tag, index) => {
       const copies = tag === "Educational Psychology" ? 40 : tag === "Gifted Education" ? 2 : 6;
       return Array.from({ length: copies }, (_, copy) =>
@@ -147,15 +147,15 @@ describe("buildUniverseGraph", () => {
     });
     const model = buildUniverseGraph(pages);
     const planets = model.bodies.filter(body => body.kind === "planet");
-    expect(planets.some(planet => planet.label === "Educational Psychology")).toBe(false);
-    expect(planets).toHaveLength(7);
+    expect(PLANET_ORBITS).toBe(8);
+    expect(planets).toHaveLength(8);
+    expect(planets.some(planet => planet.label === "Educational Psychology")).toBe(true);
     const radii = planets.map(planet => planet.orbitRadius).sort((a, b) => a - b);
-    expect(new Set(radii).size).toBe(planets.length);
-    expect(radii.length).toBeGreaterThanOrEqual(6);
+    expect(new Set(radii).size).toBe(PLANET_ORBITS);
     for (let i = 1; i < radii.length; i++) {
-      expect(radii[i]! - radii[i - 1]!).toBeGreaterThanOrEqual(PLANET_GAP);
+      expect(radii[i]! - radii[i - 1]!).toBe(PLANET_GAP);
     }
-    expect(radii.at(-1)! - radii[0]!).toBeGreaterThan(PLANET_GAP * 5);
+    expect(radii.at(-1)! - radii[0]!).toBe(PLANET_GAP * (PLANET_ORBITS - 1));
     expect(new Set(planets.map(planet => planet.phase.toFixed(4))).size).toBe(planets.length);
     const byRadius = [...planets].sort((a, b) => a.orbitRadius - b.orbitRadius);
     const spiralSteps = byRadius.slice(1).map((planet, index) => planet.phase - byRadius[index]!.phase);
@@ -217,15 +217,15 @@ describe("buildUniverseGraph", () => {
     }
   });
 
-  it("spreads each planet's notes on 10 stretched concentric orbits", () => {
-    expect(PLANET_GAP).toBe(2000);
+  it("keeps each planet's notes in its own solar lane, not spilling onto the next planet's orbit", () => {
+    expect(PLANET_GAP).toBe(45000);
     expect(NOTE_RINGS).toBe(10);
     const model = buildUniverseGraph(busyArchive());
     const planets = [...model.bodies.filter(body => body.kind === "planet")].sort(
       (a, b) => a.orbitRadius - b.orbitRadius,
     );
+    expect(planets).toHaveLength(8);
     for (let i = 1; i < planets.length; i++) {
-      if (planets[i]!.orbitRadius - planets[i - 1]!.orbitRadius > PLANET_GAP * 2) continue;
       expect(planets[i]!.orbitRadius - planets[i - 1]!.orbitRadius).toBe(PLANET_GAP);
     }
 
@@ -234,12 +234,10 @@ describe("buildUniverseGraph", () => {
       if (notes.length < NOTE_RINGS) continue;
       const radii = [...new Set(notes.map(note => note.orbitRadius))].sort((a, b) => a - b);
       expect(radii).toHaveLength(NOTE_RINGS);
+      expect(Math.max(...radii)).toBeLessThanOrEqual(PLANET_GAP / 2);
       const sizes = radii.map(radius => notes.filter(note => note.orbitRadius === radius).length);
       expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
       for (const radius of radii) expectEvenlySpaced(notes.filter(note => note.orbitRadius === radius).map(note => note.phase));
-      for (let i = 1; i < radii.length; i++) {
-        expect(radii[i]! - radii[i - 1]!).toBeCloseTo(NOTE_RING_GAP, 5);
-      }
     }
   });
 
