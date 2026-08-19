@@ -29,3 +29,11 @@ describe("GitHub Pages deploy", () => {
     expect(workflow).toContain("knowledge-api.adam-russell.com");
   });
 });
+
+describe("Curator workflow secrets", () => {
+  it("does not use custom GITHUB_-prefixed secret names (GitHub rejects them)", async () => {
+    const workflow = await readFile(path.join(process.cwd(), ".github/workflows/curator.yml"), "utf8");
+    expect(workflow).not.toMatch(/secrets\.GITHUB_[A-Z0-9_]+/);
+    expect(workflow).toContain("secrets.DATA_REPO_TOKEN");
+  });
+});

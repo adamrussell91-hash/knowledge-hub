@@ -1,4 +1,5 @@
 import type { Page } from "../domain/page";
+import type { LexicalDoc } from "../lib/lexicalRetrieve";
 import { blockedIdsFor } from "./apply";
 import { rankCandidates, type VectorHit } from "./candidates";
 import { capChanged, parseNameStatus } from "./changedPages";
@@ -32,6 +33,7 @@ export type CuratorIO = {
   writePage: (page: Page) => Promise<void>;
   listPageIds: () => Promise<string[]>;
   corpus: CorpusEntry[];
+  lexicalDocs?: LexicalDoc[];
   embed: (text: string) => Promise<number[]>;
   judge: (note: Page, candidates: VectorHit[]) => Promise<JudgedLink[]>;
   now: () => string;
@@ -41,6 +43,9 @@ export type CuratorIO = {
 export function excerptLine(body: string) {
   return body.replace(/^#.*$/gm, "").replace(/\s+/g, " ").trim().slice(0, 157);
 }
+
+/** git's empty tree — first curator run diffs the whole tree, then RUN_CAP slices it. */
+export const GIT_EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 export async function runCurator(io: CuratorIO) {
   const parsed = CuratorStateSchema.safeParse(await io.readState());
@@ -72,7 +77,9 @@ export async function runCurator(io: CuratorIO) {
   for (const change of process) {
     const page = await io.readPage(change.id);
     if (!page) continue;
-    const vector = await io.embed(`${page.title}\n\n${io.excerpt(page.body)}`);
+    const query = `${page.title}\n\n${io.excerpt(page.body)}`;
+    const useLexical = !io.corpus.some(entry => entry.vector.length);
+    const vector = useLexical ? [] : await io.embed(query);
     const skip = blockedIdsFor(page.id, pending, dismissed);
     for (const item of incoming) {
       if (item.noteA === page.id) skip.add(item.noteB);
@@ -84,6 +91,8 @@ export async function runCurator(io: CuratorIO) {
       corpus: io.corpus,
       connected: page.connected ?? [],
       skip,
+      query,
+      lexicalDocs: io.lexicalDocs,
     });
     heldBack += held.length;
     const judgements = await io.judge(page, linking);

@@ -29,7 +29,11 @@ export async function dispatchCurator(input: {
     },
   );
   if (!response.ok && response.status !== 204) {
-    throw new GitHubWriteError(`workflow dispatch failed ${response.status}`, response.status);
+    const detail = await response.text();
+    throw new GitHubWriteError(
+      `workflow dispatch failed ${response.status}${detail ? `: ${detail.slice(0, 300)}` : ""}`,
+      response.status,
+    );
   }
 }
 
