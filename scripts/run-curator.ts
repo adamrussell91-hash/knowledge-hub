@@ -5,9 +5,10 @@ import path from "node:path";
 import { PageSchema } from "../src/domain/page";
 import { embedQuery } from "../src/lib/embed";
 import { judgeLinks } from "../src/curator/propose";
-import { excerptLine, runCurator } from "../src/curator/run";
+import { excerptLine, GIT_EMPTY_TREE_SHA, runCurator } from "../src/curator/run";
 import type { CorpusEntry } from "../src/curator/run";
 import type { DismissedPair, PendingProposal } from "../src/curator/schema";
+import type { LexicalDoc } from "../src/lib/lexicalRetrieve";
 import { loadDotEnv } from "./loadLocalPages";
 
 const exec = promisify(execFile);
@@ -45,6 +46,18 @@ async function loadCorpus(): Promise<CorpusEntry[]> {
   }
 }
 
+async function loadLexicalDocs(dataDir: string): Promise<LexicalDoc[]> {
+  const manifest = await readJson<{ id?: string; title?: string; excerpt?: string; tags?: string[]; area?: string }[]>(
+    path.join(dataDir, "manifest.json"),
+    [],
+  );
+  return manifest.flatMap(row =>
+    typeof row.id === "string" && typeof row.title === "string"
+      ? [{ id: row.id, title: row.title, excerpt: row.excerpt ?? "", tags: row.tags, area: row.area }]
+      : [],
+  );
+}
+
 async function main() {
   await loadDotEnv();
   const flag = process.argv.indexOf("--data-dir");
@@ -53,7 +66,6 @@ async function main() {
   const anthropic = process.env.ANTHROPIC_API_KEY;
   const embeddings = process.env.EMBEDDINGS_API_KEY;
   if (!anthropic) throw new Error("ANTHROPIC_API_KEY is required");
-  if (!embeddings) throw new Error("EMBEDDINGS_API_KEY is required");
 
   const curatorDir = path.join(dataDir, "_curator");
   const statePath = path.join(curatorDir, "state.json");
@@ -63,16 +75,15 @@ async function main() {
 
   const head = await git(dataDir, ["rev-parse", "HEAD"]);
   const existingState = await readJson<{ lastProcessedSha?: string }>(statePath, {});
-  if (!existingState.lastProcessedSha) {
-    await writeFile(statePath, JSON.stringify({ lastProcessedSha: head }, null, 2) + "\n");
-    console.log(`Seeded curator state at ${head} (zero backlog).`);
-    return;
-  }
+  const corpus = embeddings ? await loadCorpus() : [];
+  const lexicalDocs = await loadLexicalDocs(dataDir);
 
   const result = await runCurator({
     gitNameStatus: async fromSha => git(dataDir, ["diff", "--name-status", `${fromSha}..HEAD`]),
     headSha: async () => head,
-    readState: async () => readJson(statePath, { lastProcessedSha: head }),
+    readState: async () => ({
+      lastProcessedSha: existingState.lastProcessedSha || GIT_EMPTY_TREE_SHA,
+    }),
     writeState: async state => {
       await writeFile(statePath, JSON.stringify(state, null, 2) + "\n");
     },
@@ -98,8 +109,12 @@ async function main() {
       const files = await readdir(path.join(dataDir, "pages"));
       return files.filter(file => file.endsWith(".json")).map(file => file.replace(/\.json$/, ""));
     },
-    corpus: await loadCorpus(),
-    embed: async text => embedQuery(text, embeddings),
+    corpus,
+    lexicalDocs,
+    embed: async text => {
+      if (!embeddings) throw new Error("EMBEDDINGS_API_KEY is required for vector ranking");
+      return embedQuery(text, embeddings);
+    },
     judge: async (note, candidates) => judgeLinks({ note, candidates, apiKey: anthropic }),
     now: () => new Date().toISOString(),
     excerpt: excerptLine,

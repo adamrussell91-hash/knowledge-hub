@@ -1,4 +1,5 @@
 import { CANDIDATE_CAP, DUPLICATE_HOLD, LINK_FLOOR } from "./schema";
+import { lexicalRetrieve, type LexicalDoc } from "../lib/lexicalRetrieve";
 
 export type VectorHit = {
   pageId: string;
@@ -31,10 +32,26 @@ export function rankCandidates(input: {
   skip: Set<string>;
   k?: number;
   floor?: number;
+  query?: string;
+  lexicalDocs?: LexicalDoc[];
 }): { linking: VectorHit[]; heldBack: VectorHit[] } {
   const k = input.k ?? CANDIDATE_CAP;
   const floor = input.floor ?? LINK_FLOOR;
   const blocked = new Set([input.sourceId, ...input.connected, ...input.skip]);
+  const hasVectors = input.corpus.some(entry => entry.vector.length);
+  if (!hasVectors && input.query && input.lexicalDocs?.length) {
+    const linking = lexicalRetrieve(
+      input.lexicalDocs.filter(doc => !blocked.has(doc.id)),
+      input.query,
+      k,
+    ).map(hit => ({
+      pageId: hit.id,
+      title: hit.title,
+      excerpt: hit.excerpt,
+      score: hit.score,
+    }));
+    return { linking, heldBack: [] };
+  }
   const ranked = input.corpus
     .filter(entry => !blocked.has(entry.pageId))
     .map(entry => ({
