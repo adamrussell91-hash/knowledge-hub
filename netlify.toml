@@ -7,7 +7,9 @@
   included_files = ["prompts/clementine-*.md", "prompts/annotation-voice.md"]
 
 [build.environment]
-  SECRETS_SCAN_OMIT_KEYS = "SITE_ORIGIN"
+  # Public CORS origin and R2 bucket name — not secrets. Netlify's scanner
+  # fails Git deploys when these values appear in .env.example / wrangler config.
+  SECRETS_SCAN_OMIT_KEYS = "SITE_ORIGIN,R2_BUCKET"
 
 [dev]
   framework = "#custom"

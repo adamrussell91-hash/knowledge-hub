@@ -15,6 +15,8 @@ describe("Netlify function layout", () => {
     const build = config.split("[dev]")[0] ?? config;
     expect(build).toContain('publish = "netlify/public"');
     expect(build).not.toMatch(/publish = "dist"/);
+    expect(build).toContain("SECRETS_SCAN_OMIT_KEYS");
+    expect(build).toContain("R2_BUCKET");
   });
 });
 
