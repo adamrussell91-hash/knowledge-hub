@@ -36,10 +36,11 @@ describe("Note tidy button uses the session API host", () => {
   it("adds a session-gated /api/tidy function without new Netlify secrets", async () => {
     const config = await readFile(path.join(process.cwd(), "netlify.toml"), "utf8");
     expect(config).toContain("/api/tidy");
-    expect(config).toContain("prompts/tidy.md");
     const source = await readFile(path.join(process.cwd(), "netlify/functions/tidy.ts"), "utf8");
     expect(source).toContain("requireSession");
+    expect(source).toContain("x-research-kernel-secret");
     expect(source).not.toMatch(/VITE_/);
+    expect(source).not.toContain("ANTHROPIC_API_KEY");
     const handlers = await readdir(path.join(process.cwd(), "netlify/handlers"));
     expect(handlers).toContain("tidy.ts");
   });

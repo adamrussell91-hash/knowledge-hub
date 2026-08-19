@@ -73,12 +73,28 @@ describe("api client", () => {
   });
 
   it("posts production tidy to the API host that already has the session cookie", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "p" }) }));
-    await expect(tidyPage("p")).resolves.toEqual({ id: "p" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: "p" }) }));
+    await expect(tidyPage("p", "t0")).resolves.toEqual({ id: "p" });
     expect(fetch).toHaveBeenCalledWith(
       "https://knowledge-api.adam-russell.com/api/tidy",
       expect.objectContaining({ credentials: "include", method: "POST", body: JSON.stringify({ id: "p" }) }),
     );
+  });
+
+  it("polls the page when tidy is accepted in the background", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, status: 202, json: async () => ({ accepted: true }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "p", updated_at: "t2", title: "Tidied" }) });
+    vi.stubGlobal("fetch", fetchImpl);
+    await expect(tidyPage("p", "t1")).resolves.toMatchObject({ title: "Tidied", updated_at: "t2" });
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://knowledge-api.adam-russell.com/api/tidy");
+    expect(String(fetchImpl.mock.calls[1]?.[0])).toContain("/pages/p");
+  });
+
+  it("maps a dropped tidy request to a finish error instead of Safari Load failed", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Load failed")));
+    await expect(tidyPage("p", "t1")).rejects.toThrow("Clean up didn’t finish");
   });
 
   it("uses the local-data route in local mode", () => {

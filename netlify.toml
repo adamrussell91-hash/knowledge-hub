@@ -4,7 +4,7 @@
   functions = "netlify/handlers"
 
 [functions]
-  included_files = ["prompts/clementine-*.md", "prompts/annotation-voice.md", "prompts/tidy.md"]
+  included_files = ["prompts/clementine-*.md", "prompts/annotation-voice.md"]
 
 [build.environment]
   # Public CORS origin and R2 bucket name — not secrets. Netlify's scanner

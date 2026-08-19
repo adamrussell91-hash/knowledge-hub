@@ -7,10 +7,11 @@ const secret = "session-secret";
 const hub = KNOWLEDGE_HUB_ORIGIN;
 const page = { id: "page_hub_p", title: "Tidied" } as Page;
 
-function request(init: { origin?: string | null; cookie?: string; method?: string; body?: string }) {
+function request(init: { origin?: string | null; cookie?: string; method?: string; body?: string; kernel?: string }) {
   const headers = new Headers();
   if (init.origin !== null) headers.set("Origin", init.origin ?? hub);
   if (init.cookie) headers.set("Cookie", init.cookie);
+  if (init.kernel) headers.set("x-research-kernel-secret", init.kernel);
   return new Request("https://knowledge-tidy.adam-russell.com/tidy", {
     method: init.method ?? "POST",
     headers,
@@ -57,6 +58,19 @@ describe("handleTidyRequest", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
     await expect(response.json()).resolves.toMatchObject({ id: "page_hub_p" });
+    expect(tidyPage).toHaveBeenCalledWith("page_hub_p");
+  });
+
+  it("accepts a kernel secret and returns 202 so the caller is not blocked on Claude", async () => {
+    const waitUntil = vi.fn();
+    const tidyPage = vi.fn(async () => page);
+    const response = await handleTidyRequest(
+      request({ origin: null, kernel: "kernel-secret" }),
+      { ...bindings(tidyPage), kernelSecret: "kernel-secret", waitUntil },
+    );
+    expect(response.status).toBe(202);
+    expect(waitUntil).toHaveBeenCalledOnce();
+    await waitUntil.mock.calls[0]?.[0];
     expect(tidyPage).toHaveBeenCalledWith("page_hub_p");
   });
 });

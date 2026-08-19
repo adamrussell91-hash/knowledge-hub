@@ -1,59 +1,56 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { handler } from "./tidy";
 import { signSession } from "./_lib/session";
 
-vi.mock("../../src/tidy/githubIo", () => ({
-  tidyPageOnGitHub: vi.fn(async ({ id }: { id: string }) => ({ id, title: "Tidied" })),
-}));
-vi.mock("../../src/clementine/loadFromDisk", () => ({
-  loadPromptFile: vi.fn(() => "tidy prompt"),
-}));
-
 const secret = "session-secret";
+const kernelSecret = "kernel-secret-value";
 
-function event(overrides: { cookie?: boolean; body?: string; method?: string } = {}) {
+function event(overrides: { cookie?: boolean; body?: string } = {}) {
   const token = signSession({ sub: "adam" }, secret);
   return {
-    httpMethod: overrides.method ?? "POST",
+    httpMethod: "POST",
     headers: overrides.cookie === false ? {} : { cookie: `kh_session=${token}` },
     body: overrides.body ?? JSON.stringify({ id: "page_hub_p" }),
   };
 }
 
-describe("tidy function", () => {
+describe("tidy proxy", () => {
   beforeEach(() => {
     process.env.SESSION_SECRET = secret;
-    process.env.GITHUB_DATA_REPO = "owner/repo";
-    process.env.GITHUB_DATA_REPO_TOKEN = "tok";
-    process.env.ANTHROPIC_API_KEY = "sk-test";
+    process.env.RESEARCH_KERNEL_SHARED_SECRET = kernelSecret;
+    process.env.RESEARCH_KERNEL_URL = "https://kernel.test";
   });
   afterEach(() => {
     delete process.env.SESSION_SECRET;
-    delete process.env.GITHUB_DATA_REPO;
-    delete process.env.GITHUB_DATA_REPO_TOKEN;
-    delete process.env.ANTHROPIC_API_KEY;
-    vi.clearAllMocks();
+    delete process.env.RESEARCH_KERNEL_SHARED_SECRET;
+    delete process.env.RESEARCH_KERNEL_URL;
+    vi.unstubAllGlobals();
   });
 
-  it("requires a session", async () => {
-    const { handler } = await import("./tidy");
+  it("requires a site session", async () => {
     const response = await handler(event({ cookie: false }) as never, {} as never);
-    expect(response.statusCode).toBe(401);
+    expect(response?.statusCode).toBe(401);
   });
 
   it("requires an id", async () => {
-    const { handler } = await import("./tidy");
     const response = await handler(event({ body: "{}" }) as never, {} as never);
-    expect(response.statusCode).toBe(400);
+    expect(response?.statusCode).toBe(400);
   });
 
-  it("tidies the posted page after a valid session", async () => {
-    const { handler } = await import("./tidy");
-    const { tidyPageOnGitHub } = await import("../../src/tidy/githubIo");
+  it("accepts tidy on the worker with the kernel secret and never returns it", async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 202,
+      text: async () => JSON.stringify({ accepted: true, id: "page_hub_p" }),
+    }));
+    vi.stubGlobal("fetch", fetchImpl);
     const response = await handler(event() as never, {} as never);
-    expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body ?? "{}")).toMatchObject({ id: "page_hub_p" });
-    expect(tidyPageOnGitHub).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "page_hub_p", repo: "owner/repo", token: "tok", apiKey: "sk-test" }),
-    );
+    expect(response?.statusCode).toBe(202);
+    expect(response?.body).toBe(JSON.stringify({ accepted: true, id: "page_hub_p" }));
+    expect(response?.body).not.toContain(kernelSecret);
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://kernel.test/tidy");
+    expect((init.headers as Record<string, string>)["x-research-kernel-secret"]).toBe(kernelSecret);
+    expect(JSON.parse(String(init.body))).toEqual({ id: "page_hub_p" });
   });
 });

@@ -114,5 +114,8 @@ export async function tidyOnePage(id: string, io: Omit<TidyIO, "id" | "scan" | "
   if (result.errors.length) throw new Error(result.errors.join("; "));
   const page = await io.readPage(id);
   if (!page) throw new Error(`${id}: page was not found or is invalid`);
-  return page;
+  if (!result.skipped.includes(id)) return page;
+  const next = { ...page, updated_at: io.now() };
+  await io.writePage(next);
+  return next;
 }

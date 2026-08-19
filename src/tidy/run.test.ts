@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Page } from "../domain/page";
-import { excerptFromTidyBody, normalizeTidyState, runTidy } from "./run";
+import { excerptFromTidyBody, normalizeTidyState, runTidy, tidyOnePage } from "./run";
 
 const page = (id: string, overrides: Partial<Page> = {}): Page => ({
   id, title: id, area: "notes", tags: ["Philosophy Knowledge and Society"], body: "Clean note.", connected: [], attachments: [], source: "hub",
@@ -92,5 +92,24 @@ describe("runTidy", () => {
     expect(result.errors).toEqual(["p: page disk full"]);
     expect(writes).toEqual(["manifest", "page", "manifest"]);
     expect(persistedManifest).toEqual(original);
+  });
+});
+
+describe("tidyOnePage", () => {
+  it("bumps updated_at on an unchanged note so the reader can see completion", async () => {
+    const writes: Page[] = [];
+    const result = await tidyOnePage("p", {
+      readPage: async () => page("p"),
+      listPageIds: async () => ["p"],
+      readManifest: async () => [],
+      writeManifest: async () => {},
+      readState: async () => ({ tidied: {} }),
+      writeState: async () => {},
+      propose: async p => ({ tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }),
+      writePage: async next => { writes.push(next); },
+      now: () => "2026-08-12T00:00:00.000Z",
+    });
+    expect(result.updated_at).toBe("2026-08-12T00:00:00.000Z");
+    expect(writes).toEqual([expect.objectContaining({ id: "p", updated_at: "2026-08-12T00:00:00.000Z" })]);
   });
 });

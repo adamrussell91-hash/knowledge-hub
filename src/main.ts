@@ -707,7 +707,7 @@ function renderPage(page: Page) {
     tidyBusy = true;
     render();
     try {
-      activePage = await tidyPage(page.id);
+      activePage = await tidyPage(page.id, page.updated_at);
       entries = await listPages();
       await refreshVisible();
       showToast("Cleaned up");
