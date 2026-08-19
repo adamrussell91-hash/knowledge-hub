@@ -72,14 +72,13 @@ describe("api client", () => {
     ).resolves.toMatchObject({ put_url: "https://r2" });
   });
 
-  it("posts production tidy directly to the Worker rather than the API base", async () => {
+  it("posts production tidy to the API host that already has the session cookie", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "p" }) }));
     await expect(tidyPage("p")).resolves.toEqual({ id: "p" });
     expect(fetch).toHaveBeenCalledWith(
-      "https://knowledge-tidy.adam-russell.com/tidy",
+      "https://knowledge-api.adam-russell.com/api/tidy",
       expect.objectContaining({ credentials: "include", method: "POST", body: JSON.stringify({ id: "p" }) }),
     );
-    expect(vi.mocked(fetch).mock.calls[0]?.[0]).not.toMatch(/knowledge-api|\/api\/tidy/);
   });
 
   it("uses the local-data route in local mode", () => {

@@ -4,7 +4,7 @@
   functions = "netlify/handlers"
 
 [functions]
-  included_files = ["prompts/clementine-*.md", "prompts/annotation-voice.md"]
+  included_files = ["prompts/clementine-*.md", "prompts/annotation-voice.md", "prompts/tidy.md"]
 
 [build.environment]
   # Public CORS origin and R2 bucket name — not secrets. Netlify's scanner
@@ -91,6 +91,11 @@
 [[redirects]]
   from = "/api/capture"
   to = "/.netlify/functions/capture"
+  status = 200
+
+[[redirects]]
+  from = "/api/tidy"
+  to = "/.netlify/functions/tidy"
   status = 200
 
 [[redirects]]
