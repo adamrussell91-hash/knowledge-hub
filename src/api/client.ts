@@ -1,6 +1,6 @@
 import type { Attachment, Page, PageManifestEntry } from "../domain/page";
 import type { ResearchResult } from "../research/schema";
-import { API_BASE } from "./config";
+import { API_BASE, DEFAULT_PRODUCTION_TIDY_ORIGIN } from "./config";
 import { localGetPage, localListPages, localSearchPages } from "./localData";
 
 export const USE_LOCAL_DATA =
@@ -141,6 +141,26 @@ export async function savePage(page: Page): Promise<Page> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(page),
   });
+}
+
+export function tidyEndpoint(localData: boolean) {
+  return localData ? "/local-data/tidy" : `${DEFAULT_PRODUCTION_TIDY_ORIGIN}/tidy`;
+}
+
+export async function tidyPage(id: string): Promise<Page> {
+  const endpoint = tidyEndpoint(USE_LOCAL_DATA);
+  const response = await fetch(endpoint, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  if (!response.ok) {
+    let detail = `Tidy failed (${response.status})`;
+    try { detail = ((await response.json()) as { error?: string }).error ?? detail; } catch { /* retain status */ }
+    throw new Error(detail);
+  }
+  return response.json() as Promise<Page>;
 }
 
 export type SignAttachmentInput = {

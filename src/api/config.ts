@@ -1,4 +1,5 @@
 const DEFAULT_PRODUCTION_API_BASE = "https://knowledge-api.adam-russell.com/api";
+export const DEFAULT_PRODUCTION_TIDY_ORIGIN = "https://knowledge-tidy.adam-russell.com";
 
 export const PRODUCTION_API_BASE =
   (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ||

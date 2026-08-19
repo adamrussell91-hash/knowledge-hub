@@ -31,6 +31,12 @@
   line-height: var(--leading-snug);
   color: var(--on-dark-muted);
   white-space: normal;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  width: 100%;
+  cursor: pointer;
 }
 
 .rail__nav {
@@ -1521,6 +1527,11 @@
 
 .reader__actions .hub-utilities {
   margin-left: auto;
+}
+
+.reader__tidy {
+  font-size: var(--text-sm);
+  color: var(--muted);
 }
 
 .page-header__actions {

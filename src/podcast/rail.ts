@@ -29,7 +29,6 @@ export type PodcastRailHost = {
 };
 
 type Kind = "one-off" | "series";
-type Area = "all" | "university" | "notes";
 
 const MODES: PodcastMode[] = ["recap", "connector", "quiz", "debate"];
 const CADENCES = ["weekly", "monthly", "half-yearly", "yearly"] as const;
@@ -49,7 +48,6 @@ let clusterA = "";
 let clusterB = "";
 let positionA = "";
 let positionB = "";
-let area: Area = "all";
 let selectedTags: string[] = [];
 let topic = "";
 let runLength = 8;
@@ -108,11 +106,8 @@ function clusterOptions(tags: string[]) {
 
 function scope(): ResearchScope | undefined {
   const tags = selectedTags.filter(Boolean);
-  if (area === "all" && !tags.length) return undefined;
-  return {
-    ...(area !== "all" ? { area } : {}),
-    ...(tags.length ? { tags } : {}),
-  };
+  if (!tags.length) return undefined;
+  return { tags };
 }
 
 function modeDial(): Record<string, string> {
@@ -280,12 +275,6 @@ function commissionFields(tags: string[]) {
         )
         .join(" ")}</fieldset>`
     : "";
-  const areaSelect = `<label for="podcast-area">Area</label>
-    <select id="podcast-area">
-      <option value="all" ${area === "all" ? "selected" : ""}>All</option>
-      <option value="university" ${area === "university" ? "selected" : ""}>University</option>
-      <option value="notes" ${area === "notes" ? "selected" : ""}>Notes</option>
-    </select>`;
   if (kind === "series") {
     return `<label for="podcast-topic">Topic</label>
       <input id="podcast-topic" type="text" value="${escapeHtml(topic)}" required />
@@ -293,7 +282,6 @@ function commissionFields(tags: string[]) {
       <input id="podcast-run-length" type="number" min="4" max="12" value="${runLength}" />
       <label for="podcast-series-cadence">Cadence</label>
       <select id="podcast-series-cadence">${options(CADENCES, seriesCadence)}</select>
-      ${areaSelect}
       ${tagBoxes}
       ${advancedHtml()}`;
   }
@@ -302,7 +290,6 @@ function commissionFields(tags: string[]) {
       `<label><input type="radio" name="podcast-mode" value="${value}" ${mode === value ? "checked" : ""} /> ${escapeHtml(labelize(value))}</label>`,
   ).join(" ")}</fieldset>
     ${modeDialHtml(tags)}
-    ${areaSelect}
     ${tagBoxes}
     ${advancedHtml()}`;
 }
@@ -424,10 +411,6 @@ function bindForm(host: PodcastRailHost) {
   const seriesCadenceEl = root.querySelector<HTMLSelectElement>("#podcast-series-cadence");
   if (seriesCadenceEl) seriesCadenceEl.onchange = () => {
     seriesCadence = seriesCadenceEl.value as (typeof CADENCES)[number];
-  };
-  const areaEl = root.querySelector<HTMLSelectElement>("#podcast-area");
-  if (areaEl) areaEl.onchange = () => {
-    area = areaEl.value as Area;
   };
   root.querySelectorAll<HTMLInputElement>("[data-podcast-tag]").forEach(box => {
     box.onchange = () => {

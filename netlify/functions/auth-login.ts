@@ -20,7 +20,7 @@ export const handler: Handler = async event => {
     statusCode: 200,
     headers: {
       ...cors(),
-      "Set-Cookie": `kh_session=${token}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`,
+      "Set-Cookie": `kh_session=${token}; Domain=.adam-russell.com; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`,
     },
     body: JSON.stringify({ ok: true }),
   };

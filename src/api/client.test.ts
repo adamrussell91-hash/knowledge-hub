@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getPage, listPages, runCoach, savePage, signAttachment } from "./client";
+import { getPage, listPages, runCoach, savePage, signAttachment, tidyEndpoint, tidyPage } from "./client";
 import { API_BASE } from "./config";
 
 describe("api client", () => {
@@ -70,6 +70,20 @@ describe("api client", () => {
         area: "notes",
       }),
     ).resolves.toMatchObject({ put_url: "https://r2" });
+  });
+
+  it("posts production tidy directly to the Worker rather than the API base", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "p" }) }));
+    await expect(tidyPage("p")).resolves.toEqual({ id: "p" });
+    expect(fetch).toHaveBeenCalledWith(
+      "https://knowledge-tidy.adam-russell.com/tidy",
+      expect.objectContaining({ credentials: "include", method: "POST", body: JSON.stringify({ id: "p" }) }),
+    );
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).not.toMatch(/knowledge-api|\/api\/tidy/);
+  });
+
+  it("uses the local-data route in local mode", () => {
+    expect(tidyEndpoint(true)).toBe("/local-data/tidy");
   });
 });
 
