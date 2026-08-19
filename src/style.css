@@ -91,7 +91,15 @@
 
 .canvas {
   min-width: 0;
+  min-height: 0;
   padding: var(--space-6) clamp(var(--space-5), 3vw, var(--space-10)) var(--space-10);
+}
+
+.canvas:has(> .compose),
+.canvas:has(> .reader) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
 }
 
 .topbar,
@@ -608,6 +616,11 @@
 }
 
 .reader {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
@@ -651,7 +664,8 @@
 }
 
 .reader__body {
-  max-width: var(--measure);
+  flex: 1;
+  max-width: none;
 }
 
 .reader__body h3 {
@@ -1457,7 +1471,12 @@
 }
 
 .compose {
-  max-width: 44rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
 }
 
 .compose label {
@@ -1485,8 +1504,20 @@
 }
 
 .compose textarea {
-  min-height: 18rem;
+  min-height: 12rem;
   resize: vertical;
+}
+
+.compose__field--body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.compose__field--body textarea {
+  flex: 1;
+  min-height: 12rem;
 }
 
 .compose__error {

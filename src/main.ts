@@ -764,7 +764,7 @@ function renderCompose(state: ComposeState) {
         <label for="compose-tags">Tags</label>
         <input id="compose-tags" value="${escapeHtml(state.tags)}" placeholder="Comma-separated" />
       </div>
-      <div class="compose__field">
+      <div class="compose__field compose__field--body">
         <label for="compose-body">Body (markdown)</label>
         <textarea id="compose-body">${escapeHtml(state.body)}</textarea>
       </div>
