@@ -11,4 +11,8 @@ describe("Knowledge Hub rail", () => {
     expect(main).not.toContain("renderAlchemist");
     expect(main).not.toContain("runAlchemist");
   });
+
+  it("still renders coach archive citations after the Alchemist rail is gone", () => {
+    expect(main).toContain("function findingCards");
+  });
 });
