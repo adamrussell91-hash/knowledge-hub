@@ -9,6 +9,17 @@ afterEach(() => {
 });
 
 describe("auth cookie scope", () => {
+  it("allows the GitHub Pages origin to complete credentialed login", async () => {
+    process.env.SESSION_SECRET = "secret";
+    process.env.KNOWLEDGE_HUB_PASSPHRASE_HASH = createHash("sha256").update("passphrase").digest("hex");
+    const result = await login({
+      httpMethod: "POST",
+      body: JSON.stringify({ passphrase: "passphrase" }),
+      headers: { origin: "https://adamrussell91-hash.github.io" },
+    } as never, {} as never);
+    expect(result.headers?.["Access-Control-Allow-Origin"]).toBe("https://adamrussell91-hash.github.io");
+  });
+
   it("sets the shared parent domain on login", async () => {
     process.env.SESSION_SECRET = "secret";
     process.env.KNOWLEDGE_HUB_PASSPHRASE_HASH = createHash("sha256").update("passphrase").digest("hex");

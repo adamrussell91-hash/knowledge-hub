@@ -13,13 +13,13 @@ export const handler: Handler = async event => {
       .update(passphrase ?? "")
       .digest("hex") === process.env.KNOWLEDGE_HUB_PASSPHRASE_HASH;
   if (!valid || !process.env.SESSION_SECRET) {
-    return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Invalid passphrase" }) };
+    return { statusCode: 401, headers: cors(event.headers.origin), body: JSON.stringify({ error: "Invalid passphrase" }) };
   }
   const token = signSession({ sub: "single-user" }, process.env.SESSION_SECRET);
   return {
     statusCode: 200,
     headers: {
-      ...cors(),
+      ...cors(event.headers.origin),
       "Set-Cookie": `kh_session=${token}; Domain=.adam-russell.com; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=2592000`,
     },
     body: JSON.stringify({ ok: true }),
