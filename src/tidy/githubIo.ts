@@ -1,6 +1,5 @@
 import { PageSchema, type Page, type PageManifestEntry } from "../domain/page";
 import { getContent, putContent } from "../../netlify/functions/_lib/githubWrite";
-import { savePageRecord } from "../../netlify/functions/_lib/savePageRecord";
 import { applyTidyProposal, proposeTidy } from "./propose";
 import type { TidyProposal } from "./types";
 import { tidyOnePage, type TidyIO, type TidyState } from "./run";
@@ -108,5 +107,11 @@ export async function tidyPageDirect(input: {
     fetchImpl: input.fetchImpl,
   });
   if (!proposal) throw new Error("Claude didn’t return a usable tidy");
-  return savePageRecord(applyTidyProposal(parsed.data, proposal), fns);
+  const stored: Page = {
+    ...applyTidyProposal(parsed.data, proposal),
+    created_at: parsed.data.created_at,
+    updated_at: new Date().toISOString(),
+  };
+  await fns.putContent(`pages/${input.id}.json`, JSON.stringify(stored), current.sha, `Save ${input.id}`);
+  return stored;
 }

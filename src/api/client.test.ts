@@ -81,20 +81,18 @@ describe("api client", () => {
     );
   });
 
-  it("polls the page when tidy is accepted in the background", async () => {
+  it("uses a saved note when the tidy request drops after GitHub already wrote", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValueOnce({ ok: true, status: 202, json: async () => ({ accepted: true }) })
+      .mockRejectedValueOnce(new TypeError("Load failed"))
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "p", updated_at: "t2", title: "Tidied" }) });
     vi.stubGlobal("fetch", fetchImpl);
     await expect(tidyPage("p", "t1")).resolves.toMatchObject({ title: "Tidied", updated_at: "t2" });
-    expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://knowledge-api.adam-russell.com/api/tidy");
-    expect(String(fetchImpl.mock.calls[1]?.[0])).toContain("/pages/p");
   });
 
-  it("maps a dropped tidy request to a finish error instead of Safari Load failed", async () => {
+  it("tells you to refresh if the request drops and the note has not changed yet", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Load failed")));
-    await expect(tidyPage("p", "t1")).rejects.toThrow("Clean up didn’t finish");
+    await expect(tidyPage("p", "t1")).rejects.toThrow("Refresh the note");
   });
 
   it("uses the local-data route in local mode", () => {

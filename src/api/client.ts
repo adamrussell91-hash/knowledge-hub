@@ -147,17 +147,20 @@ export function tidyEndpoint(localData: boolean) {
   return localData ? "/local-data/tidy" : `${PRODUCTION_API_BASE}/tidy`;
 }
 
-const TIDY_POLL_MS = 1500;
-const TIDY_TIMEOUT_MS = 90_000;
-
-async function waitForTidiedPage(id: string, previousUpdatedAt: string): Promise<Page> {
-  const deadline = Date.now() + TIDY_TIMEOUT_MS;
-  for (;;) {
-    const page = await getPage(id);
-    if (page.updated_at !== previousUpdatedAt) return page;
-    if (Date.now() >= deadline) throw new Error("Clean up didn’t finish");
-    await new Promise(resolve => setTimeout(resolve, TIDY_POLL_MS));
+async function readTidyError(response: Response) {
+  let detail = `Tidy failed (${response.status})`;
+  try {
+    detail = ((await response.json()) as { error?: string }).error ?? detail;
+  } catch {
+    /* retain status */
   }
+  return detail;
+}
+
+async function pageIfAlreadyTidied(id: string, previousUpdatedAt: string) {
+  const page = await getPage(id);
+  if (page.updated_at !== previousUpdatedAt) return page;
+  return null;
 }
 
 export async function tidyPage(id: string, previousUpdatedAt?: string): Promise<Page> {
@@ -172,15 +175,17 @@ export async function tidyPage(id: string, previousUpdatedAt?: string): Promise<
       body: JSON.stringify({ id }),
     });
   } catch (error) {
-    if (error instanceof TypeError) throw new Error("Clean up didn’t finish");
+    const recovered = before ? await pageIfAlreadyTidied(id, before).catch(() => null) : null;
+    if (recovered) return recovered;
+    if (error instanceof TypeError) throw new Error("Clean up timed out. Refresh the note — it may already be cleaned up.");
     throw error;
   }
-  if (response.status === 202) return waitForTidiedPage(id, before);
-  if (!response.ok) {
-    let detail = `Tidy failed (${response.status})`;
-    try { detail = ((await response.json()) as { error?: string }).error ?? detail; } catch { /* retain status */ }
-    throw new Error(detail);
+  if (response.status === 202) {
+    const recovered = before ? await pageIfAlreadyTidied(id, before) : null;
+    if (recovered) return recovered;
+    throw new Error("Clean up is still running. Refresh the note in a few seconds.");
   }
+  if (!response.ok) throw new Error(await readTidyError(response));
   return response.json() as Promise<Page>;
 }
 
