@@ -147,14 +147,35 @@ export function tidyEndpoint(localData: boolean) {
   return localData ? "/local-data/tidy" : `${PRODUCTION_API_BASE}/tidy`;
 }
 
-export async function tidyPage(id: string): Promise<Page> {
+const TIDY_POLL_MS = 1500;
+const TIDY_TIMEOUT_MS = 90_000;
+
+async function waitForTidiedPage(id: string, previousUpdatedAt: string): Promise<Page> {
+  const deadline = Date.now() + TIDY_TIMEOUT_MS;
+  for (;;) {
+    const page = await getPage(id);
+    if (page.updated_at !== previousUpdatedAt) return page;
+    if (Date.now() >= deadline) throw new Error("Clean up didn’t finish");
+    await new Promise(resolve => setTimeout(resolve, TIDY_POLL_MS));
+  }
+}
+
+export async function tidyPage(id: string, previousUpdatedAt?: string): Promise<Page> {
   const endpoint = tidyEndpoint(USE_LOCAL_DATA);
-  const response = await fetch(endpoint, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id }),
-  });
+  const before = previousUpdatedAt ?? (USE_LOCAL_DATA ? "" : (await getPage(id)).updated_at);
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+  } catch (error) {
+    if (error instanceof TypeError) throw new Error("Clean up didn’t finish");
+    throw error;
+  }
+  if (response.status === 202) return waitForTidiedPage(id, before);
   if (!response.ok) {
     let detail = `Tidy failed (${response.status})`;
     try { detail = ((await response.json()) as { error?: string }).error ?? detail; } catch { /* retain status */ }

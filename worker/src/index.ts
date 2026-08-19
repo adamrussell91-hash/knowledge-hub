@@ -152,7 +152,7 @@ async function answerEpisode(env: WorkerEnv, id: string, body: unknown) {
 }
 
 export default {
-  async fetch(request: Request, env: WorkerEnv): Promise<Response> {
+  async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
     const pathname = new URL(request.url).pathname;
     const path = pathname.replace(/\/+$/, "") || "/";
     if (path.endsWith("/capture")) {
@@ -179,7 +179,9 @@ export default {
     if (path.endsWith("/tidy")) {
       return handleTidyRequest(request, {
         sessionSecret: env.SESSION_SECRET ?? "",
+        kernelSecret: env.RESEARCH_KERNEL_SHARED_SECRET,
         allowedOrigin: env.KNOWLEDGE_HUB_ORIGIN ?? KNOWLEDGE_HUB_ORIGIN,
+        waitUntil: task => ctx.waitUntil(task),
         tidyPage: id => {
           if (!env.GITHUB_DATA_REPO || !env.GITHUB_DATA_REPO_TOKEN) {
             throw new Error("Data repo is not configured for writes");

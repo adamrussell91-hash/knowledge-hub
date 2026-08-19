@@ -1,8 +1,12 @@
 import type { Handler } from "@netlify/functions";
-import { loadPromptFile } from "../../src/clementine/loadFromDisk";
-import { tidyPageOnGitHub } from "../../src/tidy/githubIo";
 import { cors, preflight } from "./_lib/cors";
 import { requireSession } from "./_lib/requireSession";
+
+const DEFAULT_KERNEL_URL = "https://knowledge-hub-research.adamrussell91.workers.dev";
+
+function kernelBase() {
+  return (process.env.RESEARCH_KERNEL_URL || DEFAULT_KERNEL_URL).replace(/\/+$/, "");
+}
 
 export const handler: Handler = async event => {
   const pre = preflight(event);
@@ -12,13 +16,8 @@ export const handler: Handler = async event => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers: cors(), body: JSON.stringify({ error: "Method not allowed" }) };
   }
-  const repo = process.env.GITHUB_DATA_REPO;
-  const token = process.env.GITHUB_DATA_REPO_TOKEN;
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!repo || !token) {
-    return { statusCode: 503, headers: cors(), body: JSON.stringify({ error: "Data repo is not configured for writes" }) };
-  }
-  if (!apiKey) {
+  const secret = process.env.RESEARCH_KERNEL_SHARED_SECRET;
+  if (!secret) {
     return { statusCode: 503, headers: cors(), body: JSON.stringify({ error: "Tidy is unavailable" }) };
   }
   let id = "";
@@ -29,17 +28,18 @@ export const handler: Handler = async event => {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Invalid JSON" }) };
   }
   if (!id) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "id is required" }) };
-  try {
-    const page = await tidyPageOnGitHub({
-      id,
-      repo,
-      token,
-      apiKey,
-      prompt: loadPromptFile("tidy.md"),
-    });
-    return { statusCode: 200, headers: cors(), body: JSON.stringify(page) };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Tidy failed";
-    return { statusCode: 502, headers: cors(), body: JSON.stringify({ error: message }) };
-  }
+  const response = await fetch(`${kernelBase()}/tidy`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-research-kernel-secret": secret,
+    },
+    body: JSON.stringify({ id }),
+  });
+  const text = await response.text();
+  return {
+    statusCode: response.status || (response.ok ? 200 : 502),
+    headers: cors(),
+    body: text,
+  };
 };

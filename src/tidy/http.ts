@@ -5,15 +5,17 @@ export const KNOWLEDGE_HUB_ORIGIN = "https://knowledge-hub.adam-russell.com";
 
 export type TidyHttpBindings = {
   sessionSecret: string;
+  kernelSecret?: string;
   allowedOrigin: string;
   tidyPage: (id: string) => Promise<Page>;
+  waitUntil?: (task: Promise<unknown>) => void;
 };
 
 function corsHeaders(allowedOrigin: string) {
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, x-research-kernel-secret",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     Vary: "Origin",
   };
@@ -41,6 +43,19 @@ async function readId(request: Request) {
   }
 }
 
+function authorize(request: Request, bindings: TidyHttpBindings) {
+  const kernel = request.headers.get("x-research-kernel-secret") ?? "";
+  if (bindings.kernelSecret && kernel && kernel === bindings.kernelSecret) return true;
+  const token = cookieValue(request.headers.get("Cookie"), "kh_session");
+  if (!bindings.sessionSecret || !token) return false;
+  try {
+    verifySession(token, bindings.sessionSecret);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function handleTidyRequest(request: Request, bindings: TidyHttpBindings): Promise<Response> {
   const origin = request.headers.get("Origin");
   const headers = corsHeaders(bindings.allowedOrigin);
@@ -53,19 +68,20 @@ export async function handleTidyRequest(request: Request, bindings: TidyHttpBind
   if (request.method !== "POST") {
     return json(405, { error: "Method not allowed" }, headers);
   }
-  const token = cookieValue(request.headers.get("Cookie"), "kh_session");
-  if (!bindings.sessionSecret || !token) {
-    return json(401, { error: "Unauthenticated" }, headers);
-  }
-  try {
-    verifySession(token, bindings.sessionSecret);
-  } catch {
+  if (!authorize(request, bindings)) {
     return json(401, { error: "Unauthenticated" }, headers);
   }
   const id = await readId(request);
   if (!id) return json(400, { error: "id is required" }, headers);
+  const task = bindings.tidyPage(id);
+  if (bindings.waitUntil) {
+    bindings.waitUntil(task.then(() => undefined).catch(error => {
+      console.error("tidy failed", error instanceof Error ? error.message : error);
+    }));
+    return json(202, { accepted: true, id }, headers);
+  }
   try {
-    return json(200, await bindings.tidyPage(id), headers);
+    return json(200, await task, headers);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Tidy failed";
     return json(502, { error: message }, headers);
