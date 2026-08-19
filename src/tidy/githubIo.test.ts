@@ -52,8 +52,8 @@ describe("tidyPageDirect", () => {
         ),
     });
     expect(saved.body).toBe("Cleaned body");
+    expect(vi.mocked(putContent)).toHaveBeenCalledOnce();
     expect(vi.mocked(putContent).mock.calls[0]?.[2]).toBe(`pages/${page.id}.json`);
-    expect(vi.mocked(putContent).mock.calls[1]?.[2]).toBe("manifest.json");
   });
 
   it("fails clearly when Claude does not return tidy JSON", async () => {
