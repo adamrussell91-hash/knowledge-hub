@@ -66,6 +66,24 @@ describe("rankCandidates", () => {
     { pageId: "noise", title: "Noise", vector: [0, 1], excerpt: "n" },
   ];
 
+  it("falls back to lexical ranking when the vector corpus is empty", () => {
+    const { linking, heldBack } = rankCandidates({
+      sourceId: "duty",
+      sourceVector: [],
+      corpus: [],
+      connected: [],
+      skip: new Set(),
+      query: "Inherited duty in Irish poetry",
+      lexicalDocs: [
+        { id: "heaney", title: "Heaney", excerpt: "Inherited duty in the poem" },
+        { id: "duty", title: "Duty", excerpt: "Inherited duty" },
+        { id: "maths", title: "Fractions", excerpt: "Common denominators" },
+      ],
+    });
+    expect(heldBack).toEqual([]);
+    expect(linking.map(hit => hit.pageId)).toEqual(["heaney"]);
+  });
+
   it("drops self, already-linked, and below-floor hits, and holds near-duplicates", () => {
     const { linking, heldBack } = rankCandidates({
       sourceId: "self",
@@ -212,6 +230,55 @@ describe("runCurator", () => {
     expect(second.proposed).toBe(0);
     expect(pending).toHaveLength(1);
     expect(writes).toBe(1);
+  });
+
+  it("proposes lexical matches when the vector corpus is empty", async () => {
+    const pages = new Map([
+      ["page_a", page("page_a", { title: "Duty", body: "Inherited duty" })],
+      ["page_b", page("page_b", { title: "Heaney", body: "Inherited duty in the poem" })],
+    ]);
+    let state = { lastProcessedSha: "sha0" };
+    let pending: ReturnType<typeof makeProposal>[] = [];
+    const io: CuratorIO = {
+      gitNameStatus: async () => "A\tpages/page_a.json\n",
+      headSha: async () => "sha1",
+      readState: async () => state,
+      writeState: async next => {
+        state = next;
+      },
+      readPending: async () => pending,
+      writePending: async next => {
+        pending = next;
+      },
+      readDismissed: async () => [],
+      writeDismissed: async () => undefined,
+      readPage: async id => pages.get(id) ?? null,
+      writePage: async next => {
+        pages.set(next.id, next);
+      },
+      listPageIds: async () => [...pages.keys()],
+      corpus: [],
+      lexicalDocs: [
+        { id: "page_a", title: "Duty", excerpt: "Inherited duty" },
+        { id: "page_b", title: "Heaney", excerpt: "Inherited duty in the poem" },
+      ],
+      embed: async () => {
+        throw new Error("embeddings should not run without a vector corpus");
+      },
+      judge: async (_note, candidates) =>
+        candidates.map(hit => ({
+          pageId: hit.pageId,
+          related: true,
+          relation: "related" as const,
+          rationale: "shared duty",
+        })),
+      now: () => now,
+      excerpt: excerptLine,
+    };
+
+    const result = await runCurator(io);
+    expect(result.proposed).toBe(1);
+    expect(pending[0]?.noteB).toBe("page_b");
   });
 
   it("strips connected references when a page is deleted", async () => {
