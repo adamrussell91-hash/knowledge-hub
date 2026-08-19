@@ -32,12 +32,16 @@ describe("GitHub Pages deploy", () => {
   });
 });
 
-describe("Note tidy stays off Netlify", () => {
-  it("does not add a tidy function or /api/tidy redirect", async () => {
+describe("Note tidy button uses the session API host", () => {
+  it("adds a session-gated /api/tidy function without new Netlify secrets", async () => {
     const config = await readFile(path.join(process.cwd(), "netlify.toml"), "utf8");
-    expect(config).not.toContain("/api/tidy");
-    const functions = await readdir(path.join(process.cwd(), "netlify/functions"));
-    expect(functions).not.toContain("tidy.ts");
+    expect(config).toContain("/api/tidy");
+    expect(config).toContain("prompts/tidy.md");
+    const source = await readFile(path.join(process.cwd(), "netlify/functions/tidy.ts"), "utf8");
+    expect(source).toContain("requireSession");
+    expect(source).not.toMatch(/VITE_/);
+    const handlers = await readdir(path.join(process.cwd(), "netlify/handlers"));
+    expect(handlers).toContain("tidy.ts");
   });
 });
 

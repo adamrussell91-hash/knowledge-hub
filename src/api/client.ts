@@ -1,6 +1,6 @@
 import type { Attachment, Page, PageManifestEntry } from "../domain/page";
 import type { ResearchResult } from "../research/schema";
-import { API_BASE, DEFAULT_PRODUCTION_TIDY_ORIGIN } from "./config";
+import { API_BASE, PRODUCTION_API_BASE } from "./config";
 import { localGetPage, localListPages, localSearchPages } from "./localData";
 
 export const USE_LOCAL_DATA =
@@ -144,7 +144,7 @@ export async function savePage(page: Page): Promise<Page> {
 }
 
 export function tidyEndpoint(localData: boolean) {
-  return localData ? "/local-data/tidy" : `${DEFAULT_PRODUCTION_TIDY_ORIGIN}/tidy`;
+  return localData ? "/local-data/tidy" : `${PRODUCTION_API_BASE}/tidy`;
 }
 
 export async function tidyPage(id: string): Promise<Page> {
