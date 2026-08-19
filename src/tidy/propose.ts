@@ -7,10 +7,20 @@ export function normalizeTidyBody(body: string) {
   return body.replace(/\r\n?/g, "\n").replace(/\n(?:[ \t]*\n){2,}/g, "\n\n").trim();
 }
 
-/** Parses exactly the JSON object requested from Claude; prose around it is deliberately rejected. */
+function extractJson(raw: string) {
+  const trimmed = raw.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = fenced?.[1]?.trim() ?? trimmed;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start >= 0 && end > start) return candidate.slice(start, end + 1);
+  return candidate;
+}
+
+/** Parses the JSON object requested from Claude, including fenced or slightly chatty replies. */
 export function parseTidyProposal(raw: string): TidyProposal | null {
   try {
-    const parsed: unknown = JSON.parse(raw.trim());
+    const parsed: unknown = JSON.parse(extractJson(raw));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const value = parsed as { tags?: unknown; body?: unknown; title?: unknown };
     if (!Array.isArray(value.tags) || !value.tags.length || !value.tags.every(tag => typeof tag === "string" && tag.trim())) return null;
