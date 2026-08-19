@@ -9,15 +9,14 @@ import {
   listPages,
   login,
   logout,
-  runAlchemist,
   runCoach,
   savePage,
   searchPages,
   signAttachment,
   uploadSignedFile,
-  type AlchemistConnection,
   type CoachMessage,
 } from "./api/client";
+import { isPageHash, pageHashForId, pageIdFromHash } from "./routing/pageHash";
 import { runCapture } from "./api/captureClient";
 import {
   bindCaptureControls,
@@ -48,7 +47,6 @@ type View =
   | "graph"
   | "page"
   | "compose"
-  | "alchemist"
   | "coach"
   | "podcast"
   | "quiz"
@@ -76,11 +74,6 @@ let graphTeardown: (() => void) | null = null;
 let graphMode: GraphMode = "constellation";
 let graphSearch = "";
 let orbitSpeed = 0.5;
-let alchemistLesson = "";
-let alchemistBusy = false;
-let alchemistError = "";
-let alchemistConnections: AlchemistConnection[] = [];
-let alchemistMode = "";
 let coachThesis = "";
 let coachDraft = "";
 let coachInput = "";
@@ -143,7 +136,6 @@ const icons = {
   graph: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="6" r="2.2"/><circle cx="18" cy="14" r="2.2"/><path d="M8 11l3-3M13.5 8l3 4"/></svg>`,
   university: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10l9-5 9 5-9 5-9-5z"/><path d="M7 12.5V17c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/></svg>`,
   notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>`,
-  alchemist: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l-1 4H9L8 3z"/><path d="M9 7l-3 12h12l-3-12"/><path d="M10 12h4"/></svg>`,
   coach: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h10v14H5z"/><path d="M8 9h4M8 13h4"/><path d="M17 8l4 4-6 6h-4v-4z"/></svg>`,
   podcast: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="3"/><path d="M8 10a4 4 0 0 0 8 0"/><path d="M6 10a6 6 0 0 0 12 0"/><path d="M12 13v6M9 19h6"/></svg>`,
   quiz: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v16H8z"/><path d="M11 8h2M11 12h2M11 16h1"/></svg>`,
@@ -219,6 +211,12 @@ function leaveSpecialRails() {
   if (view === "wiki") leaveWikiRail();
 }
 
+function clearPageHash() {
+  if (isPageHash(location.hash)) {
+    history.replaceState(null, "", `${location.pathname}${location.search}`);
+  }
+}
+
 function shell(main: string) {
   if (graphTeardown) {
     graphTeardown();
@@ -232,7 +230,6 @@ function shell(main: string) {
         <button class="rail__btn ${area === "university" && view === "list" ? "is-active" : ""}" data-nav="university" type="button">${icons.university}<span>Uni</span></button>
         <button class="rail__btn ${area === "notes" && view === "list" ? "is-active" : ""}" data-nav="notes" type="button">${icons.notes}<span>Notes</span></button>
         <button class="rail__btn ${view === "graph" ? "is-active" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
-        <button class="rail__btn ${view === "alchemist" ? "is-active" : ""}" data-nav="alchemist" type="button">${icons.alchemist}<span>Alchemist</span></button>
         <button class="rail__btn ${view === "coach" ? "is-active" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
         <button class="rail__btn ${view === "podcast" ? "is-active" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
         <button class="rail__btn ${view === "quiz" ? "is-active" : ""}" data-nav="quiz" type="button">${icons.quiz}<span>Quiz</span></button>
@@ -247,7 +244,6 @@ function shell(main: string) {
       const next = button.dataset.nav!;
       const special: Record<string, View> = {
         graph: "graph",
-        alchemist: "alchemist",
         coach: "coach",
         podcast: "podcast",
         quiz: "quiz",
@@ -257,6 +253,7 @@ function shell(main: string) {
         leaveSpecialRails();
         view = special[next];
         activePage = null;
+        clearPageHash();
         if (next === "podcast") enterPodcastRail();
         if (next === "quiz") enterQuizRail();
         if (next === "wiki") enterWikiRail();
@@ -268,6 +265,7 @@ function shell(main: string) {
       keywordFilter = "";
       view = "list";
       activePage = null;
+      clearPageHash();
       listScrollTop = 0;
       void refreshVisible().then(render);
     };
@@ -536,83 +534,33 @@ function renderGraph() {
 }
 
 async function openPage(id: string) {
-  activePage = await getPage(id);
+  try {
+    activePage = await getPage(id);
+  } catch {
+    showToast("That note isn't in the archive.");
+    return;
+  }
   view = "page";
+  const next = pageHashForId(id);
+  if (location.hash !== next) location.hash = next;
   render();
 }
 
-function renderAlchemist() {
-  const modeLabel =
-    alchemistMode === "local"
-      ? "Local lexical retrieval"
-      : alchemistMode === "synthesis"
-        ? "Claude synthesis"
-        : alchemistMode === "retrieval"
-          ? "Retrieval only (no Anthropic key)"
-          : alchemistMode === "empty"
-            ? "No candidates"
-            : "Paste a lesson to find non-obvious archive links";
-
-  shell(`
-    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · lexical retrieval over your archive · full Claude synthesis needs the live Alchemist API</p>` : ""}
-    ${pageHeader("Lesson Alchemist", "Cross-domain connections")}
-    <section class="alchemist">
-      <form class="alchemist__form glass-panel">
-        <label for="lesson-input">Lesson text</label>
-        <textarea id="lesson-input" rows="8" placeholder="Paste a lesson outline, learning intention, or topic…">${escapeHtml(alchemistLesson)}</textarea>
-        <div class="alchemist__actions">
-          <button type="submit" ${alchemistBusy ? "disabled" : ""}>${alchemistBusy ? "Finding links…" : "Find connections"}</button>
-          <p class="alchemist__mode">${escapeHtml(modeLabel)}</p>
-        </div>
-        ${alchemistError ? `<p class="alchemist__error">${escapeHtml(alchemistError)}</p>` : ""}
-      </form>
-      <div class="alchemist__results" aria-live="polite">
-        ${
-          alchemistConnections.length
-            ? alchemistConnections
-                .map(
-                  item => `<article class="alchemist-card glass-panel">
-                    <p class="alchemist-card__icon">${escapeHtml(item.icon)}</p>
-                    <h2>${escapeHtml(item.summary)}</h2>
-                    <p class="alchemist-card__why">${escapeHtml(item.whyNonObvious)}</p>
-                    <p class="alchemist-card__excerpt">${escapeHtml(item.sourceExcerpt)}</p>
-                    <button type="button" data-open-page="${escapeHtml(item.sourcePageId)}">Open “${escapeHtml(item.sourcePageTitle)}” →</button>
-                  </article>`,
-                )
-                .join("")
-            : `<p class="empty">Connections will appear here.</p>`
-        }
-      </div>
-    </section>
-  `);
-
-  app.querySelector("form")!.onsubmit = async event => {
-    event.preventDefault();
-    const textarea = app.querySelector<HTMLTextAreaElement>("#lesson-input")!;
-    alchemistLesson = textarea.value;
-    alchemistBusy = true;
-    alchemistError = "";
+async function applyPageHash(): Promise<boolean> {
+  const id = pageIdFromHash(location.hash);
+  if (!id) return false;
+  try {
+    activePage = await getPage(id);
+    view = "page";
     render();
-    try {
-      const result = await runAlchemist(alchemistLesson);
-      alchemistConnections = result.connections;
-      alchemistMode = result.mode;
-    } catch (error) {
-      alchemistConnections = [];
-      alchemistMode = "";
-      alchemistError = error instanceof Error ? error.message : "Alchemist failed";
-    } finally {
-      alchemistBusy = false;
-      render();
-    }
-  };
-
-  app.querySelectorAll<HTMLButtonElement>("[data-open-page]").forEach(button => {
-    button.onclick = () => void openPage(button.dataset.openPage!);
-  });
+    return true;
+  } catch {
+    showToast("That note isn't in the archive.");
+    view = "list";
+    render();
+    return false;
+  }
 }
-
-function findingCards(findings: ResearchFinding[]) {
   return findings
     .map(
       item => `<article class="alchemist-card glass-panel">
@@ -977,7 +925,6 @@ function render() {
   if (view === "compose" && compose) return renderCompose(compose);
   if (view === "page" && activePage) return renderPage(activePage);
   if (view === "graph") return renderGraph();
-  if (view === "alchemist") return renderAlchemist();
   if (view === "coach") return renderCoach();
   if (view === "podcast") {
     return renderPodcastRail({
@@ -1048,7 +995,20 @@ async function boot() {
     entries = await listPages();
     await refreshVisible();
     view = "list";
-    render();
+    if (!(await applyPageHash())) render();
+    if (!(window as Window & { __khPageHashBound?: boolean }).__khPageHashBound) {
+      (window as Window & { __khPageHashBound?: boolean }).__khPageHashBound = true;
+      window.addEventListener("hashchange", () => {
+        void (async () => {
+          const opened = await applyPageHash();
+          if (!opened && view === "page") {
+            view = "list";
+            activePage = null;
+            render();
+          }
+        })();
+      });
+    }
   } catch {
     if (USE_LOCAL_DATA) {
       app.innerHTML = `<div class="sign-in"><div class="sign-in__card"><h1 class="sign-in__title">Local data missing</h1><p class="sign-in__supporting">Run the migrator first, then restart <code>npm run dev</code>.</p></div></div>`;
