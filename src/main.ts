@@ -561,6 +561,8 @@ async function applyPageHash(): Promise<boolean> {
     return false;
   }
 }
+
+function findingCards(findings: ResearchFinding[]): string {
   return findings
     .map(
       item => `<article class="alchemist-card glass-panel">
