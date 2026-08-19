@@ -106,6 +106,32 @@ describe("curator function", () => {
     expect(pageA.connected).toEqual(["b"]);
   });
 
+  it("returns an empty queue when curator files are missing", async () => {
+    const { getContent } = await import("./_lib/githubWrite");
+    vi.mocked(getContent).mockResolvedValue(null);
+    const response = await handler(event() as never, {} as never);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? "{}")).toEqual({ pending: [] });
+  });
+
+  it("includes the GitHub dispatch body when Run now fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        text: async () => '{"message":"Not Found"}',
+      }),
+    );
+    const response = await handler(
+      event({ method: "POST", body: JSON.stringify({ action: "run" }) }) as never,
+      {} as never,
+    );
+    expect(response.statusCode).toBe(502);
+    expect(response.body).toContain("workflow dispatch failed 404");
+    expect(response.body).toContain("Not Found");
+  });
+
   it("queues a curator workflow on run", async () => {
     const response = await handler(
       event({ method: "POST", body: JSON.stringify({ action: "run" }) }) as never,
