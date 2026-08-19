@@ -56,13 +56,94 @@ No review queue. No confirm card. Apply on click / apply on the job.
 | Local preview | Vite `POST /local-data/tidy` writing `migrated/data-repo` (same as other local writes) |
 | Data | Page JSON + `manifest.json` in `knowledge-hub-data`. Do not require this Mac. No `~/Documents` / `~/Desktop` |
 | Title | Keep unless it is clearly a Notion filename dump |
-| Tags | Subject of the note, not “how this relates to a teaching degree.” **One is enough.** Two only if genuinely two subjects. Never pad to 3–6 |
-| Structural tags | Keep `Note`, unit codes (`/^[A-Z]{2,}\d/i`), and other non-topic tags from `isTopicKeyword` in `src/archive/keywordGraph.ts`. Replace **topic** tags only |
+| Tags | **Closed list in §2a only.** Pick the labels that actually fit. **One is enough.** Two or three only if the note genuinely spans that many. **Never more than 3** from this list. Never pad. Never invent a new tag name. |
+| Structural tags | Keep `Note`, unit codes (`/^[A-Z]{2,}\d/i`), and other non-topic tags (`isTopicKeyword` is false). These do **not** count toward the 3. Replace **topic** tags only. Drop any old topic string that is not in §2a. |
 | Quiz harvest | Must not destroy `Q:` / `A:` / `Question:` / `Answer:` / `Explain:` blocks or heading structure `src/quiz/harvest.ts` relies on |
 | Facts | May rewrite for readability. Must not invent facts or drop citations |
 | Design kit | `design-kit/AGENTS.md`. Closed tokens. `.btn.btn--ghost` only. No new colours / type / icon kit |
+| Archive | **One pool.** No University vs Notes in the rail, filters, compose, quiz, or podcast. See §2b |
+| Rail brand | **Knowledge Hub** always returns home (unfiltered archive list). See §2c |
 
-Caesar example: *Caesar's Insights on Gallic and Germanic Cultures* tagged Educational Psychology / History of Education / Sociocultural Influences on Education → topic tag **History** (maybe Classics). Keep `Note` / unit codes.
+Caesar example: *Caesar's Insights on Gallic and Germanic Cultures* tagged Educational Psychology / History of Education / Sociocultural Influences on Education → **Philosophy Knowledge and Society** (broader humanities). Keep `Note` / unit codes. Do not invent `History` or `Classics`.
+
+---
+
+## 2a. Tag vocabulary (closed — exact strings)
+
+Put this list in `src/tidy/vocabulary.ts` and paste the names + when-to-use lines into `prompts/tidy.md`. Use these strings **verbatim**. Do not add ampersands, hyphens, or synonyms as extra tags. The model may only return names from this list.
+
+| Tag | Use for |
+| --- | --- |
+| Learning Science and Cognition | memory, attention, cognitive load, retrieval practice, metacognition, neuroscience, psychology of learning and cognition |
+| Motivation and Self Regulation | goal setting, autonomy, expectancy value, mindset, self regulated learning, persistence and learner agency |
+| Pedagogy and Instructional Design | lesson design, explicit teaching, scaffolding, questioning, classroom routines, instructional strategies and teaching models |
+| Assessment Feedback and Evaluation | formative assessment, rubrics, feedback, evaluation, diagnostic testing, academic judgement and evidence of learning |
+| Curriculum Differentiation and Enrichment | curriculum models, extension, enrichment, curriculum design, differentiation, individualisation and advanced learning pathways |
+| High Potential and High Ability Education | identification, talent development, acceleration, curriculum for high ability learners, social emotional needs and program design |
+| Child and Adolescent Development | lifespan development, adolescent identity, developmental psychology, youth transitions, attachment, family context and maturation |
+| Wellbeing Mental Health and Trauma | student wellbeing, mental health, trauma informed practice, emotional regulation, risk, resilience and school based support |
+| Neurodiversity Inclusion and Disability | autism, ADHD, special education, inclusive practice, reasonable adjustments, learner variability and disability frameworks |
+| Literacy Language and Communication | reading, writing, vocabulary, comprehension, disciplinary literacy, communication skills and English pedagogy |
+| Critical Creative and Higher Order Thinking | creativity, problem solving, critical thinking, philosophical dialogue, inquiry, reasoning, argument and intellectual risk |
+| Research Methods and Evidence Literacy | qualitative methods, quantitative methods, statistics, research design, validity, reliability, literature reviews and evidence appraisal |
+| Educational Leadership and Change | leadership theory, organisational change, coaching, mentoring, implementation, professional culture and school improvement |
+| Policy Ethics and Governance | education policy, legal issues, ethics, professional standards, governance, institutional accountability and sector debates |
+| Technology AI and Digital Learning | ICT, educational technology, ethical AI, online learning, digital pedagogy, platform design and technology futures |
+| Sociocultural Diversity and Equity | culture, class, gender, Indigenous education, social justice, access, community context and structural inequity |
+| Classroom Culture and Engagement | behaviour, classroom climate, student engagement, relationships, belonging, participation and learning environment |
+| Teacher Practice and Professional Learning | teacher development, professional learning, reflective practice, HALT style evidence, coaching cycles and practitioner inquiry |
+| Higher Education and Academic Practice | university learning, academic transition, capstone work, scholarly writing, higher education pedagogy and research training |
+| Philosophy Knowledge and Society | epistemology, philosophy of education, ethics, political thought, social theory, knowledge theory and **broader humanities** material |
+
+Humanities / classics / history-of-ideas notes that are not actually about schooling → `Philosophy Knowledge and Society`. Do not reopen a general History/Classics/Biology list.
+
+`applyTopicTags`: map proposed names case-insensitively onto this list; **drop** anything not in the list; cap at 3; dedupe. Do not Title-Case invent.
+
+---
+
+## 2b. One archive — no University / Notes split
+
+The hub is **Knowledge**. There is no product distinction between university pages and notes.
+
+**UI (must delete, not hide with CSS):**
+
+- Rail: drop the Uni and Notes items (`data-nav="university"`, `data-nav="notes"`). Keep Archive, Graph, Coach, Podcast, Quiz, Wiki.
+- Archive toolbar: drop the University and Notes filter chips. Keep search. Keyword chips from tags may stay. “All” chip only if other chips exist; otherwise search is enough.
+- Compose: drop the Area `<select>` (`#compose-area`). Do not ask Uni vs Notes.
+- Quiz and Podcast: drop area pickers. Scope is the whole archive (plus tags if the user picked tags). `ResearchScope.area` / quiz `area` filters are unused in the UI — do not send `area: "university"` or `area: "notes"` from those rails.
+- Empty copy: do not say “University pages stay in the archive.”
+- List title: **Archive** (or the active keyword). Never “University” / “Notes”.
+- `src/main.rail.test.ts`: assert there is no `data-nav="university"` or `data-nav="notes"`.
+
+**Data (do not mass-rewrite 3,700 files):**
+
+- Leave `Page.area` in the Zod schema as `"university" | "notes"` so existing JSON still parses.
+- Ignore `area` for listing, graph, search, tidy scan, quiz, podcast, coach.
+- New/saved pages still need a valid `area` for the schema: write `"notes"` as the leftover required field if you must write something. Do not add a third enum value `"knowledge"` in this slice (that would invalidate old files).
+- Tidy scan: whole archive. **No** `--area notes` default. No Notes-first pass.
+
+Clementine university vs school **prompts** (voice) stay as they are — that is her register, not an archive split.
+
+---
+
+## 2c. Knowledge Hub brand always goes home
+
+The rail title **Knowledge Hub** (`.rail__brand`, kit equivalent `.hub-rail__brand`) is a control, not static text. Clicking it from **any** view — open note, compose, graph, coach, podcast, quiz, wiki, filtered list — returns **home**.
+
+Home means:
+
+- `view = "list"`
+- no open page, no compose
+- no keyword filter, no search query
+- full archive (no area filter)
+- leave podcast/quiz/wiki rails (`leavePodcastRail` / `leaveQuizRail` / `leaveWikiRail`)
+- clear `#page/…` hash (`clearPageHash`)
+
+Markup: `<button type="button" class="rail__brand" data-home aria-label="Knowledge Hub home">Knowledge Hub</button>` (or wrap the existing brand so it still looks like the kit micro-brand: single line, CSS uppercase). Do not restyle it as a hero. Do not put it in `.hub-utilities`.
+
+Wire it in `shell()` so every screen gets it (all views go through `shell`).
+
+Tests: brand exists; click (or the go-home helper) resets the state above; works when `view === "page"` and when `view === "quiz"`.
 
 ---
 
@@ -119,10 +200,10 @@ Already used by curator: `ANTHROPIC_API_KEY`, `DATA_REPO_TOKEN`. Reuse. Do not a
 One Claude call per note. Model: `claude-haiku-4-5` unless a note body is huge and Haiku truncates — then same call shape, do not switch stacks. Return JSON only:
 
 ```json
-{ "tags": ["History"], "body": "# … markdown …", "title": null }
+{ "tags": ["Philosophy Knowledge and Society"], "body": "# … markdown …", "title": null }
 ```
 
-`title` omitted/null means keep. Cap topic tags at **2** in code even if the model returns more (`applyTopicTags` in the spirit of the abandoned retag work).
+`title` omitted/null means keep. Cap topic tags at **3** in code even if the model returns more. Every returned tag must be a §2a string.
 
 ### Deterministic pre-pass (no model)
 
@@ -130,8 +211,7 @@ Run before Claude; if the page is already clean **and** topic tags look sane, mi
 
 Messy signals (any one is enough to call Claude):
 
-- More than 2 topic keywords
-- Topic tags that look education-padded on a non-education note (overlap with education vocabulary while title/body look like History/Classics/etc. is a *hint*, not a hard classifier — when unsure, call Claude)
+- More than 3 topic keywords, **or** any topic tag not in the §2a list (old Notion labels like `Educational Psychology` / `History of Education` count as messy)
 - 3+ consecutive blank lines
 - A leading `#` heading that duplicates `page.title`
 - Extreme single-line paragraph spam (e.g. many 1-sentence paragraphs in a row)
@@ -142,16 +222,16 @@ Clean skip: none of the above, and last tidy timestamp in `_tidy/state.json` is 
 
 Import into the Worker the same way as `src/clementine/pack.ts` (`import TIDY from "../../prompts/tidy.md"`). Do not use `loadPromptFile` (node:fs) inside Worker code.
 
-- Subject-first tags from a vocabulary list (education labels **plus** History, Classics, Philosophy, Neuroscience, Biology, Psychology, Literature, …). New Title Case tag only when nothing fits.
+- Tags from the §2a closed list only. One is enough; at most three. Do not pad. Do not invent names. Humanities that are not schooling → `Philosophy Knowledge and Society`.
 - Collapse exploded line spacing / Notion blank-line storms into normal markdown (`\n{3,}` → `\n\n`; do not leave every sentence as its own paragraph unless it is a list or quote).
 - Fix heading hierarchy. Drop duplicate `# Title` that the reader already shows as `h1.reader__title`.
 - Repair lists, quotes, leftover Notion junk.
 - Do not invent facts. Do not drop citations. Preserve quiz Q/A blocks and useful headings.
-- Do not force three tags.
+- Do not force three tags. Three is a maximum, not a target.
 
-Vocabulary: `src/tidy/vocabulary.ts` (or `src/tagging/vocabulary.ts` if you keep that name). Seed from existing graph majors plus general subjects listed above.
+Vocabulary: `src/tidy/vocabulary.ts` — the 20 exact strings from §2a, plus the when-to-use blurbs for the prompt.
 
-Apply: `applyTopicTags(existing, proposed)` keeps structural tags, Title-cases topics, caps at 2, dedupes.
+Apply: `applyTopicTags(existing, proposed)` keeps structural tags, maps/drops to §2a, caps at 3, dedupes.
 
 Body: use the model body; optionally run a tiny deterministic collapse of `\n{3,}` after parse so spacing cannot regress.
 
@@ -209,7 +289,7 @@ Add:
 
 - `prompts/tidy.md`
 - `src/tidy/` — vocabulary, applyTags, messy detection, proposeTidy (prompt + parse), types
-- `src/tidy/*.test.ts` — Caesar fixture; structural tags kept; 1–2 cap; skip-if-clean; Q/A preserved in a fixture; JSON parse
+- `src/tidy/*.test.ts` — Caesar fixture → `Philosophy Knowledge and Society`; structural tags kept; cap 3; unknown tags dropped; skip-if-clean; Q/A preserved; JSON parse; scan is not area-filtered
 - `scripts/run-tidy.ts` + `scripts/run-tidy.test.ts` — `--id`, `--scan --count 20`, resume/state
 - `.github/workflows/tidy.yml` — schedule + `workflow_dispatch` with optional `page_id` input
 - Worker route `POST /tidy` in `worker/src/index.ts` (or a `worker/src/tidy.ts` imported there)
@@ -236,14 +316,16 @@ Write failing tests first.
 
 Must-haves:
 
-- Caesar page: education trio → `History` (or Classics), `Note` survives, unit code survives
-- `applyTopicTags` caps at 2; Title Case
+- Caesar page: education trio → `Philosophy Knowledge and Society`, `Note` survives, unit code survives
+- `applyTopicTags` caps at 3; drops unknown labels; does not invent `History`
 - Parser rejects empty tags / invented JSON garbage
 - Messy detector: triple blank lines true; tidy duplicate H1 true; clean short note false
-- Prompt file exists and says one tag is enough / no padding / preserve Q/A
+- Prompt file exists and contains all 20 §2a names, says one tag is enough, at most three, no padding, preserve Q/A
 - `run-tidy` scan cap 20; skip unchanged; writes manifest
 - Client: production `tidyPage` does **not** call `knowledge-api.adam-russell.com` / `/api/tidy`
 - Grep/unit: **no** `netlify/functions/tidy` and **no** `/api/tidy` redirect in `netlify.toml`
+- Rail has no Uni/Notes nav; compose has no area select
+- Knowledge Hub brand control returns to the unfiltered archive list from a page view
 - Auth cookie tests still pass with Domain attribute
 - Worker handler test: missing cookie → 401; valid session + mocked Claude → save called
 
@@ -269,7 +351,7 @@ Run: `npx vitest run src/tidy scripts/run-tidy.test.ts` plus any worker/client t
 3. `scripts/run-tidy.ts` + Action workflow (midnight path).
 4. Worker `POST /tidy` + cookie Domain + client `tidyPage`.
 5. Vite local route.
-6. Reader button.
+6. Reader button + one-archive UI (no Uni/Notes) + brand → home.
 7. Verify no Netlify tidy function, no secrets in git/`VITE_*`/`netlify.toml` build.environment, public origins hardcoded.
 
 When done: say which hostname Adam must attach in Cloudflare DNS for the Worker, which three `wrangler secret put` names to set (no values), and that Netlify env should be left alone.
