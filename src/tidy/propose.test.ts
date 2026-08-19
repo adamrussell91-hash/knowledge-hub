@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTidyPrompt, normalizeTidyBody, parseTidyProposal, proposeTidy } from "./propose";
+import { buildTidyPrompt, normalizeTidyBody, parseTidyProposal, proposeTidy, tidyQualityIssues } from "./propose";
 
 describe("parseTidyProposal", () => {
   it("accepts Claude JSON and rejects malformed, empty-tag, and garbage replies", () => {
@@ -64,5 +64,14 @@ describe("parseTidyProposal", () => {
 
   it("normalizes CRLF blank storms to normal markdown", () => {
     expect(normalizeTidyBody("Q: Why?\r\nA: Because.\r\n\r\n\r\nContext.")).toBe("Q: Why?\nA: Because.\n\nContext.");
+  });
+
+  it("rejects extraction dumps, encoded local paths, and broken source titles", () => {
+    const page = { id: "p", title: "'Are we being de-gifted, Miss?' Primary School Gif", area: "notes" as const, tags: [], body: "Raw", connected: [], attachments: [], source: "hub" as const, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", schema_version: 1 as const };
+    expect(tidyQualityIssues(page, {
+      title: null,
+      tags: ["High Potential and High Ability Education"],
+      body: "APA 7 reference: text\n\n(..%2FEDST5888%20Capstone%20Readings%2Fpaper.md)",
+    })).toEqual(expect.arrayContaining(["title looks incomplete", "contains an encoded local file path", "contains an extraction metadata dump"]));
   });
 });

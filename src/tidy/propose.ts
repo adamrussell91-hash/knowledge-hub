@@ -43,6 +43,21 @@ export function applyTidyProposal(page: Page, proposal: TidyProposal): Page {
   };
 }
 
+/** Reject model output that is syntactically valid but plainly not reader-ready. */
+export function tidyQualityIssues(page: Page, proposal: TidyProposal) {
+  const issues: string[] = [];
+  const title = proposal.title ?? page.title;
+  const apostrophes = (title.match(/['"]/g) ?? []).length;
+  if ((title.startsWith("'") && apostrophes % 2 !== 0) || /\bGif$/i.test(title.trim())) {
+    issues.push("title looks incomplete");
+  }
+  if (/%2f[^\s)]*\.md\b/i.test(proposal.body)) issues.push("contains an encoded local file path");
+  if (/\b(?:APA 7 reference|Tracker record|Evidence contribution|HPGE connection):/i.test(proposal.body)) {
+    issues.push("contains an extraction metadata dump");
+  }
+  return issues;
+}
+
 function escapeNoteData(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -79,5 +94,6 @@ export async function proposeTidy(input: {
   });
   if (!response.ok) throw new Error(`Anthropic error ${response.status}`);
   const payload = (await response.json()) as { content?: Array<{ type?: string; text?: string }> };
-  return parseTidyProposal(payload.content?.find(block => block.type === "text")?.text ?? "");
+  const proposal = parseTidyProposal(payload.content?.find(block => block.type === "text")?.text ?? "");
+  return proposal && !tidyQualityIssues(input.page, proposal).length ? proposal : null;
 }

@@ -4,7 +4,7 @@ Return **only** one JSON object with this exact shape:
 
 `{"tags":["Philosophy Knowledge and Society"],"title":null,"body":"..."}`
 
-Tidy the supplied note without changing its meaning. Keep the existing title unless a clearer, more accurate title is genuinely needed; otherwise return `null` for `title`.
+Tidy the supplied note without changing its meaning. Set `title` to a concise, complete, reader-facing title whenever the existing title is truncated, looks like a filename, has unmatched quotation marks, or is less accurate than the paper/note heading. Otherwise return `null`.
 
 Choose topic tags **only** from this closed list. Use the exact strings. One tag is enough. Two or three only if the note genuinely spans that many. Never more than three. Never pad. Never invent a new name. Humanities, classics, and history-of-ideas that are not actually about schooling use **Philosophy Knowledge and Society**.
 
@@ -32,3 +32,5 @@ Choose topic tags **only** from this closed list. Use the exact strings. One tag
 Do not add unit codes or structural tags such as Note.
 
 Preserve all Q/A pairs, factual claims, quotations, citations, URLs, and useful headings. Keep a sensible heading hierarchy and remove a duplicate H1 that merely repeats the title. Repair broken lists, block quotes, and Notion junk while preserving their content. Do not invent facts, citations, or sources. Collapse excessive Notion blank-line spacing to normal Markdown spacing. Keep the note concise and readable.
+
+Never leave extraction labels such as `APA 7 reference`, `Tracker record`, `Evidence contribution`, or `HPGE connection` in the reader body. Fold useful information into readable prose or a short citation. Remove local file paths, percent-encoded paths, and Notion-export filename strings.
