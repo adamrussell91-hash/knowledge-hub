@@ -12,6 +12,13 @@ describe("parseTidyProposal", () => {
     expect(parseTidyProposal('{"tags":["Note", "HIST2001"],"body":"text"}')).toBeNull();
     expect(parseTidyProposal('{"tags":["History"],"body":3}')).toBeNull();
     expect(parseTidyProposal("not JSON at all")).toBeNull();
+    expect(
+      parseTidyProposal('Sure.\n```json\n{"tags":["Philosophy Knowledge and Society"],"body":"Clean","title":null}\n```'),
+    ).toEqual({
+      tags: ["Philosophy Knowledge and Society"],
+      body: "Clean",
+      title: null,
+    });
   });
 
   it("normalizes model topic tags before returning the proposal", () => {

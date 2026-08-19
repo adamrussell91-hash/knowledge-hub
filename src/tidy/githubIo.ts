@@ -1,7 +1,8 @@
 import { PageSchema, type Page, type PageManifestEntry } from "../domain/page";
 import { getContent, putContent } from "../../netlify/functions/_lib/githubWrite";
+import { savePageRecord } from "../../netlify/functions/_lib/savePageRecord";
+import { applyTidyProposal, proposeTidy } from "./propose";
 import type { TidyProposal } from "./types";
-import { proposeTidy } from "./propose";
 import { tidyOnePage, type TidyIO, type TidyState } from "./run";
 
 type ContentFns = {
@@ -78,4 +79,34 @@ export async function tidyPageOnGitHub(input: {
         }),
     }),
   );
+}
+
+/** Button path: one Claude rewrite, then the same GitHub save as Edit. No tidy-state bookkeeping. */
+export async function tidyPageDirect(input: {
+  id: string;
+  repo: string;
+  token: string;
+  apiKey: string;
+  prompt: string;
+  fetchImpl?: typeof fetch;
+}): Promise<Page> {
+  const fns = githubContentFns(input.repo, input.token);
+  const current = await fns.getContent(`pages/${input.id}.json`);
+  if (!current) throw new Error("Page was not found");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(current.text);
+  } catch {
+    throw new Error("Page is invalid");
+  }
+  const parsed = PageSchema.safeParse(raw);
+  if (!parsed.success) throw new Error("Page is invalid");
+  const proposal = await proposeTidy({
+    page: parsed.data,
+    prompt: input.prompt,
+    apiKey: input.apiKey,
+    fetchImpl: input.fetchImpl,
+  });
+  if (!proposal) throw new Error("Claude didn’t return a usable tidy");
+  return savePageRecord(applyTidyProposal(parsed.data, proposal), fns);
 }
