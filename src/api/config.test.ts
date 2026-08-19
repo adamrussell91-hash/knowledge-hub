@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PRODUCTION_API_BASE, resolveApiBase } from "./config";
+import { DEFAULT_PRODUCTION_TIDY_ORIGIN, PRODUCTION_API_BASE, resolveApiBase } from "./config";
 
 describe("resolveApiBase", () => {
   it("uses same-origin /api on localhost", () => {
@@ -11,4 +11,8 @@ describe("resolveApiBase", () => {
     expect(resolveApiBase("knowledge-hub.adam-russell.com")).toBe(PRODUCTION_API_BASE);
     expect(PRODUCTION_API_BASE).toBe("https://knowledge-api.adam-russell.com/api");
   });
+});
+
+it("publishes the dedicated Worker tidy origin", () => {
+  expect(DEFAULT_PRODUCTION_TIDY_ORIGIN).toBe("https://knowledge-tidy.adam-russell.com");
 });

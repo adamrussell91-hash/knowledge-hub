@@ -2,6 +2,7 @@
   "$schema": "https://unpkg.com/wrangler/config-schema.json",
   "name": "knowledge-hub-research",
   "main": "src/index.ts",
+  "workers_dev": true,
   "compatibility_date": "2026-08-14",
   "compatibility_flags": ["nodejs_compat"],
   "rules": [
@@ -10,8 +11,16 @@
       "globs": ["**/*.md"]
     }
   ],
+  "routes": [
+    {
+      "pattern": "knowledge-tidy.adam-russell.com",
+      "custom_domain": true
+    }
+  ],
   "vars": {
-    "TEACHING_HUB_ORIGIN": "https://teaching-hub.adam-russell.com"
+    "TEACHING_HUB_ORIGIN": "https://teaching-hub.adam-russell.com",
+    "KNOWLEDGE_HUB_ORIGIN": "https://knowledge-hub.adam-russell.com",
+    "GITHUB_DATA_REPO": "adamrussell91-hash/knowledge-hub-data"
   },
   "r2_buckets": [
     {

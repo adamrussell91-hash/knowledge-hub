@@ -1,0 +1,34 @@
+import { describe, expect, it } from "vitest";
+import { goHome } from "./goHome";
+
+describe("goHome", () => {
+  it("returns to the unfiltered archive list from an open page", () => {
+    expect(
+      goHome({
+        view: "page",
+        query: "caesar",
+        keywordFilter: "Philosophy Knowledge and Society",
+        activePage: { id: "page_notion_abc" },
+        compose: { id: "page_notion_abc" },
+      }),
+    ).toEqual({
+      view: "list",
+      query: "",
+      keywordFilter: "",
+      activePage: null,
+      compose: null,
+    });
+  });
+
+  it("returns to the unfiltered archive list from quiz", () => {
+    expect(
+      goHome({
+        view: "quiz",
+        query: "",
+        keywordFilter: "Pedagogy and Instructional Design",
+        activePage: null,
+        compose: null,
+      }),
+    ).toMatchObject({ view: "list", keywordFilter: "", activePage: null, compose: null });
+  });
+});

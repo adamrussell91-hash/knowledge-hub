@@ -35,7 +35,6 @@ export type QuizRailHost = {
 
 let host: QuizRailHost | null = null;
 let quizDuration: 5 | 15 | 30 = 15;
-let quizArea: "all" | "university" | "notes" = "all";
 let quizTags: string[] = [];
 let quizCram = false;
 let quizPhase: QuizPhase = "home";
@@ -89,7 +88,6 @@ function bindVisibility() {
 function quizScope() {
   const tags = quizTags.filter(Boolean);
   return {
-    area: quizArea === "all" ? undefined : quizArea,
     tags: tags.length ? tags : undefined,
     durationMinutes: quizDuration,
     cram: quizMode === "exam" ? true : quizCram,
@@ -186,7 +184,6 @@ async function startQuizSprint() {
     if (queue.length < cap) {
       const known = new Set(quizSchedule.map(entry => entry.page_id));
       const candidates = pagesToHarvest(current.entries, known, {
-        area: quizScope().area,
         tags: quizScope().tags,
         limit: 15,
       });
@@ -278,7 +275,6 @@ async function endQuizSprint() {
 
 function understandingMapHtml(tags: string[]) {
   const scoped = filterSchedule(quizSchedule, {
-    area: quizArea === "all" ? undefined : quizArea,
     tags: quizTags.length ? quizTags : undefined,
   });
   const grouped = groupByStatus(scoped);
@@ -292,12 +288,6 @@ function understandingMapHtml(tags: string[]) {
   ];
   return `<section class="understand">
     <div class="alchemist__form glass-panel understand__filters">
-      <label for="map-area">Area</label>
-      <select id="map-area">
-        <option value="all" ${quizArea === "all" ? "selected" : ""}>All</option>
-        <option value="university" ${quizArea === "university" ? "selected" : ""}>University</option>
-        <option value="notes" ${quizArea === "notes" ? "selected" : ""}>Notes</option>
-      </select>
       ${
         tags.length
           ? `<fieldset class="alchemist__mode"><legend>Tags</legend>${tags
@@ -400,12 +390,6 @@ function renderQuiz() {
           <option value="15" ${quizDuration === 15 ? "selected" : ""}>15 minutes</option>
           <option value="30" ${quizDuration === 30 ? "selected" : ""}>30 minutes</option>
         </select>
-        <label for="quiz-area">Area</label>
-        <select id="quiz-area">
-          <option value="all" ${quizArea === "all" ? "selected" : ""}>All</option>
-          <option value="university" ${quizArea === "university" ? "selected" : ""}>University</option>
-          <option value="notes" ${quizArea === "notes" ? "selected" : ""}>Notes</option>
-        </select>
         ${
           tags.length
             ? `<fieldset class="alchemist__mode"><legend>Tags (optional)</legend>${tags
@@ -442,11 +426,6 @@ function renderQuiz() {
       <form class="alchemist__form glass-panel" data-dump-start>
         <label for="dump-topic">Topic</label>
         <input id="dump-topic" value="${escapeHtml(quizDumpTopic)}" placeholder="e.g. distributed leadership" required />
-        <label for="dump-area">Area for new gap cards</label>
-        <select id="dump-area">
-          <option value="notes" ${quizArea !== "university" ? "selected" : ""}>Notes</option>
-          <option value="university" ${quizArea === "university" ? "selected" : ""}>University</option>
-        </select>
         ${
           tags.length
             ? `<fieldset class="alchemist__mode"><legend>Tags (optional)</legend>${tags
@@ -527,22 +506,9 @@ function renderQuiz() {
 function bindQuiz(currentHost: QuizRailHost) {
   const { app } = currentHost;
   const duration = app.querySelector<HTMLSelectElement>("#quiz-duration");
-  const areaSelect = app.querySelector<HTMLSelectElement>("#quiz-area");
   if (duration) {
     duration.onchange = () => {
       quizDuration = Number(duration.value) as 5 | 15 | 30;
-    };
-  }
-  if (areaSelect) {
-    areaSelect.onchange = () => {
-      quizArea = areaSelect.value as "all" | "university" | "notes";
-    };
-  }
-  const mapArea = app.querySelector<HTMLSelectElement>("#map-area");
-  if (mapArea) {
-    mapArea.onchange = () => {
-      quizArea = mapArea.value as "all" | "university" | "notes";
-      rerender();
     };
   }
   app.querySelectorAll<HTMLInputElement>("[data-quiz-tag]").forEach(box => {
@@ -566,8 +532,6 @@ function bindQuiz(currentHost: QuizRailHost) {
         const topic = app.querySelector<HTMLInputElement>("#dump-topic")?.value.trim() ?? "";
         if (!topic) return;
         quizDumpTopic = topic;
-        const dumpArea = app.querySelector<HTMLSelectElement>("#dump-area")?.value;
-        quizArea = dumpArea === "university" ? "university" : "notes";
         quizDumpPeek =
           quizMode === "sortDump"
             ? sortThenDumpPeek(
@@ -643,7 +607,7 @@ function bindQuiz(currentHost: QuizRailHost) {
             topic: quizDumpTopic,
             nodes: payload.nodes,
             edges: payload.edges,
-            area: quizArea === "university" ? "university" : "notes",
+            area: "notes",
             tags: quizTags,
           });
           dumpTeardown = null;

@@ -23,6 +23,9 @@ import { handleCaptureRequest } from "../../src/capture/http";
 import { liveExtract } from "../../src/capture/live";
 import { handleResearchRequest } from "../../src/research/http";
 import { runQuickKernel } from "../../src/research/kernel";
+import { tidy as tidyPrompt } from "../../src/clementine/pack";
+import { handleTidyRequest, KNOWLEDGE_HUB_ORIGIN } from "../../src/tidy/http";
+import { tidyPageOnGitHub } from "../../src/tidy/githubIo";
 import { PodcastSession } from "./podcastSession";
 import { ResearchSession, type ResearchEnv } from "./researchSession";
 
@@ -31,6 +34,8 @@ export { PodcastSession, ResearchSession };
 type WorkerEnv = ResearchEnv &
   PodcastKernelEnv & {
     PODCAST_SESSION: DurableObjectNamespace;
+    SESSION_SECRET?: string;
+    KNOWLEDGE_HUB_ORIGIN?: string;
   };
 
 function podcastStub(env: WorkerEnv, id: string) {
@@ -169,6 +174,25 @@ export default {
         listIndex: () => readPodcastIndex(env),
         interrupt: (id, body) => interruptEpisode(env, id, body),
         answer: (id, body) => answerEpisode(env, id, body),
+      });
+    }
+    if (path.endsWith("/tidy")) {
+      return handleTidyRequest(request, {
+        sessionSecret: env.SESSION_SECRET ?? "",
+        allowedOrigin: env.KNOWLEDGE_HUB_ORIGIN ?? KNOWLEDGE_HUB_ORIGIN,
+        tidyPage: id => {
+          if (!env.GITHUB_DATA_REPO || !env.GITHUB_DATA_REPO_TOKEN) {
+            throw new Error("Data repo is not configured for writes");
+          }
+          if (!env.ANTHROPIC_API_KEY) throw new Error("Tidy is unavailable");
+          return tidyPageOnGitHub({
+            id,
+            repo: env.GITHUB_DATA_REPO,
+            token: env.GITHUB_DATA_REPO_TOKEN,
+            apiKey: env.ANTHROPIC_API_KEY,
+            prompt: tidyPrompt,
+          });
+        },
       });
     }
 

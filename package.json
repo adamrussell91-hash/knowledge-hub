@@ -15,6 +15,7 @@
     "upload-attachments": "tsx scripts/upload-attachments.ts",
     "sync-research-r2": "tsx scripts/sync-research-r2.ts",
     "curator": "tsx scripts/run-curator.ts",
+    "tidy": "tsx scripts/run-tidy.ts",
     "research:dev": "wrangler dev --config worker/wrangler.jsonc",
     "research:deploy": "wrangler deploy --config worker/wrangler.jsonc"
   },

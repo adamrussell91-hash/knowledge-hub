@@ -13,6 +13,7 @@ import {
   savePage,
   searchPages,
   signAttachment,
+  tidyPage,
   uploadSignedFile,
   type CoachMessage,
 } from "./api/client";
@@ -29,6 +30,7 @@ import { escapeHtml, showToast } from "./lib/dom";
 import { hubUtilitiesHtml } from "./lib/hubChrome";
 import { renderMarkdown } from "./lib/markdown";
 import { archiveEmptyHtml } from "./archive/emptyList";
+import { goHome } from "./archive/goHome";
 import { searchCluster } from "./archive/graphFocus";
 import { mountGraphPreview } from "./archive/graphPreview";
 import { buildArchiveGraph, topicKeywords } from "./archive/keywordGraph";
@@ -41,7 +43,6 @@ import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
 import { enterWikiRail, leaveWikiRail, renderWikiRail } from "./wiki/rail";
 import { connectedLinksHtml } from "./wiki/connectedHtml";
 
-type AreaFilter = "all" | "university" | "notes";
 type View =
   | "list"
   | "graph"
@@ -64,11 +65,11 @@ const OVERSCAN = 8;
 
 let entries: PageManifestEntry[] = [];
 let visible: PageManifestEntry[] = [];
-let area: AreaFilter = "all";
 let view: View = "list";
 let query = "";
 let keywordFilter = "";
 let activePage: Page | null = null;
+let tidyBusy = false;
 let listScrollTop = 0;
 let graphTeardown: (() => void) | null = null;
 let graphMode: GraphMode = "constellation";
@@ -98,12 +99,11 @@ type ComposeState = {
 let compose: ComposeState | null = null;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
-function blankCompose(areaDefault: AreaFilter): ComposeState {
-  const nextArea = areaDefault === "university" ? "university" : "notes";
+function blankCompose(): ComposeState {
   return {
     id: newHubPageId(),
     title: "",
-    area: nextArea,
+    area: "notes",
     tags: "",
     body: "",
     existing: [],
@@ -134,8 +134,6 @@ function composeFromPage(page: Page): ComposeState {
 const icons = {
   archive: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z"/><path d="M9 7V5h6v2"/><path d="M8 12h8"/></svg>`,
   graph: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="6" r="2.2"/><circle cx="18" cy="14" r="2.2"/><path d="M8 11l3-3M13.5 8l3 4"/></svg>`,
-  university: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10l9-5 9 5-9 5-9-5z"/><path d="M7 12.5V17c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5"/></svg>`,
-  notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>`,
   coach: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h10v14H5z"/><path d="M8 9h4M8 13h4"/><path d="M17 8l4 4-6 6h-4v-4z"/></svg>`,
   podcast: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="3"/><path d="M8 10a4 4 0 0 0 8 0"/><path d="M6 10a6 6 0 0 0 12 0"/><path d="M12 13v6M9 19h6"/></svg>`,
   quiz: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v16H8z"/><path d="M11 8h2M11 12h2M11 16h1"/></svg>`,
@@ -172,11 +170,8 @@ function pageHeader(eyebrow: string, title: string, actionsInner = "") {
     </header>`;
 }
 
-function titleForArea() {
-  if (keywordFilter) return keywordFilter;
-  if (area === "university") return "University";
-  if (area === "notes") return "Notes";
-  return "Archive";
+function listTitle() {
+  return keywordFilter || "Archive";
 }
 
 function renderAttachments(page: Page) {
@@ -217,6 +212,19 @@ function clearPageHash() {
   }
 }
 
+function goToHome() {
+  leaveSpecialRails();
+  const next = goHome({ view, query, keywordFilter, activePage, compose });
+  view = next.view;
+  query = next.query;
+  keywordFilter = next.keywordFilter;
+  activePage = next.activePage;
+  compose = next.compose;
+  clearPageHash();
+  listScrollTop = 0;
+  void refreshVisible().then(render);
+}
+
 function shell(main: string) {
   if (graphTeardown) {
     graphTeardown();
@@ -224,11 +232,9 @@ function shell(main: string) {
   }
   app.innerHTML = `<div class="app-shell">
     <aside class="rail" aria-label="Knowledge Hub">
-      <p class="rail__brand">Knowledge Hub</p>
+      <button type="button" class="rail__brand" data-home aria-label="Knowledge Hub home">Knowledge Hub</button>
       <nav class="rail__nav">
-        <button class="rail__btn ${view === "list" && area === "all" && !keywordFilter ? "is-active" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
-        <button class="rail__btn ${area === "university" && view === "list" ? "is-active" : ""}" data-nav="university" type="button">${icons.university}<span>Uni</span></button>
-        <button class="rail__btn ${area === "notes" && view === "list" ? "is-active" : ""}" data-nav="notes" type="button">${icons.notes}<span>Notes</span></button>
+        <button class="rail__btn ${view === "list" && !keywordFilter ? "is-active" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
         <button class="rail__btn ${view === "graph" ? "is-active" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
         <button class="rail__btn ${view === "coach" ? "is-active" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
         <button class="rail__btn ${view === "podcast" ? "is-active" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
@@ -238,6 +244,8 @@ function shell(main: string) {
     </aside>
     <main class="canvas">${main}</main>
   </div>`;
+
+  app.querySelector<HTMLButtonElement>("[data-home]")!.onclick = () => goToHome();
 
   app.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach(button => {
     button.onclick = () => {
@@ -261,7 +269,6 @@ function shell(main: string) {
         return;
       }
       leaveSpecialRails();
-      area = next as AreaFilter;
       keywordFilter = "";
       view = "list";
       activePage = null;
@@ -283,7 +290,6 @@ function shell(main: string) {
 async function refreshVisible() {
   const source = query ? await searchPages(query) : entries;
   visible = source.filter(item => {
-    if (area !== "all" && item.area !== area) return false;
     if (keywordFilter && !topicKeywords(item.tags).includes(keywordFilter)) return false;
     return true;
   });
@@ -319,8 +325,7 @@ function renderVirtualList(viewport: HTMLElement) {
       ${
         windowItems.map(rowHtml).join("") ||
         archiveEmptyHtml({
-          area,
-          notesInArchive: entries.some(item => item.area === "notes"),
+          hasArchiveNotes: entries.length > 0,
         })
       }
     </div>
@@ -333,7 +338,7 @@ function renderList() {
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · reading migrated data · no Netlify deploy</p>` : ""}
     ${pageHeader(
       `Private archive${keywordFilter ? " · keyword" : ""}`,
-      escapeHtml(titleForArea()),
+      escapeHtml(listTitle()),
       `<button class="btn" data-new-note type="button">New note</button>
         <div class="viewbar">
           <button class="viewbar__btn is-active" type="button">List</button>
@@ -342,16 +347,13 @@ function renderList() {
     )}
     <div class="toolbar">
       <input class="search" value="${escapeHtml(query)}" placeholder="Search titles, tags, excerpts…" aria-label="Search archive" />
-      <div class="filters">
-        <button class="filter-chip ${area === "all" && !keywordFilter ? "is-active" : ""}" data-filter="all" type="button">All</button>
-        <button class="filter-chip ${area === "university" ? "is-active" : ""}" data-filter="university" type="button">University</button>
-        <button class="filter-chip ${area === "notes" ? "is-active" : ""}" data-filter="notes" type="button">Notes</button>
-        ${
-          keywordFilter
-            ? `<button class="filter-chip is-active" data-clear-keyword type="button">Clear “${escapeHtml(keywordFilter)}”</button>`
-            : ""
-        }
-      </div>
+      ${
+        keywordFilter
+          ? `<div class="filters">
+        <button class="filter-chip is-active" data-clear-keyword type="button">Clear “${escapeHtml(keywordFilter)}”</button>
+      </div>`
+          : ""
+      }
     </div>
     <p class="list-count">${visible.length.toLocaleString()} notes</p>
     <div class="cards list-viewport" aria-label="Archive list"></div>
@@ -362,18 +364,10 @@ function renderList() {
     render();
   };
   app.querySelector<HTMLButtonElement>("[data-new-note]")!.onclick = () => {
-    compose = blankCompose(area);
+    compose = blankCompose();
     view = "compose";
     render();
   };
-  app.querySelectorAll<HTMLButtonElement>("[data-filter]").forEach(button => {
-    button.onclick = () => {
-      area = button.dataset.filter as AreaFilter;
-      keywordFilter = "";
-      listScrollTop = 0;
-      void refreshVisible().then(render);
-    };
-  });
   app.querySelector<HTMLButtonElement>("[data-clear-keyword]")?.addEventListener("click", () => {
     keywordFilter = "";
     listScrollTop = 0;
@@ -686,6 +680,7 @@ function renderPage(page: Page) {
       <div class="reader__actions">
         <button class="reader__back" data-back type="button">← Archive</button>
         <button class="btn" data-edit type="button">Edit</button>
+        <button class="btn btn--ghost reader__tidy" data-tidy type="button" ${tidyBusy ? "disabled" : ""}>${tidyBusy ? "Cleaning up…" : "Clean up"}</button>
         ${hubUtilitiesHtml()}
       </div>
       <p class="eyebrow">${topics[0] ? escapeHtml(topics[0]) : "Note"}</p>
@@ -706,6 +701,22 @@ function renderPage(page: Page) {
     compose = composeFromPage(page);
     view = "compose";
     render();
+  };
+  app.querySelector<HTMLButtonElement>("[data-tidy]")!.onclick = async () => {
+    if (tidyBusy) return;
+    tidyBusy = true;
+    render();
+    try {
+      activePage = await tidyPage(page.id);
+      entries = await listPages();
+      await refreshVisible();
+      showToast("Cleaned up");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Clean up failed");
+    } finally {
+      tidyBusy = false;
+      render();
+    }
   };
   app.querySelectorAll<HTMLButtonElement>("[data-open-page]").forEach(button => {
     button.onclick = () => void openPage(button.dataset.openPage!);
@@ -750,13 +761,6 @@ function renderCompose(state: ComposeState) {
         ${state.titleError ? `<p class="compose__error">${escapeHtml(state.titleError)}</p>` : ""}
       </div>
       <div class="compose__field">
-        <label for="compose-area">Area</label>
-        <select id="compose-area">
-          <option value="notes" ${state.area === "notes" ? "selected" : ""}>Notes</option>
-          <option value="university" ${state.area === "university" ? "selected" : ""}>University</option>
-        </select>
-      </div>
-      <div class="compose__field">
         <label for="compose-tags">Tags</label>
         <input id="compose-tags" value="${escapeHtml(state.tags)}" placeholder="Comma-separated" />
       </div>
@@ -784,7 +788,6 @@ function renderCompose(state: ComposeState) {
   const syncFields = () => {
     if (!compose) return;
     compose.title = app.querySelector<HTMLInputElement>("#compose-title")!.value;
-    compose.area = app.querySelector<HTMLSelectElement>("#compose-area")!.value as "notes" | "university";
     compose.tags = app.querySelector<HTMLInputElement>("#compose-tags")!.value;
     compose.body = app.querySelector<HTMLTextAreaElement>("#compose-body")!.value;
   };
@@ -861,7 +864,6 @@ function renderCompose(state: ComposeState) {
 async function saveCompose() {
   if (!compose || compose.busy) return;
   compose.title = app.querySelector<HTMLInputElement>("#compose-title")!.value;
-  compose.area = app.querySelector<HTMLSelectElement>("#compose-area")!.value as "notes" | "university";
   compose.tags = app.querySelector<HTMLInputElement>("#compose-tags")!.value;
   compose.body = app.querySelector<HTMLTextAreaElement>("#compose-body")!.value;
   if (!compose.title.trim()) {
@@ -963,7 +965,7 @@ function renderLogin() {
     <form class="sign-in__card" method="post" action="#">
       <p class="sign-in__brand">Knowledge Hub</p>
       <h1 class="sign-in__title">Sign in</h1>
-      <p class="sign-in__supporting">University and Notes stay private.</p>
+      <p class="sign-in__supporting">The archive stays private.</p>
       <div class="sign-in__field">
         <label class="sign-in__label" for="sign-in-passphrase">Passphrase</label>
         <input class="sign-in__input" id="sign-in-passphrase" name="passphrase" type="password" required autocomplete="current-password" />

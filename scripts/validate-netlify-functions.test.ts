@@ -32,6 +32,15 @@ describe("GitHub Pages deploy", () => {
   });
 });
 
+describe("Note tidy stays off Netlify", () => {
+  it("does not add a tidy function or /api/tidy redirect", async () => {
+    const config = await readFile(path.join(process.cwd(), "netlify.toml"), "utf8");
+    expect(config).not.toContain("/api/tidy");
+    const functions = await readdir(path.join(process.cwd(), "netlify/functions"));
+    expect(functions).not.toContain("tidy.ts");
+  });
+});
+
 describe("Curator workflow secrets", () => {
   it("does not use custom GITHUB_-prefixed secret names (GitHub rejects them)", async () => {
     const workflow = await readFile(path.join(process.cwd(), ".github/workflows/curator.yml"), "utf8");
