@@ -1,7 +1,7 @@
 import { attachGraphSearch, type GraphMount } from "./forceGraphBehavior";
 import { hashUnit, worldPositions, type Body, type BodyKind, type SolarModel } from "./solarModel";
 
-export const UNIVERSE_BUILD = 15;
+export const UNIVERSE_BUILD = 16;
 
 export type SolarNotePayload = { pageId: string; title: string; excerpt: string };
 
@@ -152,33 +152,6 @@ function ringDust(body: Body, x: number, y: number, pr: number, k: number, behin
       color: body.color,
       alpha: 0.3 + u * 0.28,
     });
-  }
-  return dots;
-}
-
-function starDust(view: { k: number; x: number; y: number }, width: number, height: number) {
-  const dots: Array<{ x: number; y: number; r: number; color: string; alpha: number }> = [];
-  const cell = 150;
-  const left = -view.x / view.k - cell;
-  const top = -view.y / view.k - cell;
-  const right = (width - view.x) / view.k + cell;
-  const bottom = (height - view.y) / view.k + cell;
-  const ix0 = Math.floor(left / cell);
-  const iy0 = Math.floor(top / cell);
-  const ix1 = Math.ceil(right / cell);
-  const iy1 = Math.ceil(bottom / cell);
-  for (let ix = ix0; ix <= ix1; ix++) {
-    for (let iy = iy0; iy <= iy1; iy++) {
-      const u = hashUnit(`star:${ix}:${iy}`);
-      if (u > 0.13) continue;
-      dots.push({
-        x: (ix + hashUnit(`starx:${ix}:${iy}`)) * cell,
-        y: (iy + hashUnit(`stary:${ix}:${iy}`)) * cell,
-        r: ((0.45 + u * 1.4) * 0.85) / view.k,
-        color: "#315875",
-        alpha: 0.18 + u * 0.32,
-      });
-    }
   }
   return dots;
 }
@@ -375,7 +348,6 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
     ctx.translate(view.x, view.y);
     ctx.scale(view.k, view.k);
 
-    fillDots(ctx, starDust(view, width, height));
     fillDots(ctx, collect("rock", z, searching, band));
     fillDots(ctx, collect("page", z, searching, band));
     fillDots(ctx, collect("moon", z, searching, band));
