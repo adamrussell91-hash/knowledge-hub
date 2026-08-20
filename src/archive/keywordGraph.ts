@@ -1,9 +1,10 @@
 import type { PageManifestEntry } from "../domain/page";
+import { TOPIC_VOCABULARY, canonicalTopicTag } from "../tidy/vocabulary";
 
 const SKIP = new Set(["note", "lecture", "assessment", "tutorial", "study note", "seminar", "test"]);
 
-/** Top keywords become major hubs; the rest become owned minor sub-themes. */
-const MAJOR_COUNT = 8;
+/** Closed-list topics are first-class hubs. Leftovers (if any) nest as minors. */
+const MAJOR_COUNT = TOPIC_VOCABULARY.length;
 const BACKBONE_MIN_WEIGHT = 3;
 const BACKBONE_MAX_EDGES = 22;
 const LEAF_SAMPLE = 14;
@@ -24,14 +25,39 @@ export const KEYWORD_PALETTE = [
   { fill: "#b8974e", soft: "rgba(184, 151, 78, 0.7)", ink: "#6c581f" },
   { fill: "#b87d68", soft: "rgba(184, 125, 104, 0.7)", ink: "#77503a" },
   { fill: "#8f7eb0", soft: "rgba(143, 126, 176, 0.7)", ink: "#5d4d72" },
+  { fill: "#d4a8b8", soft: "rgba(212, 168, 184, 0.7)", ink: "#6e4454" },
+  { fill: "#6fb0a8", soft: "rgba(111, 176, 168, 0.7)", ink: "#2f5c57" },
+  { fill: "#c4b06a", soft: "rgba(196, 176, 106, 0.7)", ink: "#6a5a28" },
+  { fill: "#8a9cc4", soft: "rgba(138, 156, 196, 0.7)", ink: "#3d4a6e" },
+  { fill: "#c47a8a", soft: "rgba(196, 122, 138, 0.7)", ink: "#6e3d48" },
 ] as const;
 
 export function isTopicKeyword(tag: string) {
   return !SKIP.has(tag.toLowerCase()) && !/^[A-Z]{2,}\d/i.test(tag);
 }
 
+/** Closed vocabulary only, canonical strings, first-seen order. */
 export function topicKeywords(tags: string[]) {
-  return tags.filter(isTopicKeyword);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const tag of tags) {
+    const canonical = canonicalTopicTag(tag);
+    if (!canonical || seen.has(canonical)) continue;
+    seen.add(canonical);
+    out.push(canonical);
+  }
+  return out;
+}
+
+export function colorForTopic(tag: string) {
+  const canonical = canonicalTopicTag(tag) ?? tag;
+  const index = (TOPIC_VOCABULARY as readonly string[]).indexOf(canonical);
+  return KEYWORD_PALETTE[index >= 0 ? index : 0]!;
+}
+
+export function vocabularyPresent(tagLists: string[][]) {
+  const present = new Set(tagLists.flatMap(topicKeywords));
+  return TOPIC_VOCABULARY.filter(tag => present.has(tag));
 }
 
 export type GraphNodeKind = "major" | "minor" | "leaf";
@@ -109,7 +135,7 @@ export function buildArchiveGraph(entries: PageManifestEntry[]): ArchiveGraphMod
   const majorSet = new Set(majors.map(([label]) => label));
 
   const colorByKeyword = new Map<string, (typeof KEYWORD_PALETTE)[number]>();
-  majors.forEach(([label], index) => colorByKeyword.set(label, KEYWORD_PALETTE[index % KEYWORD_PALETTE.length]));
+  for (const [label] of ordered) colorByKeyword.set(label, colorForTopic(label));
 
   const ownerOf = new Map<string, string>();
   for (const [label] of minors) {
@@ -123,7 +149,6 @@ export function buildArchiveGraph(entries: PageManifestEntry[]): ArchiveGraphMod
       }
     }
     ownerOf.set(label, bestOwner);
-    colorByKeyword.set(label, colorByKeyword.get(bestOwner)!);
   }
 
   const nodes: GraphNodeDatum[] = [];

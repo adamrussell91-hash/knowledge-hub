@@ -1,5 +1,5 @@
 import type { Page } from "../domain/page";
-import { topicKeywords } from "../archive/keywordGraph";
+import { isTopicKeyword } from "../archive/keywordGraph";
 import { canonicalTopicTag } from "./vocabulary";
 
 function normalized(value: string) {
@@ -7,7 +7,7 @@ function normalized(value: string) {
 }
 
 function hasUnknownTopics(page: Page) {
-  return topicKeywords(page.tags).some(tag => !canonicalTopicTag(tag));
+  return page.tags.filter(isTopicKeyword).some(tag => !canonicalTopicTag(tag));
 }
 
 function hasParagraphSpam(body: string) {
@@ -27,7 +27,7 @@ export function isMessy(page: Page) {
   const firstLine = body.trimStart().split("\n", 1)[0] ?? "";
   const duplicateH1 = firstLine.startsWith("# ") && normalized(firstLine.slice(2)) === normalized(page.title);
   return (
-    topicKeywords(page.tags).length > 3 ||
+    page.tags.filter(isTopicKeyword).length > 3 ||
     hasUnknownTopics(page) ||
     /\n[ \t]*\n[ \t]*\n/.test(body) ||
     duplicateH1 ||

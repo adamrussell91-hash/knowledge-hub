@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
 import {
   SHOW_ALL_CLUSTER_GAP,
   buildShowAllGraph,
@@ -9,12 +10,14 @@ function page(id: string, title: string, tags: string[]) {
   return { id, title, area: "notes" as const, tags, excerpt: `${title} excerpt` };
 }
 
+const V = TOPIC_VOCABULARY;
+
 describe("buildShowAllGraph", () => {
   it("emits one node per note, a spoke to the primary hub, and overlap edges for shared tags", () => {
     const model = buildShowAllGraph([
-      page("p1", "Alpha", ["Educational Psychology", "Pedagogy"]),
-      page("p2", "Beta", ["Educational Psychology", "Pedagogy"]),
-      page("p3", "Gamma", ["Wellbeing"]),
+      page("p1", "Alpha", [V[0], V[2]]),
+      page("p2", "Beta", [V[0], V[2]]),
+      page("p3", "Gamma", [V[7]]),
     ]);
 
     const leaves = model.nodes.filter(node => node.kind === "leaf");
@@ -33,23 +36,14 @@ describe("buildShowAllGraph", () => {
 
   it("does not emit overlap edges for a single shared tag", () => {
     const model = buildShowAllGraph([
-      page("p1", "Alpha", ["Educational Psychology"]),
-      page("p2", "Beta", ["Educational Psychology"]),
+      page("p1", "Alpha", [V[0]]),
+      page("p2", "Beta", [V[0]]),
     ]);
     expect(model.links.every(link => link.kind !== "overlap")).toBe(true);
   });
 
   it("separates major anchors by their cluster footprints", () => {
-    const majors = [
-      "Educational Psychology",
-      "Pedagogy & Instructional Design",
-      "Wellbeing & Mental Health in Schools",
-      "Child Development & Wellbeing",
-      "Learning Strategies",
-      "Gifted Education",
-      "Neurodiversity & Special Education",
-      "Cognitive Neuroscience",
-    ];
+    const majors = V.slice(0, 8);
     const pages = majors.flatMap((tag, index) =>
       Array.from({ length: (index + 1) * 4 }, (_, note) => page(`${index}-${note}`, `${tag} ${note}`, [tag])),
     );
@@ -74,9 +68,9 @@ describe("buildShowAllGraph", () => {
   });
 
   it("finds a two-tag overlap without pairing every note that shares one popular tag", () => {
-    const pages = Array.from({ length: 40 }, (_, index) => page(`n${index}`, `Note ${index}`, ["Educational Psychology"]));
-    pages.push(page("a", "Alpha", ["Educational Psychology", "Gifted Education"]));
-    pages.push(page("b", "Beta", ["Educational Psychology", "Gifted Education"]));
+    const pages = Array.from({ length: 40 }, (_, index) => page(`n${index}`, `Note ${index}`, [V[0]]));
+    pages.push(page("a", "Alpha", [V[0], V[5]]));
+    pages.push(page("b", "Beta", [V[0], V[5]]));
     const overlaps = buildShowAllGraph(pages).links.filter(link => link.kind === "overlap");
     expect(overlaps).toHaveLength(1);
     expect(overlaps[0].weight).toBe(2);
@@ -84,7 +78,7 @@ describe("buildShowAllGraph", () => {
 
   it("seeds notes at distinct organic positions inside their hub cluster", () => {
     const pages = Array.from({ length: 40 }, (_, index) =>
-      page(`n${index}`, `Note ${index}`, ["Educational Psychology"]),
+      page(`n${index}`, `Note ${index}`, [V[0]]),
     );
     const model = buildShowAllGraph(pages);
     const hub = model.nodes.find(node => node.kind === "major")!;
