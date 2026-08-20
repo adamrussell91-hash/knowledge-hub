@@ -3,7 +3,7 @@
  * without a browser. Usage: npx tsx scripts/universe-preview.ts [outFile]
  */
 import fs from "node:fs";
-import { SUN_RADIUS, buildSolarModel } from "../src/archive/solarModel";
+import { SUN_RADIUS, buildSolarModel, worldPositions } from "../src/archive/solarModel";
 import { TOPIC_VOCABULARY } from "../src/tidy/vocabulary";
 
 const TAGS = [...TOPIC_VOCABULARY];
@@ -15,14 +15,7 @@ const entries = Array.from({ length: 900 }, (_, index) => {
 
 const timeSec = Number(process.argv[3] ?? 0);
 const model = buildSolarModel(entries);
-const x = new Float64Array(model.bodies.length);
-const y = new Float64Array(model.bodies.length);
-for (const b of model.bodies) {
-  if (b.parent < 0) continue;
-  const ang = b.phase + (b.period ? (timeSec / b.period) * Math.PI * 2 : 0);
-  x[b.idx] = x[b.parent] + Math.cos(ang) * b.a;
-  y[b.idx] = y[b.parent] + Math.sin(ang) * b.a;
-}
+const { x, y } = worldPositions(model.bodies, timeSec);
 
 const pages = model.bodies.filter(b => b.kind === "page" || b.kind === "rock");
 const reach = model.reach * 1.06;

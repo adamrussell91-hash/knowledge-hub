@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PageManifestEntry } from "../domain/page";
 import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
-import { buildSolarModel, type Body } from "./solarModel";
+import { buildSolarModel, worldPositions, type Body } from "./solarModel";
 import {
   KIND_DEPTH,
   advanceOrbitClock,
@@ -39,6 +39,9 @@ function planetBody(partial: Partial<Body> = {}): Body {
     a: 420,
     phase: 0,
     period: 300,
+    e: 0,
+    argP: 0,
+    incline: 0,
     color: "#7eb0d5",
     ink: "#315875",
     children: [],
@@ -130,20 +133,8 @@ function stubFrame() {
 }
 
 function worldPos(body: Body, model: ReturnType<typeof buildSolarModel>) {
-  let x = 0;
-  let y = 0;
-  const chain: Body[] = [];
-  let node: Body | undefined = body;
-  while (node && node.parent >= 0) {
-    chain.push(node);
-    node = model.bodies[node.parent];
-  }
-  for (let i = chain.length - 1; i >= 0; i--) {
-    const item = chain[i]!;
-    x += Math.cos(item.phase) * item.a;
-    y += Math.sin(item.phase) * item.a;
-  }
-  return { x, y };
+  const pos = worldPositions(model.bodies, 0);
+  return { x: pos.x[body.idx]!, y: pos.y[body.idx]! };
 }
 
 describe("presence and bands", () => {
@@ -151,9 +142,9 @@ describe("presence and bands", () => {
     expect(KIND_DEPTH.sun).toBe(0);
     expect(KIND_DEPTH.planet).toBe(0);
     expect(KIND_DEPTH.rock).toBe(0);
-    expect(KIND_DEPTH.minor).toBe(1);
-    expect(KIND_DEPTH.moon).toBe(2);
-    expect(KIND_DEPTH.page).toBe(3);
+    expect(KIND_DEPTH.minor).toBe(0);
+    expect(KIND_DEPTH.moon).toBe(0);
+    expect(KIND_DEPTH.page).toBe(2);
     expect(zoomBand(0)).toBe(0);
     expect(zoomBand(2.39)).toBe(0);
     expect(zoomBand(2.4)).toBe(1);
@@ -215,6 +206,29 @@ describe("mountSolarView", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("draws a ringed giant with filled dust, never a stroked orbit circle", () => {
+    const recorded = installCanvas();
+    const frames = stubFrame();
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 800, configurable: true });
+    const entries = [
+      ...tagged("common", TOPIC_VOCABULARY[1]!, 80),
+      ...tagged("common2", TOPIC_VOCABULARY[2]!, 80),
+      ...tagged("common3", TOPIC_VOCABULARY[3]!, 80),
+      ...Array.from({ length: 18 }, (_, i) => page(`solo${i}`, `Solo ${i}`, [V0])),
+      ...Array.from({ length: 16 }, (_, i) => page(`m1${i}`, `Moon1 ${i}`, [V0, TOPIC_VOCABULARY[1]!])),
+      ...Array.from({ length: 14 }, (_, i) => page(`m2${i}`, `Moon2 ${i}`, [V0, TOPIC_VOCABULARY[2]!])),
+      ...Array.from({ length: 12 }, (_, i) => page(`m3${i}`, `Moon3 ${i}`, [V0, TOPIC_VOCABULARY[3]!])),
+    ];
+    const model = buildSolarModel(entries);
+    expect(model.planets.some(planet => planet.giant && planet.ringed)).toBe(true);
+    const stop = mountSolarView(host, model, { search: "", onNoteSelect() {} });
+    frames.pump(16);
+    expect(recorded.fullCircleStrokes).toHaveLength(0);
+    expect(recorded.arcs.length).toBeGreaterThan(20);
+    stop();
   });
 
   it("never strokes a full-circle arc centred on a parent body", () => {

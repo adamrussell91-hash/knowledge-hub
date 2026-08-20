@@ -2,7 +2,7 @@
  * One-planet close-up of the rebuilt solar model. Usage: npx tsx scripts/universe-preview-frame.ts
  */
 import fs from "node:fs";
-import { buildSolarModel, type Body } from "../src/archive/solarModel";
+import { buildSolarModel, worldPositions, type Body } from "../src/archive/solarModel";
 import { TOPIC_VOCABULARY } from "../src/tidy/vocabulary";
 
 const TAGS = [...TOPIC_VOCABULARY];
@@ -17,14 +17,7 @@ const entries = Array.from({ length: 900 }, (_, index) => {
 });
 
 const model = buildSolarModel(entries);
-const x = new Float64Array(model.bodies.length);
-const y = new Float64Array(model.bodies.length);
-for (const b of model.bodies) {
-  if (b.parent < 0) continue;
-  const ang = b.phase;
-  x[b.idx] = x[b.parent] + Math.cos(ang) * b.a;
-  y[b.idx] = y[b.parent] + Math.sin(ang) * b.a;
-}
+const { x, y } = worldPositions(model.bodies, 0);
 
 function subtree(planet: Body) {
   return model.bodies.filter(b => {

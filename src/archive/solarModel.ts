@@ -11,17 +11,7 @@ export const ROCK_RADIUS = 1.1;
 
 const A0 = 420;
 const AN = 3000;
-const CURVE = 1.15;
-const GOLDEN = 2.39996323;
 const TAU = Math.PI * 2;
-
-const PERIOD_BASE = {
-  planet: 300,
-  minor: 240,
-  moon: 150,
-  page: 26,
-  rock: 300,
-} as const;
 
 export type BodyKind = "sun" | "planet" | "minor" | "moon" | "page" | "rock";
 
@@ -39,6 +29,13 @@ export type Body = {
   a: number;
   phase: number;
   period: number;
+  /** 0 = circle. Typical planets 0.04–0.28. */
+  e: number;
+  argP: number;
+  /** 0–1. Squashes the orbit in y so systems don’t all sit on a flat disc. */
+  incline: number;
+  ringed?: boolean;
+  giant?: boolean;
   color: string;
   ink: string;
   children: Body[];
@@ -79,13 +76,71 @@ function lift(hex: string, amount: number) {
   return `#${mix(0)}${mix(2)}${mix(4)}`;
 }
 
-function makeBody(partial: Omit<Body, "idx" | "parent" | "children"> & { children?: Body[] }): Body {
+function makeBody(
+  partial: Omit<Body, "idx" | "parent" | "children" | "e" | "argP" | "incline"> &
+    Partial<Pick<Body, "e" | "argP" | "incline" | "children" | "ringed" | "giant">>,
+): Body {
   return {
     idx: -1,
     parent: -1,
+    e: 0,
+    argP: 0,
+    incline: 0,
     children: partial.children ?? [],
     ...partial,
   };
+}
+
+/** World offset of a body from its parent at time `clock` seconds. */
+export function orbitOffset(body: Body, clock: number) {
+  const mean = body.phase + (body.period ? (clock / body.period) * TAU : 0);
+  const e = body.e || 0;
+  const ecc = mean + e * Math.sin(mean);
+  const radius = body.a * (1 - e * e) / Math.max(1e-6, 1 + e * Math.cos(ecc));
+  const ang = ecc + (body.argP || 0);
+  const squash = 1 - Math.min(body.incline || 0, 0.85) * 0.42;
+  return { x: Math.cos(ang) * radius, y: Math.sin(ang) * radius * squash };
+}
+
+export function massOf(body: Body) {
+  return Math.max(body.count, 1) * Math.max(body.r * body.r, 0.4);
+}
+
+function subtreeMass(body: Body): number {
+  let mass = massOf(body);
+  for (const child of body.children) mass += subtreeMass(child);
+  return mass;
+}
+
+/** Nested Kepler positions with a barycentric wobble so primaries don’t sit locked at the hub. */
+export function worldPositions(bodies: Body[], clock: number) {
+  const x = new Float64Array(bodies.length);
+  const y = new Float64Array(bodies.length);
+  const root = bodies.find(body => body.parent < 0) ?? bodies[0];
+  if (!root) return { x, y };
+
+  const place = (body: Body, cx: number, cy: number) => {
+    const kids = body.children;
+    const offs = kids.map(child => orbitOffset(child, clock));
+    let mTot = massOf(body);
+    let cmx = 0;
+    let cmy = 0;
+    for (let i = 0; i < kids.length; i++) {
+      const mass = subtreeMass(kids[i]!);
+      mTot += mass;
+      cmx += mass * offs[i]!.x;
+      cmy += mass * offs[i]!.y;
+    }
+    const px = cx - cmx / Math.max(mTot, 1e-6);
+    const py = cy - cmy / Math.max(mTot, 1e-6);
+    x[body.idx] = px;
+    y[body.idx] = py;
+    for (let i = 0; i < kids.length; i++) {
+      place(kids[i]!, px + offs[i]!.x, py + offs[i]!.y);
+    }
+  };
+  place(root, 0, 0);
+  return { x, y };
 }
 
 export function rankTags(entries: PageManifestEntry[]): RankedTag[] {
@@ -172,6 +227,164 @@ function scaleSubtree(body: Body, factor: number, scaleSelfR: boolean) {
   }
 }
 
+function recomputeSysR(body: Body): number {
+  let outer = body.r;
+  for (const child of body.children) {
+    const reach = child.a * (1 + (child.e || 0)) + recomputeSysR(child);
+    if (reach > outer) outer = reach;
+  }
+  body.sysR = outer;
+  return outer;
+}
+
+function paintOrbit(body: Body, e0: number, eSpan: number, i0: number, iSpan: number) {
+  body.e = e0 + hashUnit(`${body.id}:e`) * eSpan;
+  body.argP = hashUnit(`${body.id}:w`) * TAU;
+  body.incline = i0 + hashUnit(`${body.id}:i`) * iSpan;
+}
+
+function organicizeSwarm(children: Body[], seed: string) {
+  if (!children.length) return;
+  const nClumps =
+    children.length <= 2 ? 1 : children.length <= 8 ? 2 : 2 + Math.floor(hashUnit(`${seed}:n`) * 3);
+  const centers = Array.from({ length: nClumps }, (_, i) => hashUnit(`${seed}:c:${i}`) * TAU);
+  const spread = children.length <= 6 ? 0.48 : 0.74;
+  for (const child of children) {
+    const clump = Math.floor(hashUnit(`${child.id}:clump`) * nClumps) % nClumps;
+    child.phase = centers[clump]! + (hashUnit(`${child.id}:ph`) - 0.5) * spread;
+    child.a *= 0.86 + hashUnit(`${child.id}:ra`) * 0.32;
+    paintOrbit(child, 0.05, 0.22, 0.04, 0.5);
+  }
+}
+
+function organicizeTree(body: Body) {
+  if (body.kind === "moon") {
+    organicizeSwarm(body.children, body.id);
+    return;
+  }
+  if (body.kind === "planet" || body.kind === "minor") {
+    organicizeSwarm(
+      body.children.filter(child => child.kind === "moon"),
+      `${body.id}:moons`,
+    );
+    for (const child of body.children) organicizeTree(child);
+  }
+}
+
+function placePlanets(planets: Body[]) {
+  const bySize = [...planets].sort((a, b) => a.sysR - b.sysR || a.label.localeCompare(b.label));
+  const n = bySize.length;
+  const arm = hashUnit("solar-arm") * TAU;
+  const ranks = bySize.map((_, i) => i);
+  if (n >= 4) {
+    const swap = 1 + Math.floor(hashUnit("orbit-swap") * (n - 2));
+    const left = ranks[swap]!;
+    ranks[swap] = ranks[swap - 1]!;
+    ranks[swap - 1] = left;
+  }
+  for (let i = 0; i < n; i++) {
+    const planet = bySize[i]!;
+    const t = n <= 1 ? 0 : ranks[i]! / (n - 1);
+    const jitter = 0.76 + hashUnit(`${planet.id}:a`) * 0.52;
+    planet.a = (n <= 1 ? A0 : A0 + (AN - A0) * t ** 1.08) * jitter;
+    const wander = hashUnit(`${planet.id}:lon`);
+    planet.phase =
+      wander < 0.2
+        ? hashUnit(`${planet.id}:wander`) * TAU
+        : arm + (hashUnit(`${planet.id}:arm`) - 0.5) * 1.38;
+    paintOrbit(planet, 0.05, 0.24, 0.06, 0.32);
+  }
+  for (const planet of bySize) {
+    const cap = Math.max(planet.a * 0.55, 80);
+    if (planet.sysR > cap) scaleSubtree(planet, cap / planet.sysR, false);
+  }
+  return bySize;
+}
+
+function decorateCharacters(planets: Body[]) {
+  if (!planets.length) return;
+  const scored = planets
+    .map(planet => ({
+      planet,
+      moons: planet.children.filter(child => child.kind === "moon").length,
+    }))
+    .sort(
+      (a, b) =>
+        b.moons - a.moons || b.planet.count - a.planet.count || a.planet.label.localeCompare(b.planet.label),
+    );
+  const giant = scored[0]!.planet;
+  giant.giant = true;
+  giant.ringed = true;
+  const otherR = Math.max(0, ...planets.filter(planet => planet !== giant).map(planet => planet.r));
+  giant.r = Math.max(giant.r * 1.65, otherR * 1.25, 16);
+  giant.e = 0.035 + hashUnit(`${giant.id}:ge`) * 0.05;
+  const belt = giant.children
+    .filter(child => child.kind === "moon")
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+  if (belt.length === 3) {
+    const mid = (belt[0]!.a + belt[1]!.a + belt[2]!.a) / 3;
+    const line = hashUnit(`${giant.id}:belt`) * TAU;
+    belt.forEach((moon, i) => {
+      moon.a = mid * (0.97 + i * 0.025);
+      moon.phase = line + (i - 1) * 0.22;
+      moon.e = 0.015;
+      moon.argP = 0;
+      moon.incline = 0.04;
+    });
+  }
+  const saturn = scored[1]?.planet;
+  if (saturn && saturn !== giant) saturn.ringed = true;
+}
+
+function placeRocks(rocks: Body[], planets: Body[]) {
+  const sorted = [...planets].sort((a, b) => a.a - b.a);
+  const beltInner = sorted[1]?.a ? sorted[1].a * 0.82 : 720;
+  const beltOuter = sorted[Math.min(4, Math.max(sorted.length - 1, 0))]?.a
+    ? sorted[Math.min(4, Math.max(sorted.length - 1, 0))]!.a * 1.12
+    : 1680;
+  const span = Math.max(beltOuter - beltInner, 1);
+  const last = sorted.at(-1)?.a ?? 2200;
+  const swarms = [0, 1, 2].map(i => hashUnit(`rock-swarm:${i}`) * TAU);
+  const regions: Array<[number, number]> = [
+    [0, 0.28],
+    [0.36, 0.58],
+    [0.66, 1],
+  ];
+  const regionLen = regions.reduce((sum, [lo, hi]) => sum + (hi - lo), 0);
+  for (const rock of rocks) {
+    const roll = hashUnit(`${rock.id}:family`);
+    if (roll < 0.08 && sorted.length) {
+      const host = sorted[Math.min(sorted.length - 1, 1 + Math.floor(hashUnit(`${rock.id}:t`) * Math.max(sorted.length - 1, 1)))]!;
+      rock.a = host.a * (0.97 + hashUnit(`${rock.id}:ta`) * 0.06);
+      rock.phase =
+        host.phase +
+        (hashUnit(`${rock.id}:tp`) < 0.5 ? 1 : -1) * (Math.PI / 3) +
+        (hashUnit(`${rock.id}:tj`) - 0.5) * 0.35;
+    } else if (roll < 0.16) {
+      rock.a = last * (1.18 + hashUnit(`${rock.id}:k`) * 0.7);
+      rock.phase = hashUnit(`${rock.id}:kp`) * TAU;
+    } else {
+      let walk = hashUnit(`${rock.id}:a`) * regionLen;
+      let frac = regions[0]![0];
+      for (const [lo, hi] of regions) {
+        const len = hi - lo;
+        if (walk <= len) {
+          frac = lo + walk;
+          break;
+        }
+        walk -= len;
+      }
+      rock.a = beltInner + frac * span;
+      const swarm = Math.floor(hashUnit(`${rock.id}:sw`) * 3) % 3;
+      rock.phase = swarms[swarm]! + (hashUnit(`${rock.id}:ph`) - 0.5) * 0.68;
+    }
+    paintOrbit(rock, 0.12, 0.28, 0.18, 0.55);
+    rock.r = ROCK_RADIUS * (0.35 + hashUnit(`${rock.id}:r`) * 1.7);
+    rock.sysR = rock.r;
+  }
+}
+
 function flatten(body: Body, parentIdx: number, out: Body[]) {
   body.idx = out.length;
   body.parent = parentIdx;
@@ -189,24 +402,55 @@ function ownerOfPage(tags: string[], counts: Map<string, number>, valid: Set<str
   return candidates.reduce((best, tag) => (counts.get(tag)! < counts.get(best)! ? tag : best));
 }
 
+function nestPlanets(planets: Body[], weights: Map<string, number>): Body[] {
+  const byMass = [...planets].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  const minSun = Math.max(3, Math.ceil(planets.length * 0.4));
+  const sunKids: Body[] = [];
+  const tagOf = (planet: Body) => planet.id.replace(/^planet:/, "");
+  for (const planet of byMass) {
+    let host: Body | undefined;
+    if (sunKids.length >= minSun && !planet.giant) {
+      let best = -1;
+      for (const candidate of sunKids) {
+        if (candidate.count < planet.count * 1.05) continue;
+        const weight = weights.get(pairKey(tagOf(planet), tagOf(candidate))) ?? 0;
+        if (weight >= best) {
+          best = weight;
+          host = candidate;
+        }
+      }
+    }
+    if (host) {
+      const cap = Math.max(host.r * 7.5, 36);
+      if (planet.sysR > cap) scaleSubtree(planet, cap / planet.sysR, false);
+      host.children.push(planet);
+    } else {
+      sunKids.push(planet);
+    }
+  }
+  for (const host of planets) {
+    const sats = host.children.filter(child => child.kind === "planet");
+    if (!sats.length) continue;
+    packOrbits(sats, Math.max(host.r * 2.4, 18), true);
+    for (const sat of sats) paintOrbit(sat, 0.04, 0.18, 0.1, 0.35);
+  }
+  return sunKids;
+}
+
 function applyPeriods(bodies: Body[]) {
   for (const body of bodies) {
     if (body.parent < 0 || body.a <= 0 || body.kind === "sun") {
       body.period = 0;
       continue;
     }
-    body.period = PERIOD_BASE[body.kind] * (body.a / 100) ** 1.5;
+    const parent = bodies[body.parent]!;
+    const mass = Math.max(massOf(parent), 1);
+    let period = Math.max(7, 24 * Math.sqrt(body.a ** 3 / mass));
+    if (parent.period > 0 && period >= parent.period * 0.72) {
+      period = parent.period * (0.14 + hashUnit(`${body.id}:year`) * 0.42);
+    }
+    body.period = period;
   }
-}
-
-function beltBand(orbits: number[]): [number, number] {
-  if (orbits.length >= 5) return [orbits[3]!, orbits[4]!];
-  if (orbits.length >= 2) {
-    const inner = orbits[Math.min(3, orbits.length - 1)]!;
-    const step = orbits[1]! - orbits[0]!;
-    return [inner, inner + Math.max(step, 80)];
-  }
-  return [800, 1400];
 }
 
 export function buildSolarModel(entries: PageManifestEntry[]): SolarModel {
@@ -289,8 +533,8 @@ export function buildSolarModel(entries: PageManifestEntry[]): SolarModel {
             pageId: entry.id,
             excerpt: entry.excerpt,
             count: 1,
-            r: PAGE_RADIUS,
-            sysR: PAGE_RADIUS,
+            r: PAGE_RADIUS * (0.48 + hashUnit(`page-r:${entry.id}`) * 1.2),
+            sysR: PAGE_RADIUS * (0.48 + hashUnit(`page-r:${entry.id}`) * 1.2),
             a: 0,
             phase: 0,
             period: 0,
@@ -358,32 +602,22 @@ export function buildSolarModel(entries: PageManifestEntry[]): SolarModel {
     });
     const afterMinors = packOrbits(minorBodies, planet.r, true);
     planet.sysR = packOrbits(ownMoons, afterMinors, false);
+    for (const minor of minorBodies) paintOrbit(minor, 0.04, 0.16, 0.08, 0.4);
     return planet;
   });
 
-  const bySize = [...planets].sort((a, b) => a.sysR - b.sysR || a.label.localeCompare(b.label));
-  const n = bySize.length;
-  const orbits = bySize.map((_, i) => (n <= 1 ? A0 : A0 + (AN - A0) * (i ** CURVE / (n - 1) ** CURVE)));
-  for (let i = 0; i < bySize.length; i++) {
-    const planet = bySize[i]!;
-    planet.a = orbits[i]!;
-    planet.phase = i * GOLDEN + (hashUnit(planet.id) - 0.5) * 0.28;
-    const gapIn = i === 0 ? orbits[0]! : orbits[i]! - orbits[i - 1]!;
-    const gapOut = i === n - 1 ? gapIn : orbits[i + 1]! - orbits[i]!;
-    const slot = 0.42 * Math.min(gapIn, gapOut);
-    const factor = Math.min(1, slot / Math.max(planet.sysR, 1e-6));
-    if (factor < 1) scaleSubtree(planet, factor, false);
+  for (const planet of planets) {
+    organicizeTree(planet);
+    recomputeSysR(planet);
   }
-
-  const [beltInner, beltOuter] = beltBand(orbits);
-  const span = Math.max(beltOuter - beltInner, 1);
-  for (const rock of rocks) {
-    rock.a = beltInner + hashUnit(`${rock.id}:a`) * span;
-    rock.sysR = rock.r;
-  }
+  decorateCharacters(planets);
+  const sunPlanets = nestPlanets(planets, pairWeights(entries));
+  for (const planet of sunPlanets) recomputeSysR(planet);
+  const bySize = placePlanets(sunPlanets);
+  placeRocks(rocks, bySize);
 
   sun.children = [...bySize, ...rocks];
-  sun.sysR = Math.max(sun.r, ...sun.children.map(child => child.a + child.sysR), sun.r);
+  recomputeSysR(sun);
 
   const bodies: Body[] = [];
   flatten(sun, -1, bodies);
@@ -395,7 +629,7 @@ export function buildSolarModel(entries: PageManifestEntry[]): SolarModel {
   return {
     bodies,
     sun,
-    planets: bySize,
+    planets,
     rocks,
     reach: Math.max(sun.sysR, 1),
     tightest: Math.max(tightest, PAGE_RADIUS),

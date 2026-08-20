@@ -1,5 +1,5 @@
 import { attachGraphSearch, type GraphMount } from "./forceGraphBehavior";
-import type { Body, BodyKind, SolarModel } from "./solarModel";
+import { hashUnit, worldPositions, type Body, type BodyKind, type SolarModel } from "./solarModel";
 
 export type SolarNotePayload = { pageId: string; title: string; excerpt: string };
 
@@ -13,9 +13,9 @@ export const KIND_DEPTH: Record<BodyKind, number> = {
   sun: 0,
   planet: 0,
   rock: 0,
-  minor: 1,
-  moon: 2,
-  page: 3,
+  minor: 0,
+  moon: 0,
+  page: 2,
 };
 
 export const searchResolveStats = { calls: 0 };
@@ -43,12 +43,13 @@ export function presence(body: Body, z: number, k: number, maxTag: number) {
   if (body.kind === "planet") {
     t = clamp01((z - 2.4) / 7);
     big = (9 + Math.sqrt(body.count / tag) * 15) / safeK;
+    if (body.giant) big *= 1.4;
   } else if (body.kind === "minor") {
-    t = clamp01((z - 9) / 30);
-    big = (6 + Math.sqrt(body.count / tag) * 9) / safeK;
+    t = clamp01((z - 2.4) / 12);
+    big = (4.2 + Math.sqrt(body.count / tag) * 6) / safeK;
   } else if (body.kind === "moon") {
-    t = clamp01((z - 45) / 140);
-    big = Math.max(body.sysR * 0.44, 4 / safeK);
+    t = clamp01((z - 9) / 80);
+    big = Math.max(body.r, 2.1 / safeK);
   } else {
     return Math.max(body.r, 1.4 / safeK);
   }
@@ -132,6 +133,57 @@ function glowSprite(color: string) {
   }
   glowSprites.set(color, sprite);
   return sprite;
+}
+
+function ringDust(body: Body, x: number, y: number, pr: number, k: number, behind: boolean) {
+  const dots: Array<{ x: number; y: number; r: number; color: string; alpha: number }> = [];
+  const n = body.giant ? 170 : 110;
+  const inner = pr * 1.38;
+  const outer = pr * 2.28;
+  for (let i = 0; i < n; i++) {
+    const u = hashUnit(`${body.id}:ring:${i}`);
+    const frac = u;
+    if (frac > 0.42 && frac < 0.54) continue;
+    const rad = inner + frac * (outer - inner);
+    const ang = hashUnit(`${body.id}:ringa:${i}`) * TAU;
+    const sin = Math.sin(ang);
+    if (behind ? sin < 0 : sin >= 0) continue;
+    dots.push({
+      x: x + Math.cos(ang) * rad,
+      y: y + sin * rad * 0.22,
+      r: (0.32 + u * 0.55) / k,
+      color: body.color,
+      alpha: 0.3 + u * 0.28,
+    });
+  }
+  return dots;
+}
+
+function starDust(view: { k: number; x: number; y: number }, width: number, height: number) {
+  const dots: Array<{ x: number; y: number; r: number; color: string; alpha: number }> = [];
+  const cell = 150;
+  const left = -view.x / view.k - cell;
+  const top = -view.y / view.k - cell;
+  const right = (width - view.x) / view.k + cell;
+  const bottom = (height - view.y) / view.k + cell;
+  const ix0 = Math.floor(left / cell);
+  const iy0 = Math.floor(top / cell);
+  const ix1 = Math.ceil(right / cell);
+  const iy1 = Math.ceil(bottom / cell);
+  for (let ix = ix0; ix <= ix1; ix++) {
+    for (let iy = iy0; iy <= iy1; iy++) {
+      const u = hashUnit(`star:${ix}:${iy}`);
+      if (u > 0.13) continue;
+      dots.push({
+        x: (ix + hashUnit(`starx:${ix}:${iy}`)) * cell,
+        y: (iy + hashUnit(`stary:${ix}:${iy}`)) * cell,
+        r: ((0.45 + u * 1.4) * 0.85) / view.k,
+        color: "#315875",
+        alpha: 0.18 + u * 0.32,
+      });
+    }
+  }
+  return dots;
 }
 
 function fillDots(
@@ -240,11 +292,12 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
   }
 
   function positionPass(clock: number, band: number, searching: boolean) {
+    const pos = worldPositions(B, clock);
+    X.set(pos.x);
+    Y.set(pos.y);
     for (let i = 0; i < n; i++) {
       const b = B[i]!;
       if (b.parent < 0) {
-        X[i] = 0;
-        Y[i] = 0;
         VIS[i] = 1;
         continue;
       }
@@ -253,11 +306,8 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
         VIS[i] = 0;
         continue;
       }
-      const ang = b.phase + (b.period ? (clock / b.period) * TAU : 0);
-      X[i] = X[p] + Math.cos(ang) * b.a;
-      Y[i] = Y[p] + Math.sin(ang) * b.a;
-      const sx = view.x + X[i] * view.k;
-      const sy = view.y + Y[i] * view.k;
+      const sx = view.x + X[i]! * view.k;
+      const sy = view.y + Y[i]! * view.k;
       const m = b.sysR * view.k + 40;
       VIS[i] = sx > -m && sy > -m && sx < width + m && sy < height + m ? 1 : 0;
     }
@@ -378,6 +428,7 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
     ctx.translate(view.x, view.y);
     ctx.scale(view.k, view.k);
 
+    fillDots(ctx, starDust(view, width, height));
     fillDots(ctx, collect("rock", z, searching, band));
     fillDots(ctx, collect("page", z, searching, band));
     fillDots(ctx, collect("moon", z, searching, band));
@@ -389,21 +440,52 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
       const body = B[i]!;
       if (body.kind !== "planet" || !VIS[i]) continue;
       const pr = presence(body, z, view.k, maxTag);
-      ctx.globalAlpha = alphaFor(i, searching) * 0.5;
-      ctx.drawImage(glowSprite(body.color), X[i]! - pr * 2.1, Y[i]! - pr * 2.1, pr * 4.2, pr * 4.2);
+      ctx.globalAlpha = alphaFor(i, searching) * (body.giant ? 0.62 : 0.5);
+      const glow = body.giant ? 2.6 : 2.1;
+      ctx.drawImage(glowSprite(body.color), X[i]! - pr * glow, Y[i]! - pr * glow, pr * glow * 2, pr * glow * 2);
     }
     ctx.restore();
 
     ctx.globalCompositeOperation = "source-over";
     for (let i = 0; i < n; i++) {
       const body = B[i]!;
+      if (body.kind !== "planet" || !body.ringed || !VIS[i]) continue;
+      fillDots(ctx, ringDust(body, X[i]!, Y[i]!, presence(body, z, view.k, maxTag), view.k, true));
+    }
+    for (let i = 0; i < n; i++) {
+      const body = B[i]!;
       if (body.kind !== "planet" || !VIS[i]) continue;
       const pr = presence(body, z, view.k, maxTag);
-      ctx.globalAlpha = alphaFor(i, searching);
+      const alpha = alphaFor(i, searching);
+      ctx.globalAlpha = alpha;
       ctx.fillStyle = body.color;
       ctx.beginPath();
       ctx.arc(X[i]!, Y[i]!, pr, 0, TAU);
       ctx.fill();
+      if (body.giant) {
+        ctx.save();
+        ctx.translate(X[i]!, Y[i]!);
+        ctx.scale(1, 0.42);
+        ctx.fillStyle = body.ink;
+        ctx.globalAlpha = alpha * 0.28;
+        ctx.beginPath();
+        ctx.arc(0, -pr * 0.18, pr * 0.92, 0, TAU);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, pr * 0.28, pr * 0.78, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+        ctx.globalAlpha = alpha * 0.4;
+        ctx.fillStyle = body.ink;
+        ctx.beginPath();
+        ctx.arc(X[i]! + pr * 0.32, Y[i]! - pr * 0.12, pr * 0.2, 0, TAU);
+        ctx.fill();
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      const body = B[i]!;
+      if (body.kind !== "planet" || !body.ringed || !VIS[i]) continue;
+      fillDots(ctx, ringDust(body, X[i]!, Y[i]!, presence(body, z, view.k, maxTag), view.k, false));
     }
 
     const sun = model.sun;
