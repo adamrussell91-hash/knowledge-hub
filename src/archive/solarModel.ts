@@ -243,31 +243,52 @@ function paintOrbit(body: Body, e0: number, eSpan: number, i0: number, iSpan: nu
   body.incline = i0 + hashUnit(`${body.id}:i`) * iSpan;
 }
 
-function organicizeSwarm(children: Body[], seed: string) {
+function organicizeSwarm(children: Body[], seed: string, inner = 0, span = 0) {
   if (!children.length) return;
   const nClumps =
-    children.length <= 2 ? 1 : children.length <= 8 ? 2 : 2 + Math.floor(hashUnit(`${seed}:n`) * 3);
+    children.length <= 2 ? 1 : children.length <= 8 ? 2 : 1 + Math.floor(hashUnit(`${seed}:n`) * 2);
   const centers = Array.from({ length: nClumps }, (_, i) => hashUnit(`${seed}:c:${i}`) * TAU);
-  const spread = children.length <= 6 ? 0.48 : 0.74;
+  const spread = children.length <= 6 ? 0.7 : 1.05;
   for (const child of children) {
     const clump = Math.floor(hashUnit(`${child.id}:clump`) * nClumps) % nClumps;
     child.phase = centers[clump]! + (hashUnit(`${child.id}:ph`) - 0.5) * spread;
-    child.a *= 0.86 + hashUnit(`${child.id}:ra`) * 0.32;
-    paintOrbit(child, 0.05, 0.22, 0.04, 0.5);
+    if (span > 0) child.a = inner + hashUnit(`${child.id}:ra`) * span;
+    else child.a *= 0.7 + hashUnit(`${child.id}:ra`) * 0.85;
+    paintOrbit(child, 0.1, 0.32, 0.08, 0.55);
   }
 }
 
-function organicizeTree(body: Body) {
-  if (body.kind === "moon") {
-    organicizeSwarm(body.children, body.id);
-    return;
-  }
-  if (body.kind === "planet" || body.kind === "minor") {
-    organicizeSwarm(
-      body.children.filter(child => child.kind === "moon"),
-      `${body.id}:moons`,
-    );
-    for (const child of body.children) organicizeTree(child);
+function scatterPages(moon: Body) {
+  const kids = moon.children.filter(child => child.kind === "page");
+  if (!kids.length) return;
+  const inner = moon.r * 1.8;
+  const span = Math.max(5, Math.sqrt(kids.length) * 2.8);
+  organicizeSwarm(kids, moon.id, inner, span);
+}
+
+function assignMoonOrbits(planet: Body) {
+  const moons = planet.children
+    .filter(child => child.kind === "moon")
+    .sort((a, b) => b.count - a.count || a.id.localeCompare(b.id));
+  if (!moons.length) return;
+  const keep = moons.length <= 4 ? moons.length : Math.min(4, Math.max(2, moons.length - Math.ceil(moons.length * 0.55)));
+  const majorMoons = moons.slice(0, keep);
+  const belt = moons.slice(keep);
+  majorMoons.forEach((moon, i) => {
+    moon.a = planet.r * (3.4 + i * 3.1 + hashUnit(`${moon.id}:a`) * 3.6);
+    moon.phase = hashUnit(`${moon.id}:p`) * TAU;
+    paintOrbit(moon, 0.08, 0.28, 0.05, 0.38);
+  });
+  if (!belt.length) return;
+  const inner = planet.r * (10 + majorMoons.length * 2.2);
+  const span = planet.r * (12 + Math.sqrt(belt.length) * 2.2);
+  const swarms = [0, 1].map(i => hashUnit(`${planet.id}:belt:${i}`) * TAU);
+  for (const moon of belt) {
+    moon.a = inner + hashUnit(`${moon.id}:ba`) * span;
+    const swarm = Math.floor(hashUnit(`${moon.id}:bs`) * 2) % 2;
+    moon.phase = swarms[swarm]! + (hashUnit(`${moon.id}:bp`) - 0.5) * 0.9;
+    paintOrbit(moon, 0.2, 0.38, 0.22, 0.55);
+    moon.r = Math.min(moon.r, 2.4);
   }
 }
 
@@ -295,7 +316,7 @@ function placePlanets(planets: Body[]) {
     paintOrbit(planet, 0.05, 0.24, 0.06, 0.32);
   }
   for (const planet of bySize) {
-    const cap = Math.max(planet.a * 0.55, 80);
+    const cap = Math.max(planet.a * 0.82, 80);
     if (planet.sysR > cap) scaleSubtree(planet, cap / planet.sysR, false);
   }
   return bySize;
@@ -316,7 +337,7 @@ function decorateCharacters(planets: Body[]) {
   giant.giant = true;
   giant.ringed = true;
   const otherR = Math.max(0, ...planets.filter(planet => planet !== giant).map(planet => planet.r));
-  giant.r = Math.max(giant.r * 1.65, otherR * 1.25, 16);
+  giant.r = Math.max(giant.r * 2.5, otherR * 2.2, 28);
   giant.e = 0.035 + hashUnit(`${giant.id}:ge`) * 0.05;
   const belt = giant.children
     .filter(child => child.kind === "moon")
@@ -400,41 +421,6 @@ function ownerOfPage(tags: string[], counts: Map<string, number>, valid: Set<str
   const candidates = [...new Set(topicKeywords(tags))].filter(tag => valid.has(tag));
   if (!candidates.length) return null;
   return candidates.reduce((best, tag) => (counts.get(tag)! < counts.get(best)! ? tag : best));
-}
-
-function nestPlanets(planets: Body[], weights: Map<string, number>): Body[] {
-  const byMass = [...planets].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  const minSun = Math.max(3, Math.ceil(planets.length * 0.4));
-  const sunKids: Body[] = [];
-  const tagOf = (planet: Body) => planet.id.replace(/^planet:/, "");
-  for (const planet of byMass) {
-    let host: Body | undefined;
-    if (sunKids.length >= minSun && !planet.giant) {
-      let best = -1;
-      for (const candidate of sunKids) {
-        if (candidate.count < planet.count * 1.05) continue;
-        const weight = weights.get(pairKey(tagOf(planet), tagOf(candidate))) ?? 0;
-        if (weight >= best) {
-          best = weight;
-          host = candidate;
-        }
-      }
-    }
-    if (host) {
-      const cap = Math.max(host.r * 7.5, 36);
-      if (planet.sysR > cap) scaleSubtree(planet, cap / planet.sysR, false);
-      host.children.push(planet);
-    } else {
-      sunKids.push(planet);
-    }
-  }
-  for (const host of planets) {
-    const sats = host.children.filter(child => child.kind === "planet");
-    if (!sats.length) continue;
-    packOrbits(sats, Math.max(host.r * 2.4, 18), true);
-    for (const sat of sats) paintOrbit(sat, 0.04, 0.18, 0.1, 0.35);
-  }
-  return sunKids;
 }
 
 function applyPeriods(bodies: Body[]) {
@@ -556,7 +542,8 @@ export function buildSolarModel(entries: PageManifestEntry[]): SolarModel {
           ink: paint.ink,
           children: kids,
         });
-        moon.sysR = packOrbits(kids, moon.r, false);
+        moon.sysR = moon.r;
+        scatterPages(moon);
         return moon;
       });
   }
@@ -591,7 +578,7 @@ export function buildSolarModel(entries: PageManifestEntry[]): SolarModel {
       kind: "planet",
       label: major.tag,
       count: major.count,
-      r: Math.max(9, Math.sqrt(major.count) * 0.42),
+      r: Math.max(6, Math.sqrt(major.count) * 0.85),
       sysR: 0,
       a: 0,
       phase: 0,
@@ -601,19 +588,18 @@ export function buildSolarModel(entries: PageManifestEntry[]): SolarModel {
       children: [...minorBodies, ...ownMoons],
     });
     const afterMinors = packOrbits(minorBodies, planet.r, true);
-    planet.sysR = packOrbits(ownMoons, afterMinors, false);
-    for (const minor of minorBodies) paintOrbit(minor, 0.04, 0.16, 0.08, 0.4);
+    for (const minor of minorBodies) {
+      paintOrbit(minor, 0.04, 0.16, 0.08, 0.4);
+      assignMoonOrbits(minor);
+    }
+    assignMoonOrbits(planet);
     return planet;
   });
 
-  for (const planet of planets) {
-    organicizeTree(planet);
-    recomputeSysR(planet);
-  }
+  for (const planet of planets) recomputeSysR(planet);
   decorateCharacters(planets);
-  const sunPlanets = nestPlanets(planets, pairWeights(entries));
-  for (const planet of sunPlanets) recomputeSysR(planet);
-  const bySize = placePlanets(sunPlanets);
+  for (const planet of planets) recomputeSysR(planet);
+  const bySize = placePlanets(planets);
   placeRocks(rocks, bySize);
 
   sun.children = [...bySize, ...rocks];

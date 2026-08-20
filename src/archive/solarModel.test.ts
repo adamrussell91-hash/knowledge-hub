@@ -368,14 +368,37 @@ describe("organic astronomy", () => {
     const pages = model.bodies.filter(body => body.kind === "page");
     expect(new Set(pages.map(page => page.r.toFixed(2))).size).toBeGreaterThan(3);
   });
+
+  it("spreads a planet’s moons in radius and leaves empty longitudes instead of a packed ring", () => {
+    const model = buildSolarModel(archive());
+    const planet = [...model.planets].sort(
+      (a, b) =>
+        b.children.filter(child => child.kind === "moon").length -
+        a.children.filter(child => child.kind === "moon").length,
+    )[0]!;
+    const moons = planet.children.filter(child => child.kind === "moon");
+    expect(moons.length).toBeGreaterThan(5);
+    const radii = moons.map(moon => moon.a);
+    expect(Math.max(...radii) / Math.min(...radii)).toBeGreaterThan(2);
+    const bins = Array.from({ length: 16 }, () => 0);
+    for (const moon of moons) {
+      bins[Math.floor((wrappedPhase(moon.phase) / (Math.PI * 2)) * 16)]! += 1;
+    }
+    expect(bins.filter(count => count === 0).length).toBeGreaterThan(4);
+  });
 });
 
 describe("nested gravity", () => {
-  it("lets some smaller planets orbit a heavier planet instead of the sun", () => {
-    const model = buildSolarModel(archive());
-    const nested = model.planets.filter(planet => planet.parent !== model.sun.idx);
-    expect(nested.length).toBeGreaterThan(0);
-    expect(nested.every(planet => model.bodies[planet.parent]?.kind === "planet")).toBe(true);
+  it("keeps every major planet on a solar orbit so all closed tags stay visible", () => {
+    const tags = V.slice(0, 12);
+    const entries = Array.from({ length: 160 }, (_, i) => {
+      const major = tags[i % tags.length]!;
+      const extra = tags[(i + 1) % tags.length]!;
+      return page(`p${i}`, `Note ${i}`, [major, extra]);
+    });
+    const model = buildSolarModel(entries);
+    expect(model.planets).toHaveLength(12);
+    expect(model.planets.every(planet => planet.parent === model.sun.idx)).toBe(true);
   });
 
   it("gives a satellite a shorter year than the body it orbits", () => {

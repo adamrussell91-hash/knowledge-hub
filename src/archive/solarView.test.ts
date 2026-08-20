@@ -144,7 +144,7 @@ describe("presence and bands", () => {
     expect(KIND_DEPTH.rock).toBe(0);
     expect(KIND_DEPTH.minor).toBe(0);
     expect(KIND_DEPTH.moon).toBe(0);
-    expect(KIND_DEPTH.page).toBe(2);
+    expect(KIND_DEPTH.page).toBe(1);
     expect(zoomBand(0)).toBe(0);
     expect(zoomBand(2.39)).toBe(0);
     expect(zoomBand(2.4)).toBe(1);
@@ -162,7 +162,15 @@ describe("presence and bands", () => {
       expect(samples[i]!).toBeLessThanOrEqual(samples[i - 1]! + 1e-9);
     }
     expect(Math.min(...samples)).toBeGreaterThanOrEqual(3 / k);
-    expect(presence(planetBody({ kind: "page", r: 0.85, sysR: 0.85 }), 1, k, 100)).toBeGreaterThanOrEqual(1.4 / k);
+    expect(presence(planetBody({ kind: "page", r: 0.85, sysR: 0.85 }), 1, k, 100)).toBeGreaterThanOrEqual(
+      5.2 / k,
+    );
+    expect(presence(planetBody({ kind: "moon", r: 2, sysR: 8, count: 12 }), 1, k, 100)).toBeGreaterThanOrEqual(
+      8 / k,
+    );
+    const giant = planetBody({ giant: true, count: 200 });
+    const ordinary = planetBody({ count: 40 });
+    expect(presence(giant, 1, k, 200)).toBeGreaterThan(presence(ordinary, 1, k, 200) * 1.6);
   });
 });
 

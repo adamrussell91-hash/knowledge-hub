@@ -15,7 +15,7 @@ export const KIND_DEPTH: Record<BodyKind, number> = {
   rock: 0,
   minor: 0,
   moon: 0,
-  page: 2,
+  page: 1,
 };
 
 export const searchResolveStats = { calls: 0 };
@@ -38,20 +38,23 @@ function clamp01(x: number) {
 export function presence(body: Body, z: number, k: number, maxTag: number) {
   const safeK = Math.max(k, 1e-9);
   const tag = Math.max(maxTag, 1);
+  if (body.kind === "page" || body.kind === "rock") {
+    return Math.max(body.r, 5.2 / safeK);
+  }
+  if (body.kind === "moon") {
+    return Math.max(body.r, 8 / safeK);
+  }
   let t: number;
   let big: number;
   if (body.kind === "planet") {
     t = clamp01((z - 2.4) / 7);
     big = (9 + Math.sqrt(body.count / tag) * 15) / safeK;
-    if (body.giant) big *= 1.4;
+    if (body.giant) big *= 2.2;
   } else if (body.kind === "minor") {
     t = clamp01((z - 2.4) / 12);
     big = (4.2 + Math.sqrt(body.count / tag) * 6) / safeK;
-  } else if (body.kind === "moon") {
-    t = clamp01((z - 9) / 80);
-    big = Math.max(body.r, 2.1 / safeK);
   } else {
-    return Math.max(body.r, 1.4 / safeK);
+    return Math.max(body.r, 5.2 / safeK);
   }
   return Math.max(big + (body.r - big) * t, 3 / safeK);
 }
