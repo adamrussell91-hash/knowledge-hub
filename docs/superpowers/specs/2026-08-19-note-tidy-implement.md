@@ -108,7 +108,7 @@ The hub is **Knowledge**. There is no product distinction between university pag
 **UI (must delete, not hide with CSS):**
 
 - Rail: drop the Uni and Notes items (`data-nav="university"`, `data-nav="notes"`). Keep Archive, Graph, Coach, Podcast, Quiz, Wiki.
-- Archive toolbar: drop the University and Notes filter chips. Keep search. Keyword chips from tags may stay. “All” chip only if other chips exist; otherwise search is enough.
+- Archive toolbar: drop the University and Notes filter chips. Keep search as kit `.hub-search`. Keyword chips from tags may stay as `.hub-chip`. “All” chip only if other chips exist; otherwise search is enough.
 - Compose: drop the Area `<select>` (`#compose-area`). Do not ask Uni vs Notes.
 - Quiz and Podcast: drop area pickers. Scope is the whole archive (plus tags if the user picked tags). `ResearchScope.area` / quiz `area` filters are unused in the UI — do not send `area: "university"` or `area: "notes"` from those rails.
 - Empty copy: do not say “University pages stay in the archive.”

@@ -1,4 +1,5 @@
 /* Shared action chrome. Existing hubs import this instead of full chrome.css. */
+@import "./filters.css";
 
 /* Discrete chrome utilities (refresh / sign out). Top-right of the page header —
    faded icon only, never a labelled .btn. Snippet: snippets/hub-utilities.html */

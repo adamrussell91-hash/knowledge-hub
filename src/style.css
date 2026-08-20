@@ -182,16 +182,6 @@
 .search {
   flex: 1 1 18rem;
   min-width: 12rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.75rem 0.9rem;
-  background: rgba(255, 255, 255, 0.55);
-  color: var(--ink);
-}
-
-.search:focus {
-  outline: 2px solid rgba(55, 111, 183, 0.28);
-  outline-offset: 1px;
 }
 
 .filters {
@@ -202,23 +192,7 @@
 }
 
 .filter-chip {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  border-radius: 0;
-  padding: 0.55rem 0.75rem;
-  font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-}
-
-.filter-chip.is-active {
-  background: transparent;
-  border-color: transparent;
-  border-bottom-color: var(--navy);
-  color: var(--navy);
 }
 
 .list-count {
@@ -805,28 +779,8 @@
   gap: var(--space-2);
 }
 
-.graph-modes button {
-  border: 1px solid var(--line);
-  background: transparent;
-  border-radius: 999px;
-  padding: 0.4rem 0.9rem;
-  cursor: pointer;
-  font-weight: var(--weight-semibold);
-  color: var(--navy);
-}
-
-.graph-modes button.is-active {
-  background: var(--navy);
-  color: var(--on-dark);
-  border-color: var(--navy);
-}
-
 .graph-search {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.4rem 0.8rem;
   min-width: 12rem;
-  background: var(--warm-white);
   color: var(--navy);
 }
 

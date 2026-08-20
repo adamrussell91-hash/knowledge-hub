@@ -348,11 +348,11 @@ function renderList() {
         </div>`,
     )}
     <div class="toolbar">
-      <input class="search" value="${escapeHtml(query)}" placeholder="Search titles, tags, excerpts…" aria-label="Search archive" />
+      <input class="search hub-search" value="${escapeHtml(query)}" placeholder="Search titles, tags, excerpts…" aria-label="Search archive" />
       ${
         keywordFilter
-          ? `<div class="filters">
-        <button class="filter-chip is-active" data-clear-keyword type="button">Clear “${escapeHtml(keywordFilter)}”</button>
+          ? `<div class="filters hub-chips">
+        <button class="filter-chip hub-chip is-active" data-clear-keyword type="button">Clear “${escapeHtml(keywordFilter)}”</button>
       </div>`
           : ""
       }
@@ -439,12 +439,12 @@ function renderGraph() {
     )}
     <div class="graph-wrap">
       <div class="graph-toolbar glass-panel">
-        <div class="graph-modes">
-          <button type="button" data-graph-mode="constellation" class="${graphMode === "constellation" ? "is-active" : ""}">Constellation</button>
-          <button type="button" data-graph-mode="showAll" class="${graphMode === "showAll" ? "is-active" : ""}">Show All</button>
-          <button type="button" data-graph-mode="universe" class="${graphMode === "universe" ? "is-active" : ""}">Universe</button>
+        <div class="graph-modes hub-pills">
+          <button type="button" class="hub-pills__btn${graphMode === "constellation" ? " is-active" : ""}" data-graph-mode="constellation">Constellation</button>
+          <button type="button" class="hub-pills__btn${graphMode === "showAll" ? " is-active" : ""}" data-graph-mode="showAll">Show All</button>
+          <button type="button" class="hub-pills__btn${graphMode === "universe" ? " is-active" : ""}" data-graph-mode="universe">Universe</button>
         </div>
-        <input class="graph-search" type="search" placeholder="Search keywords and notes" value="${escapeHtml(graphSearch)}" />
+        <input class="graph-search hub-search" type="search" placeholder="Search keywords and notes" value="${escapeHtml(graphSearch)}" />
         ${
           graphMode === "universe"
             ? `<label class="graph-speed">

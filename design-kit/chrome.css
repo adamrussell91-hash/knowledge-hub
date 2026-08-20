@@ -2,6 +2,7 @@
    under local class names — copy structure from snippets/, map to tokens,
    do not invent a parallel button or header system.
  */
+@import "./filters.css";
 
 *,
 *::before,

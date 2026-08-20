@@ -8,10 +8,12 @@ Tasks Hub agents: also read `TASKS.md` (Teaching chrome, board home, graph/chart
 
 1. `css/tokens.css` — closed palette, type, space, radius, elevation
 2. `css/overlays.css` — the only per-hub differences (glass / tile density)
-3. `css/actions.css` — `.btn`, Wave `:focus-visible`, `.confirm-card` (import in existing hubs)
+3. `css/actions.css` — `.btn`, Wave `:focus-visible`, `.confirm-card` (import in existing hubs). Pulls in `filters.css`.
 4. `css/sign-in.css` — passphrase gate (brand, Sign in, labelled field)
-5. `css/chrome.css` — rail, page header, buttons, confirm cards (new hubs)
-6. `snippets/` — copy the HTML, then wire behaviour (`shell.html`, `hub-utilities.html`, `sign-in.html`, `confirm-card.html`)
+5. `css/chrome.css` — rail, page header, buttons, confirm cards (new hubs). Pulls in `filters.css`.
+6. `css/filters.css` — `.hub-search`, `.hub-filter`, `.hub-menu`, `.hub-pills`, `.hub-chips` (list/search chrome only — not form fields)
+7. `js/hub-filter-menu.js` — `createHubFilter` for custom filter menus
+8. `snippets/` — copy the HTML, then wire behaviour (`shell.html`, `hub-utilities.html`, `sign-in.html`, `confirm-card.html`, `hub-search.html`, `hub-filter.html`, `hub-pills.html`, `hub-chips.html`)
 
 Canonical repo: `/Users/adamrussell/Projects/hub-design-kit`  
 GitHub: https://github.com/adamrussell91-hash/hub-design-kit  
@@ -25,6 +27,7 @@ Each hub also has a copy at `design-kit/` so this workspace can see it.
 - Rail brand: `.hub-rail__brand` — single line, CSS `text-transform: uppercase`, `--text-2xs`. Copy is `"Teaching Hub"` / `"Life Hub"` / `"Knowledge Hub"` / `"Tasks Hub"`. No stacked `<br>`, no large title-case hero on the rail. Optional `.hub-rail__tagline` only.
 - Chrome utilities: refresh and sign out are `.hub-icon-btn` icons in `.hub-utilities` at the **canvas top-right** (last child of `.page-header__actions`). Faded `--shallow` icons — never labelled pill `.btn`s on the rail or header. Snippet: `snippets/hub-utilities.html`.
 - Buttons: `.btn` + `--primary` / `--secondary` / `--ghost` / `--decisive`
+- Filter chrome: `.hub-search` (pill), `.hub-filter` (bordered dropdown + `.hub-menu`), `.hub-pills` (view / range), `.hub-chips` (active filters). Restyle existing list/search/range controls only. Do not add a new toolbar. Do not use these classes on labelled form fields.
 - Agent UX: propose → **confirm card** → apply. Never silent writes that look like a new UI kit
 - Inter 400/500/600/700 only
 

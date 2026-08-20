@@ -38,7 +38,7 @@ On Graph, a mode row in the same pattern as Quiz modes:
 
 **Constellation · Show All · Universe**
 
-One search field on the graph toolbar (in addition to any existing copy). Empty search = full colour. Non-empty = substring match on keyword label or note title; matches keep their colour; non-matches and their links go grey. Twin moons: if the note matches, **both** copies stay coloured.
+One kit `.hub-search` field on the graph toolbar (in addition to any existing copy). Mode toggles are `.hub-pills`. Empty search = full colour. Non-empty = substring match on keyword label or note title; matches keep their colour; non-matches and their links go grey. Twin moons: if the note matches, **both** copies stay coloured.
 
 ## Shared overlay
 
