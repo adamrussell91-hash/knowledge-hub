@@ -140,7 +140,7 @@ function worldPos(body: Body, model: ReturnType<typeof buildSolarModel>) {
 
 describe("presence and bands", () => {
   it("exposes a build number so a stale Universe bundle is obvious", () => {
-    expect(UNIVERSE_BUILD).toBe(14);
+    expect(UNIVERSE_BUILD).toBe(15);
   });
 
   it("maps band thresholds onto KIND_DEPTH cutoffs", () => {
