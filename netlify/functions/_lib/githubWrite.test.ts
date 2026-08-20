@@ -23,6 +23,17 @@ describe("githubWrite", () => {
     });
   });
 
+  it("does not treat an empty Contents API body as JSON (files over 1MB omit content)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ sha: "abc", encoding: "none", content: "" }),
+      }),
+    );
+    await expect(getContent("owner/repo", "token", "manifest.json")).resolves.toEqual({ sha: "abc", text: "" });
+  });
+
   it("sends sha on update and throws on 409", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 409, text: async () => "conflict" });
     vi.stubGlobal("fetch", fetchImpl);
