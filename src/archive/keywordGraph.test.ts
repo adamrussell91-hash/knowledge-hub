@@ -1,54 +1,55 @@
 import { describe, expect, it } from "vitest";
-import { buildArchiveGraph, isTopicKeyword } from "./keywordGraph";
+import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
+import {
+  KEYWORD_PALETTE,
+  buildArchiveGraph,
+  colorForTopic,
+  isTopicKeyword,
+  topicKeywords,
+} from "./keywordGraph";
+
+const V = TOPIC_VOCABULARY;
+
+describe("topicKeywords", () => {
+  it("keeps only closed-list topic tags and folds case onto the vocabulary", () => {
+    expect(topicKeywords(["Note", "EDST5805", "learning science and cognition", "Clip"])).toEqual([
+      "Learning Science and Cognition",
+    ]);
+    expect(isTopicKeyword("Educational Psychology")).toBe(true);
+    expect(isTopicKeyword("EDST5805")).toBe(false);
+    expect(topicKeywords(["Educational Psychology", "Note"])).toEqual([]);
+  });
+});
 
 describe("archive graph", () => {
-  it("builds a three-level major / minor / leaf model without unit codes", () => {
-    expect(isTopicKeyword("Cognitive Neuroscience")).toBe(true);
-    expect(isTopicKeyword("EDST5805")).toBe(false);
-
+  it("promotes every closed topic that appears to a major hub, with stable vocabulary colours", () => {
     const pages = Array.from({ length: 200 }, (_, index) => {
-      const majors = [
-        "Educational Psychology",
-        "Pedagogy & Instructional Design",
-        "Wellbeing & Mental Health in Schools",
-        "Child Development & Wellbeing",
-        "Learning Strategies",
-        "Gifted Education",
-        "Neurodiversity & Special Education",
-        "Cognitive Neuroscience",
-      ];
-      const minors = [
-        "Educational Leadership & Policy",
-        "Technology in Education",
-        "Assessment & Evaluation",
-        "Sociocultural Influences on Education",
-      ];
-      // Heavier major volume so the top-8 cut is stable.
-      const major = majors[index % majors.length];
-      const bridge = majors[(index + 1) % majors.length];
-      const tags = [major, bridge, "Note"];
-      if (index % 3 === 0) tags.push(minors[index % minors.length]);
+      const a = V[index % 12]!;
+      const b = V[(index + 1) % 12]!;
       return {
         id: `p${index}`,
         title: `Note ${index}`,
         area: "university" as const,
-        tags,
+        tags: [a, b, "Note"],
         excerpt: "",
       };
     });
 
     const graph = buildArchiveGraph(pages);
-    expect(graph.majorCount).toBe(8);
-    expect(graph.minorCount).toBe(4);
+    expect(graph.majorCount).toBe(12);
+    expect(graph.minorCount).toBe(0);
     expect(graph.nodes.filter(node => node.kind === "major").map(node => node.label)).toEqual(
-      expect.arrayContaining(["Educational Psychology", "Pedagogy & Instructional Design"]),
+      expect.arrayContaining([V[0], V[1], V[11]]),
     );
-    expect(graph.nodes.some(node => node.kind === "minor")).toBe(true);
+    expect(graph.nodes.some(node => node.kind === "minor")).toBe(false);
     expect(graph.nodes.every(node => node.kind !== "leaf")).toBe(true);
     expect(graph.links.some(link => link.kind === "backbone")).toBe(true);
-    expect(graph.links.some(link => link.kind === "orbit")).toBe(true);
-    expect(graph.links.every(link => link.kind !== "spoke")).toBe(true);
-    expect(graph.leaves.get("Technology in Education")?.length).toBeGreaterThan(0);
+    expect(graph.links.every(link => link.kind !== "orbit")).toBe(true);
+    expect(graph.leaves.get(V[0])?.length).toBeGreaterThan(0);
     expect(graph.nodes.every(node => !/^(EDST|HNO|EDUC|EDED|EDGL)\d/i.test(node.label))).toBe(true);
+
+    const pedagogy = graph.nodes.find(node => node.label === V[2])!;
+    expect(pedagogy.color).toBe(colorForTopic(V[2]).fill);
+    expect(colorForTopic(V[2]).fill).toBe(KEYWORD_PALETTE[2].fill);
   });
 });

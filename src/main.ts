@@ -33,11 +33,11 @@ import { archiveEmptyHtml } from "./archive/emptyList";
 import { goHome } from "./archive/goHome";
 import { searchCluster } from "./archive/graphFocus";
 import { mountGraphPreview } from "./archive/graphPreview";
-import { buildArchiveGraph, topicKeywords } from "./archive/keywordGraph";
+import { buildArchiveGraph, topicKeywords, vocabularyPresent } from "./archive/keywordGraph";
 import { mountForceGraph } from "./archive/forceGraph";
 import { buildShowAllGraph } from "./archive/showAllGraph";
-import { buildUniverseGraph } from "./archive/universeGraph";
-import { mountUniverseView, universeHotIds } from "./archive/universeView";
+import { buildSolarModel, type SolarModel } from "./archive/solarModel";
+import { UNIVERSE_BUILD, mountSolarView, resolveSearchHits } from "./archive/solarView";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
 import { enterWikiRail, leaveWikiRail, renderWikiRail } from "./wiki/rail";
@@ -77,6 +77,15 @@ let graphTeardown: (() => void) | null = null;
 let graphMode: GraphMode = "constellation";
 let graphSearch = "";
 let orbitSpeed = 0.5;
+let solarModelCache: { source: PageManifestEntry[]; model: SolarModel } | null = null;
+
+function getSolarModel() {
+  if (solarModelCache && solarModelCache.source === entries) return solarModelCache.model;
+  const model = buildSolarModel(entries);
+  solarModelCache = { source: entries, model };
+  return model;
+}
+
 let coachThesis = "";
 let coachDraft = "";
 let coachInput = "";
@@ -409,22 +418,23 @@ function renderGraph() {
     constellation.majorCount === 0
       ? "No topic keywords yet · Universe still has a sun"
       : graphMode === "constellation"
-        ? `${constellation.majorCount} majors · ${constellation.minorCount} sub-themes · click a hub to open its constellation`
+        ? `${constellation.majorCount} topics · click a hub to open its constellation`
         : graphMode === "showAll"
           ? "Every note · hubs as landmarks · lines where notes share tags"
-          : "Universe View · a fake sun · planets and moons";
+          : `Universe v${UNIVERSE_BUILD}`;
 
   const searching = graphSearch.trim();
   let searchHint = searching ? ` · search “${escapeHtml(searching)}”` : "";
   if (searching) {
     const hits =
       graphMode === "universe"
-        ? universeHotIds(buildUniverseGraph(entries).bodies, graphSearch).size
+        ? resolveSearchHits(getSolarModel(), graphSearch).size
         : searchCluster(
             (graphMode === "showAll" ? buildShowAllGraph(entries, constellation) : constellation).nodes,
             graphSearch,
           ).size;
     if (!hits) searchHint += " · no matches";
+    else if (graphMode === "universe") searchHint += ` · ${hits} match${hits === 1 ? "" : "es"}`;
   }
 
   shell(`
@@ -509,7 +519,7 @@ function renderGraph() {
         if (readout) readout.textContent = orbitSpeedLabel(orbitSpeed);
       };
     }
-    stop = mountUniverseView(stage, buildUniverseGraph(entries), {
+    stop = mountSolarView(stage, getSolarModel(), {
       search: graphSearch,
       onNoteSelect,
       clock,
@@ -947,7 +957,7 @@ function render() {
   if (view === "podcast") {
     return renderPodcastRail({
       app,
-      tags: [...new Set(entries.flatMap(entry => topicKeywords(entry.tags)))].sort(),
+      tags: vocabularyPresent(entries.map(entry => entry.tags)),
       shell,
       render,
       onOpenPage: pageId => void openPage(pageId),
@@ -957,7 +967,7 @@ function render() {
     return renderQuizRail({
       app,
       entries,
-      tags: [...new Set(entries.flatMap(entry => entry.tags))].sort(),
+      tags: vocabularyPresent(entries.map(entry => entry.tags)),
       shell,
       render,
       onOpenPage: id => void openPage(id),

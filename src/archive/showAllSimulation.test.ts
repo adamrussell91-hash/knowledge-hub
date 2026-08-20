@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GraphLinkDatum } from "./keywordGraph";
+import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
 import { SHOW_ALL_CLUSTER_GAP, buildShowAllGraph, showAllClusterRadius } from "./showAllGraph";
 import {
   SHOW_ALL_SETTLE_TICKS,
@@ -13,12 +14,7 @@ function page(id: string, title: string, tags: string[]) {
 
 describe("Show All settling", () => {
   it("keeps dense, cross-linked clusters visibly separated and locks the result", () => {
-    const labels = [
-      "Educational Psychology",
-      "Pedagogy & Instructional Design",
-      "Wellbeing & Mental Health in Schools",
-      "Cognitive Neuroscience",
-    ];
+    const labels = TOPIC_VOCABULARY.slice(0, 4);
     const pages = labels.flatMap((label, cluster) =>
       Array.from({ length: 36 }, (_, index) => page(`${cluster}-${index}`, `${label} ${index}`, [label])),
     );

@@ -3,73 +3,37 @@
  * without a browser. Usage: npx tsx scripts/universe-preview.ts [outFile]
  */
 import fs from "node:fs";
-import { SUN_RADIUS, buildUniverseGraph, type UniverseBody } from "../src/archive/universeGraph";
+import { SUN_RADIUS, buildSolarModel, worldPositions } from "../src/archive/solarModel";
+import { TOPIC_VOCABULARY } from "../src/tidy/vocabulary";
 
-const MAJORS = [
-  "Educational Psychology",
-  "Pedagogy & Instructional Design",
-  "Wellbeing & Mental Health in Schools",
-  "Child Development & Wellbeing",
-  "Learning Strategies",
-  "Gifted Education",
-  "Neurodiversity & Special Education",
-  "Cognitive Neuroscience",
-];
-
-const MINORS = [
-  "Educational Leadership & Policy",
-  "Technology in Education",
-  "Assessment & Evaluation",
-  "Sociocultural Influences on Education",
-];
+const TAGS = [...TOPIC_VOCABULARY];
 
 const entries = Array.from({ length: 900 }, (_, index) => {
-  const tags = [MAJORS[index % MAJORS.length]!, MAJORS[(index + 3) % MAJORS.length]!];
-  if (index % 3 === 0) tags.push(MINORS[index % MINORS.length]!);
+  const tags = [TAGS[index % TAGS.length]!, TAGS[(index + 3) % TAGS.length]!, TAGS[(index + 7) % TAGS.length]!];
   return { id: `p${index}`, title: `Note ${index}`, area: "notes" as const, tags, excerpt: "" };
 });
 
 const timeSec = Number(process.argv[3] ?? 0);
-const model = buildUniverseGraph(entries);
-const byId = new Map<string, UniverseBody & { x: number; y: number }>();
-const placed: Array<UniverseBody & { x: number; y: number }> = [];
-const order = ["sun", "planet", "asteroid", "minorPlanet", "moon", "moonet", "note"];
-for (const kind of order) {
-  for (const b of model.bodies.filter(item => item.kind === kind)) {
-    const parent = b.parentId ? byId.get(b.parentId) : undefined;
-    const origin = parent ?? { x: 0, y: 0 };
-    const angle = b.phase + (b.periodSec === 0 ? 0 : (timeSec / b.periodSec) * Math.PI * 2);
-    const point = {
-      ...b,
-      x: origin.x + Math.cos(angle) * b.orbitRadius,
-      y: origin.y + Math.sin(angle) * b.orbitRadius,
-    };
-    byId.set(b.id, point);
-    placed.push(point);
-  }
-}
+const model = buildSolarModel(entries);
+const { x, y } = worldPositions(model.bodies, timeSec);
 
-const reach = Math.max(...placed.map(b => Math.hypot(b.x, b.y))) * 1.06;
+const pages = model.bodies.filter(b => b.kind === "page" || b.kind === "rock");
+const reach = model.reach * 1.06;
 const size = 1000;
 const k = size / (reach * 2);
 const px = (v: number) => (v * k + size / 2).toFixed(1);
-const minScreen: Record<string, number> = {
-  sun: 15,
-  planet: 6,
-  minorPlanet: 4,
-  moon: 3.2,
-  moonet: 2.4,
-  note: 3.6,
-};
 
-const closest = Math.min(...placed.filter(b => b.kind !== "sun").map(b => Math.hypot(b.x, b.y)));
-console.log(`bodies=${placed.length} reach=${Math.round(reach)} closest body to sun=${Math.round(closest)} sun r=${SUN_RADIUS}`);
+const closest = Math.min(
+  ...model.bodies.filter(b => b.kind !== "sun").map(b => Math.hypot(x[b.idx]!, y[b.idx]!)),
+);
+console.log(
+  `bodies=${model.bodies.length} pages+rocks=${pages.length} reach=${Math.round(model.reach)} closest=${Math.round(closest)} sun r=${SUN_RADIUS}`,
+);
 
-const dots = placed
+const dots = model.bodies
   .map(b => {
-    const r = Math.max(b.r * k, minScreen[b.kind] ?? 2);
-    const fill = b.kind === "sun" ? "#ffb347" : b.color;
-    return `<circle cx="${px(b.x)}" cy="${px(b.y)}" r="${r.toFixed(1)}" fill="${fill}" opacity="${b.kind === "note" ? 0.8 : 1}" />`;
+    const r = Math.max(b.r * k, b.kind === "page" || b.kind === "rock" ? 0.6 : 2);
+    return `<circle cx="${px(x[b.idx]!)}" cy="${px(y[b.idx]!)}" r="${r.toFixed(1)}" fill="${b.color}" opacity="${b.kind === "page" ? 0.8 : 1}" />`;
   })
   .join("\n");
 
