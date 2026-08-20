@@ -1,7 +1,7 @@
 import "./tokens.css";
 import "./style.css";
 import type { Attachment, Page, PageManifestEntry } from "./domain/page";
-import { newHubPageId, parseTagList } from "./domain/page";
+import { newHubPageId } from "./domain/page";
 import {
   USE_LOCAL_DATA,
   getAttachmentUrl,
@@ -42,6 +42,8 @@ import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
 import { enterWikiRail, leaveWikiRail, renderWikiRail } from "./wiki/rail";
 import { connectedLinksHtml } from "./wiki/connectedHtml";
+import { applyTopicTags, normalizeTopicTags, toggleTopicTag } from "./tidy/applyTags";
+import { TOPIC_VOCABULARY } from "./tidy/vocabulary";
 
 type View =
   | "list"
@@ -86,7 +88,7 @@ type ComposeState = {
   id: string;
   title: string;
   area: "notes" | "university";
-  tags: string;
+  tags: string[];
   body: string;
   existing: Attachment[];
   pending: File[];
@@ -104,7 +106,7 @@ function blankCompose(): ComposeState {
     id: newHubPageId(),
     title: "",
     area: "notes",
-    tags: "",
+    tags: [],
     body: "",
     existing: [],
     pending: [],
@@ -120,7 +122,7 @@ function composeFromPage(page: Page): ComposeState {
     id: page.id,
     title: page.title,
     area: page.area,
-    tags: page.tags.join(", "),
+    tags: [...page.tags],
     body: page.body,
     existing: [...page.attachments],
     pending: [],
@@ -761,8 +763,14 @@ function renderCompose(state: ComposeState) {
         ${state.titleError ? `<p class="compose__error">${escapeHtml(state.titleError)}</p>` : ""}
       </div>
       <div class="compose__field">
-        <label for="compose-tags">Tags</label>
-        <input id="compose-tags" value="${escapeHtml(state.tags)}" placeholder="Comma-separated" />
+        <label id="compose-tags-label">Tags</label>
+        <p class="compose__hint">Up to 3.</p>
+        <div class="tag-pills" role="group" aria-labelledby="compose-tags-label">
+          ${TOPIC_VOCABULARY.map(tag => {
+            const on = normalizeTopicTags(state.tags).includes(tag);
+            return `<button type="button" class="tag-pill${on ? " is-selected" : ""}" data-tag-pill="${escapeHtml(tag)}" aria-pressed="${on}">${escapeHtml(tag)}</button>`;
+          }).join("")}
+        </div>
       </div>
       <div class="compose__field compose__field--body">
         <label for="compose-body">Body (markdown)</label>
@@ -788,7 +796,6 @@ function renderCompose(state: ComposeState) {
   const syncFields = () => {
     if (!compose) return;
     compose.title = app.querySelector<HTMLInputElement>("#compose-title")!.value;
-    compose.tags = app.querySelector<HTMLInputElement>("#compose-tags")!.value;
     compose.body = app.querySelector<HTMLTextAreaElement>("#compose-body")!.value;
   };
 
@@ -843,6 +850,14 @@ function renderCompose(state: ComposeState) {
     compose.pending.push(...list);
     render();
   };
+  app.querySelectorAll<HTMLButtonElement>("[data-tag-pill]").forEach(button => {
+    button.onclick = () => {
+      if (!compose) return;
+      syncFields();
+      compose.tags = toggleTopicTag(compose.tags, button.dataset.tagPill ?? "");
+      render();
+    };
+  });
   app.querySelector<HTMLButtonElement>("[data-compose-save]")!.onclick = () => void saveCompose();
   bindCaptureControls(app, {
     syncFields,
@@ -864,7 +879,6 @@ function renderCompose(state: ComposeState) {
 async function saveCompose() {
   if (!compose || compose.busy) return;
   compose.title = app.querySelector<HTMLInputElement>("#compose-title")!.value;
-  compose.tags = app.querySelector<HTMLInputElement>("#compose-tags")!.value;
   compose.body = app.querySelector<HTMLTextAreaElement>("#compose-body")!.value;
   if (!compose.title.trim()) {
     compose.titleError = "Title is required";
@@ -898,7 +912,7 @@ async function saveCompose() {
       id: snapshot.id,
       title: snapshot.title.trim(),
       area: snapshot.area,
-      tags: parseTagList(snapshot.tags),
+      tags: applyTopicTags(snapshot.tags, snapshot.tags),
       body: snapshot.body,
       connected: activePage?.connected ?? [],
       attachments: [...snapshot.existing, ...uploaded],

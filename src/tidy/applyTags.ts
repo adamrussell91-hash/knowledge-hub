@@ -26,6 +26,20 @@ export function applyTopicTags(existing: string[], proposed: string[]) {
   return [...structural, ...normalizeTopicTags(proposed)];
 }
 
+/** Toggle one closed-list topic tag. A fourth topic tap is a no-op. */
+export function toggleTopicTag(existing: string[], tapped: string) {
+  const canonical = canonicalTopicTag(tapped);
+  const selected = normalizeTopicTags(existing);
+  if (canonical && selected.some(tag => tag.toLowerCase() === canonical.toLowerCase())) {
+    return applyTopicTags(
+      existing,
+      selected.filter(tag => tag.toLowerCase() !== canonical.toLowerCase()),
+    );
+  }
+  if (selected.length >= MAX_TOPIC_TAGS) return existing;
+  return applyTopicTags(existing, [...selected, tapped]);
+}
+
 export function topicTagsEqual(a: string[], b: string[]) {
   const topics = (tags: string[]) =>
     uniqueCaseInsensitive(tags.filter(isTopicKeyword).map(tag => canonicalTopicTag(tag) ?? tag.toLowerCase()))

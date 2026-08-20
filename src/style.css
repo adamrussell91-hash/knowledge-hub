@@ -1487,6 +1487,40 @@
   color: var(--navy);
 }
 
+.compose__hint {
+  margin: calc(-1 * var(--space-1)) 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.tag-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tag-pill {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  background: var(--shallow);
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.tag-pill.is-selected {
+  background: var(--navy);
+  color: var(--on-dark);
+}
+
+.tag-pill:focus-visible {
+  outline: 2px solid var(--wave);
+  outline-offset: 2px;
+}
+
 .compose__field {
   margin-bottom: var(--space-4);
 }
