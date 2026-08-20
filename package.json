@@ -16,6 +16,7 @@
     "sync-research-r2": "tsx scripts/sync-research-r2.ts",
     "curator": "tsx scripts/run-curator.ts",
     "tidy": "tsx scripts/run-tidy.ts",
+    "retag": "tsx scripts/run-retag.ts",
     "research:dev": "wrangler dev --config worker/wrangler.jsonc",
     "research:deploy": "wrangler deploy --config worker/wrangler.jsonc"
   },

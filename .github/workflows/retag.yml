@@ -1,16 +1,20 @@
-name: Curator
+name: Retag notes
 
 on:
-  schedule:
-    - cron: "17 14 * * *"
   workflow_dispatch:
+    inputs:
+      page_id:
+        description: "Optional single page ID to retag"
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
-  curator:
+  retag:
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 
@@ -29,18 +33,23 @@ jobs:
           path: data-repo
           fetch-depth: 0
 
-      - name: Run curator
+      - name: Retag notes
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          EMBEDDINGS_API_KEY: ${{ secrets.EMBEDDINGS_API_KEY }}
-        run: npx tsx scripts/run-curator.ts --data-dir data-repo
+          PAGE_ID: ${{ inputs.page_id }}
+        run: |
+          if [ -n "$PAGE_ID" ]; then
+            npm run retag -- --id "$PAGE_ID" --data-dir data-repo
+          else
+            npm run retag -- --data-dir data-repo
+          fi
 
-      - name: Commit curator artifacts
+      - name: Commit retag artifacts
         working-directory: data-repo
         run: |
-          git config user.name "knowledge-hub-curator"
+          git config user.name "knowledge-hub-retag"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add _curator pages
-          git diff --cached --quiet && echo "No curator changes" && exit 0
-          git commit -m "Curator proposals from changed notes."
+          git add pages manifest.json
+          git diff --cached --quiet && echo "No retag changes" && exit 0
+          git commit -m "Map topic tags onto the closed vocabulary."
           bash ../scripts/push-data-repo.sh
