@@ -1,7 +1,7 @@
 import { attachGraphSearch, type GraphMount } from "./forceGraphBehavior";
 import { hashUnit, worldPositions, type Body, type BodyKind, type SolarModel } from "./solarModel";
 
-export const UNIVERSE_BUILD = 14;
+export const UNIVERSE_BUILD = 15;
 
 export type SolarNotePayload = { pageId: string; title: string; excerpt: string };
 
@@ -23,8 +23,6 @@ export const KIND_DEPTH: Record<BodyKind, number> = {
 export const searchResolveStats = { calls: 0 };
 
 const TAU = Math.PI * 2;
-const HALO = "#fbf8f2";
-const LABEL_BG = HALO;
 
 export function zoomBand(z: number) {
   if (z < 2.4) return 0;
@@ -108,12 +106,6 @@ function prefersReducedMotion() {
 function kindLabel(kind: BodyKind) {
   if (kind === "minor") return "minor planet";
   return kind;
-}
-
-type Rect = { x: number; y: number; w: number; h: number };
-
-function overlaps(a: Rect, b: Rect) {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
 const glowSprites = new Map<string, HTMLCanvasElement>();
@@ -352,56 +344,6 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
     view.y = height / 2 - Y[i]! * next;
   }
 
-  function drawLabels(z: number, band: number) {
-    const occupied: Rect[] = [];
-    const drawOne = (i: number, font: string) => {
-      const body = B[i]!;
-      const sx = view.x + X[i]! * view.k;
-      const sy = view.y + Y[i]! * view.k;
-      const pr = presence(body, z, view.k, maxTag) * view.k;
-      const tx = sx + pr + 6;
-      const ty = sy;
-      ctx.font = font;
-      const w = ctx.measureText(body.label).width + 8;
-      const h = 16;
-      const rect = { x: tx, y: ty - h / 2, w, h };
-      if (tx < -20 || ty < -20 || tx > width + 20 || ty > height + 20) return;
-      if (occupied.some(item => overlaps(item, rect))) return;
-      occupied.push(rect);
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 3.4;
-      ctx.strokeStyle = LABEL_BG;
-      ctx.fillStyle = body.ink;
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.strokeText(body.label, tx, ty);
-      ctx.fillText(body.label, tx, ty);
-    };
-
-    for (let i = 0; i < n; i++) {
-      if (!VIS[i] || B[i]!.kind !== "planet") continue;
-      drawOne(i, "600 13px Inter, ui-sans-serif, sans-serif");
-    }
-    if (band >= 1) {
-      for (let i = 0; i < n; i++) {
-        if (!VIS[i] || B[i]!.kind !== "minor") continue;
-        drawOne(i, "600 12px Inter, ui-sans-serif, sans-serif");
-      }
-    }
-    if (z > 30) {
-      const moons = [];
-      for (let i = 0; i < n; i++) {
-        const body = B[i]!;
-        if (!VIS[i] || body.kind !== "moon" || body.count < 3) continue;
-        moons.push(body);
-      }
-      moons.sort((a, b) => b.count - a.count);
-      for (const moon of moons.slice(0, 16)) {
-        drawOne(moon.idx, "600 11px Inter, ui-sans-serif, sans-serif");
-      }
-    }
-  }
-
   function collect(kind: BodyKind, z: number, searching: boolean, band: number) {
     const dots: Array<{ x: number; y: number; r: number; color: string; alpha: number }> = [];
     for (let i = 0; i < n; i++) {
@@ -521,15 +463,6 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
     }
 
     ctx.globalAlpha = 1;
-    ctx.restore();
-    drawLabels(z, band);
-    ctx.save();
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.font = "600 13px Inter, ui-sans-serif, sans-serif";
-    ctx.fillStyle = "#315875";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(`v${UNIVERSE_BUILD}`, 14, height - 12);
     ctx.restore();
   }
 
