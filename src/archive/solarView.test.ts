@@ -4,6 +4,7 @@ import type { PageManifestEntry } from "../domain/page";
 import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
 import { buildSolarModel, worldPositions, type Body } from "./solarModel";
 import {
+  UNIVERSE_BUILD,
   KIND_DEPTH,
   advanceOrbitClock,
   mountSolarView,
@@ -138,6 +139,10 @@ function worldPos(body: Body, model: ReturnType<typeof buildSolarModel>) {
 }
 
 describe("presence and bands", () => {
+  it("exposes a build number so a stale Universe bundle is obvious", () => {
+    expect(UNIVERSE_BUILD).toBe(14);
+  });
+
   it("maps band thresholds onto KIND_DEPTH cutoffs", () => {
     expect(KIND_DEPTH.sun).toBe(0);
     expect(KIND_DEPTH.planet).toBe(0);

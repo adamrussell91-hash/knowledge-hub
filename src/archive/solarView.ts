@@ -1,6 +1,8 @@
 import { attachGraphSearch, type GraphMount } from "./forceGraphBehavior";
 import { hashUnit, worldPositions, type Body, type BodyKind, type SolarModel } from "./solarModel";
 
+export const UNIVERSE_BUILD = 14;
+
 export type SolarNotePayload = { pageId: string; title: string; excerpt: string };
 
 export type SolarViewOptions = {
@@ -521,6 +523,14 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
     ctx.globalAlpha = 1;
     ctx.restore();
     drawLabels(z, band);
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = "600 13px Inter, ui-sans-serif, sans-serif";
+    ctx.fillStyle = "#315875";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(`v${UNIVERSE_BUILD}`, 14, height - 12);
+    ctx.restore();
   }
 
   function loop(now: number) {

@@ -37,7 +37,7 @@ import { buildArchiveGraph, topicKeywords, vocabularyPresent } from "./archive/k
 import { mountForceGraph } from "./archive/forceGraph";
 import { buildShowAllGraph } from "./archive/showAllGraph";
 import { buildSolarModel, type SolarModel } from "./archive/solarModel";
-import { mountSolarView, resolveSearchHits } from "./archive/solarView";
+import { UNIVERSE_BUILD, mountSolarView, resolveSearchHits } from "./archive/solarView";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
 import { enterWikiRail, leaveWikiRail, renderWikiRail } from "./wiki/rail";
@@ -421,7 +421,7 @@ function renderGraph() {
         ? `${constellation.majorCount} topics · click a hub to open its constellation`
         : graphMode === "showAll"
           ? "Every note · hubs as landmarks · lines where notes share tags"
-          : "Universe View · double-click a body to frame its system";
+          : `Universe v${UNIVERSE_BUILD}`;
 
   const searching = graphSearch.trim();
   let searchHint = searching ? ` · search “${escapeHtml(searching)}”` : "";
