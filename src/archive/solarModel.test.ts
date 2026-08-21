@@ -6,6 +6,7 @@ import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
 import {
   MIN_TAG_PAGES,
   buildSolarModel,
+  massOf,
   packOrbits,
   rankTags,
   worldPositions,
@@ -328,7 +329,7 @@ describe("organic astronomy", () => {
     expect(giant!.r).toBeGreaterThan(Math.max(...others.map(planet => planet.r)));
   });
 
-  it("lines up the gas giant’s three biggest moons like a belt", () => {
+  it("places the gas giant’s moons as a loose swarm, not a belt line", () => {
     const model = buildSolarModel(threeMoonGiant());
     const giant = model.planets.find(planet => planet.giant)!;
     const moons = giant.children
@@ -336,9 +337,30 @@ describe("organic astronomy", () => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 3);
     expect(moons).toHaveLength(3);
-    expect(coveringSpan(moons.map(moon => moon.phase))).toBeLessThan(0.75);
     const radii = moons.map(moon => moon.a);
-    expect(Math.max(...radii) / Math.min(...radii)).toBeLessThan(1.2);
+    expect(Math.max(...radii) / Math.min(...radii)).toBeGreaterThan(1.35);
+    const folded = moons.map(moon => {
+      const w = wrappedPhase(moon.phase);
+      return w > Math.PI ? w - Math.PI : w;
+    });
+    expect(coveringSpan(folded)).toBeGreaterThan(0.2);
+  });
+
+  it("scatters notes around a moon in a clump, not a line through the moon", () => {
+    const model = buildSolarModel(archive());
+    const moon = [...model.bodies]
+      .filter(body => body.kind === "moon")
+      .sort((a, b) => b.children.filter(child => child.kind === "page").length - a.children.filter(child => child.kind === "page").length)[0]!;
+    const notes = moon.children.filter(child => child.kind === "page");
+    expect(notes.length).toBeGreaterThan(6);
+    const radii = notes.map(note => note.a);
+    expect(Math.max(...radii) / Math.min(...radii)).toBeGreaterThan(1.4);
+    expect(coveringSpan(notes.map(note => note.phase))).toBeLessThan(4.2);
+    const folded = notes.map(note => {
+      const w = wrappedPhase(note.phase);
+      return w > Math.PI ? w - Math.PI : w;
+    });
+    expect(coveringSpan(folded)).toBeGreaterThan(0.35);
   });
 
   it("clumps belt rocks into longitude swarms with radial gaps", () => {
@@ -399,6 +421,19 @@ describe("nested gravity", () => {
     const model = buildSolarModel(entries);
     expect(model.planets).toHaveLength(12);
     expect(model.planets.every(planet => planet.parent === model.sun.idx)).toBe(true);
+  });
+
+  it("jitters each orbit’s year by up to 20% so siblings do not lock step", () => {
+    const model = buildSolarModel(archive());
+    const planets = model.planets.filter(planet => planet.parent === model.sun.idx && planet.a > 0);
+    const sunMass = Math.max(massOf(model.sun), 1);
+    const ratios = planets.map(planet => {
+      const kepler = Math.max(7, 24 * Math.sqrt(planet.a ** 3 / sunMass));
+      return planet.period / kepler;
+    });
+    expect(Math.min(...ratios)).toBeGreaterThanOrEqual(0.8);
+    expect(Math.max(...ratios)).toBeLessThanOrEqual(1.2);
+    expect(new Set(ratios.map(ratio => ratio.toFixed(3))).size).toBeGreaterThan(3);
   });
 
   it("gives a satellite a shorter year than the body it orbits", () => {
