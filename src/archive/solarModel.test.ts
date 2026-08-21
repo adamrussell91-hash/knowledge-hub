@@ -271,6 +271,31 @@ describe("layout invariants", () => {
     }
   });
 
+  it("never lets a moon's notes swing inside the planet's own disc, across a full orbit cycle", () => {
+    // sysR containment (above) can't catch this: sysR is derived FROM final
+    // positions, so it's always self-consistent by construction. A note can
+    // still sit well within its planet's sysR while its absolute distance
+    // from the planet dips under the planet's own visual radius — i.e. the
+    // note orbit swings behind the planet's disc — if the moon it orbits
+    // wasn't placed far enough out to clear its own note swarm.
+    const model = buildSolarModel(archive());
+    const notesByPlanet = model.planets.map(planet => ({
+      planet,
+      notes: descendants(model, planet).filter(body => body.kind === "page"),
+    }));
+    expect(notesByPlanet.some(entry => entry.notes.length > 0)).toBe(true);
+    const steps = 24;
+    for (let step = 0; step <= steps; step++) {
+      const { x, y } = positionsAt(model, (step / steps) * 6000);
+      for (const { planet, notes } of notesByPlanet) {
+        for (const note of notes) {
+          const dist = Math.hypot(x[note.idx]! - x[planet.idx]!, y[note.idx]! - y[planet.idx]!);
+          expect(dist).toBeGreaterThanOrEqual(planet.r);
+        }
+      }
+    }
+  });
+
   it("is deterministic and never uses Math.random", () => {
     const src = readFileSync(fileURLToPath(new URL("./solarModel.ts", import.meta.url)), "utf8");
     expect(src).not.toMatch(/Math\.random/);
