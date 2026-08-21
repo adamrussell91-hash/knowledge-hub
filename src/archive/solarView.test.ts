@@ -7,6 +7,7 @@ import {
   UNIVERSE_BUILD,
   KIND_DEPTH,
   advanceOrbitClock,
+  glowSpread,
   mountSolarView,
   presence,
   resolveSearchHits,
@@ -55,6 +56,7 @@ type Arc = { x: number; y: number; r: number; start: number; end: number };
 function recordingContext() {
   const arcs: Arc[] = [];
   const fullCircleStrokes: Arc[] = [];
+  const images: Array<{ w: number; h: number }> = [];
   let pending: Arc | null = null;
   const ctx = {
     globalAlpha: 1,
@@ -89,7 +91,9 @@ function recordingContext() {
     moveTo() {},
     lineTo() {},
     closePath() {},
-    drawImage() {},
+    drawImage(_img: unknown, _x: number, _y: number, w: number, h: number) {
+      images.push({ w, h });
+    },
     measureText(text: string) {
       return { width: text.length * 6 };
     },
@@ -97,7 +101,7 @@ function recordingContext() {
       return { addColorStop() {} };
     },
   };
-  return { ctx, arcs, fullCircleStrokes };
+  return { ctx, arcs, fullCircleStrokes, images };
 }
 
 function installCanvas() {
@@ -140,7 +144,7 @@ function worldPos(body: Body, model: ReturnType<typeof buildSolarModel>) {
 
 describe("presence and bands", () => {
   it("exposes a build number so a stale Universe bundle is obvious", () => {
-    expect(UNIVERSE_BUILD).toBe(17);
+    expect(UNIVERSE_BUILD).toBe(18);
   });
 
   it("maps band thresholds onto KIND_DEPTH cutoffs", () => {
@@ -176,6 +180,18 @@ describe("presence and bands", () => {
     const giant = planetBody({ giant: true, count: 200 });
     const ordinary = planetBody({ count: 40 });
     expect(presence(giant, 1, k, 200)).toBeGreaterThan(presence(ordinary, 1, k, 200) * 1.6);
+  });
+
+  it("keeps fit-zoom planets as small discs and holds glow until you zoom in", () => {
+    const k = 0.05;
+    const ordinary = presence(planetBody({ count: 80 }), 1, k, 100);
+    const giant = presence(planetBody({ giant: true, count: 200 }), 1, k, 200);
+    expect(ordinary * k).toBeLessThan(12);
+    expect(giant * k).toBeLessThan(20);
+    expect(glowSpread(1, false)).toBe(0);
+    expect(glowSpread(2.39, true)).toBe(0);
+    expect(glowSpread(2.4, false)).toBe(2.1);
+    expect(glowSpread(2.4, true)).toBe(2.6);
   });
 });
 
@@ -241,6 +257,24 @@ describe("mountSolarView", () => {
     frames.pump(16);
     expect(recorded.fullCircleStrokes).toHaveLength(0);
     expect(recorded.arcs.length).toBeGreaterThan(20);
+    stop();
+  });
+
+  it("skips additive planet glow at fit zoom so discs do not merge into shards", () => {
+    const recorded = installCanvas();
+    const frames = stubFrame();
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 800, configurable: true });
+    const entries = [
+      ...tagged("common", TOPIC_VOCABULARY[1]!, 80),
+      ...tagged("common2", TOPIC_VOCABULARY[2]!, 80),
+      ...tagged("common3", TOPIC_VOCABULARY[3]!, 80),
+    ];
+    const model = buildSolarModel(entries);
+    expect(model.planets.length).toBeGreaterThan(1);
+    const stop = mountSolarView(host, model, { search: "", onNoteSelect() {} });
+    frames.pump(16);
+    expect(recorded.images).toHaveLength(1);
     stop();
   });
 
