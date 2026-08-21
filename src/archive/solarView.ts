@@ -1,7 +1,7 @@
 import { attachGraphSearch, type GraphMount } from "./forceGraphBehavior";
 import { hashUnit, worldPositions, type Body, type BodyKind, type SolarModel } from "./solarModel";
 
-export const UNIVERSE_BUILD = 18;
+export const UNIVERSE_BUILD = 19;
 
 export type SolarNotePayload = { pageId: string; title: string; excerpt: string };
 
@@ -163,34 +163,22 @@ function ringDust(body: Body, x: number, y: number, pr: number, k: number, behin
   return dots;
 }
 
-function fillDots(
+// Each dot gets its own beginPath/arc/fill. Batching same-color dots into one
+// Path2D and filling it once (the previous approach) makes the canvas fill
+// their UNION as a single flat-alpha shape: overlapping circles read as a
+// solid polygon with gaps punched out, not as a soft cluster of dots.
+// Filling separately lets overlaps blend (stacked alpha), which is what
+// actually reads as a cluster.
+export function fillDots(
   ctx: CanvasRenderingContext2D,
   dots: Array<{ x: number; y: number; r: number; color: string; alpha: number }>,
 ) {
-  if (!dots.length) return;
-  const groups = new Map<string, typeof dots>();
   for (const dot of dots) {
-    const key = `${dot.color}|${dot.alpha.toFixed(3)}`;
-    const list = groups.get(key) ?? [];
-    list.push(dot);
-    groups.set(key, list);
-  }
-  const usePath = typeof Path2D === "function";
-  for (const group of groups.values()) {
-    const first = group[0]!;
-    ctx.fillStyle = first.color;
-    ctx.globalAlpha = first.alpha;
-    if (usePath) {
-      const path = new Path2D();
-      for (const dot of group) path.arc(dot.x, dot.y, dot.r, 0, TAU);
-      ctx.fill(path);
-    } else {
-      for (const dot of group) {
-        ctx.beginPath();
-        ctx.arc(dot.x, dot.y, dot.r, 0, TAU);
-        ctx.fill();
-      }
-    }
+    ctx.fillStyle = dot.color;
+    ctx.globalAlpha = dot.alpha;
+    ctx.beginPath();
+    ctx.arc(dot.x, dot.y, dot.r, 0, TAU);
+    ctx.fill();
   }
   ctx.globalAlpha = 1;
 }
