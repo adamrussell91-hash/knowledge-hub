@@ -21,6 +21,10 @@ export type SessionState = {
   followUpQueries: string[];
   status: ResearchStatus;
   error?: string;
+  k?: number;
+  tags?: string[];
+  maxRounds?: number;
+  negation?: boolean;
 };
 
 export type RoundDeps = {
@@ -37,7 +41,15 @@ export type RoundDeps = {
   finalize?: boolean;
 };
 
-export function initialSession(input: { query: string; documentContext?: string; now?: number }): SessionState {
+export function initialSession(input: {
+  query: string;
+  documentContext?: string;
+  now?: number;
+  k?: number;
+  tags?: string[];
+  maxRounds?: number;
+  negation?: boolean;
+}): SessionState {
   return {
     query: input.query,
     documentContext: input.documentContext,
@@ -47,6 +59,10 @@ export function initialSession(input: { query: string; documentContext?: string;
     gaps: [],
     followUpQueries: [],
     status: "running",
+    k: input.k,
+    tags: input.tags,
+    maxRounds: input.maxRounds,
+    negation: input.negation,
   };
 }
 
@@ -89,7 +105,13 @@ function shouldStop(state: SessionState, deps: RoundDeps, now: number) {
 export async function runRound(state: SessionState, deps: RoundDeps): Promise<SessionState> {
   if (state.status === "done" || state.status === "error" || state.status === "cancelled") return state;
   const now = deps.now ?? Date.now();
-  const queries = state.round === 0 ? [state.query] : state.followUpQueries.filter(Boolean);
+  const queries =
+    state.round === 0
+      ? [
+          state.query,
+          ...(state.negation ? [`What challenges, limits, or contradicts: ${state.query}`] : []),
+        ]
+      : state.followUpQueries.filter(Boolean);
   if (!queries.length) {
     return { ...state, status: "done", findings: dedupeFindings(state.findings) };
   }

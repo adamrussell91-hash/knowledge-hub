@@ -36,6 +36,21 @@ describe("runRound", () => {
     expect(next.findings).toHaveLength(1);
   });
 
+  it("retrieves a negation query on round 1 when the hat asks for contested evidence", async () => {
+    const retrieved: string[] = [];
+    await runRound(initialSession({ query: "Gagne", negation: true }), {
+      retrieve: async query => {
+        retrieved.push(query);
+        return [{ pageId: "p1", title: "P1", excerpt: "e", score: 1 }];
+      },
+      fetchBodies: async () => new Map([["p1", { title: "P1", excerpt: "e", sourceUrl: "https://notion.so/p1" }]]),
+      synthesize: async () => ({ findings: [finding("p1")], gaps: [], followUpQueries: [] }),
+      now: () => 0,
+      finalize: true,
+    });
+    expect(retrieved).toEqual(["Gagne", "What challenges, limits, or contradicts: Gagne"]);
+  });
+
   it("uses previous follow-ups as the next retrieve input, not a second retrieve in the same round", async () => {
     const retrieved: string[] = [];
     const afterFirst = await runRound(initialSession({ query: "original" }), {

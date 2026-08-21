@@ -32,6 +32,13 @@ describe("GitHub Pages deploy", () => {
   });
 });
 
+describe("Clementine chat has a long enough function window", () => {
+  it("gives clementine-chat the 26s Netlify max so archive + Claude are not killed at 10s", async () => {
+    const config = await readFile(path.join(process.cwd(), "netlify.toml"), "utf8");
+    expect(config).toMatch(/\[functions\.clementine-chat\][\s\S]*timeout = 26/);
+  });
+});
+
 describe("Note tidy button uses the session API host", () => {
   it("adds a session-gated /api/tidy function without new Netlify secrets", async () => {
     const config = await readFile(path.join(process.cwd(), "netlify.toml"), "utf8");

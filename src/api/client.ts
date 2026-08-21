@@ -94,26 +94,62 @@ export type ChatRequest = {
   noteContext?: { pageId: string; title: string };
   searchOutside?: boolean;
   researchSessionId?: string;
+  compose?: boolean;
+  priorResearch?: ResearchResult;
+  archiveFailed?: boolean;
 };
 
-export async function runChat(input: ChatRequest) {
-  if (USE_LOCAL_DATA) {
-    throw new Error("Chat needs the live API (npx netlify dev).");
-  }
-  return apiFetch<{
-    status: "done" | "researching" | "external-unavailable";
-    reply?: string;
-    research?: ResearchResult;
-    archiveFailed?: boolean;
-    coverage?: { distinctSources: number; gapCount: number; thin: boolean };
-    canSearchOutside?: boolean;
-    researchSessionId?: string;
-    reason?: string;
-  }>("/clementine-chat", {
+type ChatResponse = {
+  status: "done" | "researching" | "compose" | "external-unavailable";
+  reply?: string;
+  research?: ResearchResult;
+  archiveFailed?: boolean;
+  coverage?: { distinctSources: number; gapCount: number; thin: boolean };
+  canSearchOutside?: boolean;
+  researchSessionId?: string;
+  reason?: string;
+};
+
+export type ChatPhase = {
+  status: "searching" | "compose" | "researching" | "writing";
+  research?: ResearchResult;
+};
+
+async function postChat(input: ChatRequest) {
+  return apiFetch<ChatResponse>("/clementine-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+export async function runChat(input: ChatRequest, onPhase?: (phase: ChatPhase) => void) {
+  if (USE_LOCAL_DATA) {
+    throw new Error("Chat needs the live API (npx netlify dev).");
+  }
+  try {
+    onPhase?.({ status: "searching" });
+    const result = await postChat(input);
+    if (result.status === "compose") {
+      onPhase?.({ status: "compose", research: result.research });
+      onPhase?.({ status: "writing", research: result.research });
+      return postChat({
+        ...input,
+        compose: true,
+        priorResearch: result.research,
+        archiveFailed: result.archiveFailed,
+      });
+    }
+    if (result.status === "researching") {
+      onPhase?.({ status: "researching", research: result.research });
+    }
+    return result;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("Chat timed out. Send the same message again.");
+    }
+    throw error;
+  }
 }
 
 export const PODCAST_NEEDS_NETLIFY = "Podcast needs the Netlify API";

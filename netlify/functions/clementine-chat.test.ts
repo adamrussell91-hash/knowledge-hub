@@ -40,6 +40,30 @@ describe("clementine-chat handler", () => {
     expect(response.statusCode).toBe(401);
   });
 
+  it("returns compose after a quick archive pull without calling Anthropic", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes("quick_research")) {
+        return {
+          ok: true,
+          json: async () => ({
+            query: "Gagne",
+            round: 1,
+            status: "done",
+            findings: [],
+            gaps: ["methods notes"],
+            followUpQueries: [],
+          }),
+        };
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const response = await handler(event() as never, {} as never);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? "{}")).toMatchObject({ status: "compose" });
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
+  });
+
   it("starts a deep session without calling Anthropic", async () => {
     const fetchImpl = vi.fn(async (url: string) => {
       if (String(url).includes("deep_research/start")) {

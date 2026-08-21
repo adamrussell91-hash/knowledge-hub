@@ -23,12 +23,18 @@ export type ChatTurnInput = {
   noteContext?: { pageId: string; title: string };
   searchOutside?: boolean;
   researchSessionId?: string;
+  compose?: boolean;
+  priorResearch?: ResearchResult;
+  archiveFailed?: boolean;
   kernel?: ChatKernel;
   complete: (system: string, messages: ChatMessage[]) => Promise<string>;
 };
 
+export const KERNEL_BUDGET_MS = 20_000;
+
 export type ChatTurnResult =
-  | { status: "researching"; researchSessionId: string }
+  | { status: "researching"; researchSessionId: string; research?: ResearchResult }
+  | { status: "compose"; research?: ResearchResult; archiveFailed?: boolean; coverage?: CoverageRead }
   | { status: "external-unavailable"; reason: string }
   | {
       status: "done";
@@ -46,6 +52,18 @@ function lastUserQuery(messages: ChatMessage[]): string {
   return "";
 }
 
+function searchBody(input: ChatTurnInput) {
+  const plan = resolveChatPlan(input.hat, { scope: input.scope, depth: input.depth });
+  return {
+    query: lastUserQuery(input.messages) || "working thesis",
+    documentContext: documentContext(input),
+    k: plan.k,
+    tags: plan.tags,
+    maxRounds: plan.maxRounds,
+    negation: plan.negation,
+  };
+}
+
 function documentContext(input: ChatTurnInput): string | undefined {
   const parts = [
     input.workingThesis?.trim(),
@@ -59,6 +77,7 @@ async function kernelFetch(kernel: ChatKernel, path: string, init?: RequestInit)
   const base = kernel.url.replace(/\/+$/, "");
   return kernel.fetchImpl(`${base}${path}`, {
     ...init,
+    signal: init?.signal ?? AbortSignal.timeout(KERNEL_BUDGET_MS),
     headers: {
       "Content-Type": "application/json",
       "x-research-kernel-secret": kernel.secret,
@@ -72,10 +91,7 @@ async function pullQuick(input: ChatTurnInput): Promise<{ research?: ResearchRes
   try {
     const response = await kernelFetch(input.kernel, "/quick_research", {
       method: "POST",
-      body: JSON.stringify({
-        query: lastUserQuery(input.messages) || "working thesis",
-        documentContext: documentContext(input),
-      }),
+      body: JSON.stringify(searchBody(input)),
     });
     if (!response.ok) {
       return { archiveFailed: true, note: "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation." };
@@ -111,19 +127,17 @@ async function startDeep(input: ChatTurnInput): Promise<ChatTurnResult> {
   try {
     const response = await kernelFetch(input.kernel, "/deep_research/start", {
       method: "POST",
-      body: JSON.stringify({
-        query: lastUserQuery(input.messages) || "working thesis",
-        documentContext: documentContext(input),
-      }),
+      body: JSON.stringify(searchBody(input)),
     });
     if (!response.ok) {
       return completeTurn(input, { archiveFailed: true, note: "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation." });
     }
-    const payload = (await response.json()) as { sessionId?: string };
+    const payload = (await response.json()) as { sessionId?: string; result?: ResearchResult };
     if (!payload.sessionId) {
       return completeTurn(input, { archiveFailed: true, note: "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation." });
     }
-    return { status: "researching", researchSessionId: payload.sessionId };
+    const research = ResearchResultSchema.safeParse(payload.result).data;
+    return { status: "researching", researchSessionId: payload.sessionId, research };
   } catch {
     return completeTurn(input, { archiveFailed: true, note: "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation." });
   }
@@ -141,7 +155,7 @@ async function pollDeep(input: ChatTurnInput): Promise<{ research?: ResearchResu
       return { archiveFailed: true, note: "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation." };
     }
     if (parsed.data.status === "running") {
-      return { researching: input.researchSessionId, note: "" };
+      return { researching: input.researchSessionId, research: parsed.data, note: "" };
     }
     if (parsed.data.status === "error" || parsed.data.status === "cancelled") {
       return { archiveFailed: true, research: parsed.data, note: "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation." };
@@ -197,15 +211,38 @@ export async function runChatTurn(input: ChatTurnInput): Promise<ChatTurnResult>
       reason: "External search is not connected. Brave is not on the research kernel yet. Archive citations stay archive-only.",
     };
   }
+  if (input.compose) {
+    if (input.priorResearch) {
+      const archive = archiveNote(input.priorResearch);
+      return completeTurn(input, {
+        ...archive,
+        archiveFailed: input.archiveFailed || archive.archiveFailed,
+        note: input.archiveFailed
+          ? "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation."
+          : archive.note,
+      });
+    }
+    return completeTurn(input, {
+      archiveFailed: true,
+      note: "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation.",
+    });
+  }
   const plan = resolveChatPlan(input.hat, { scope: input.scope, depth: input.depth });
   if (input.researchSessionId) {
     const archive = await pollDeep(input);
-    if (archive.researching) return { status: "researching", researchSessionId: archive.researching };
+    if (archive.researching) {
+      return { status: "researching", researchSessionId: archive.researching, research: archive.research };
+    }
     return completeTurn(input, archive);
   }
   if (plan.kernel === "deep") {
     return startDeep(input);
   }
   const archive = await pullQuick(input);
-  return completeTurn(input, archive);
+  return {
+    status: "compose",
+    research: archive.research,
+    archiveFailed: archive.archiveFailed,
+    coverage: archive.research ? coverageFromResearch(archive.research) : undefined,
+  };
 }
