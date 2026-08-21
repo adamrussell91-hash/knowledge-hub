@@ -886,7 +886,20 @@ function render() {
 function renderLogin() {
   app.innerHTML = `<div class="sign-in">
     <form class="sign-in__card" method="post" action="#" novalidate>
-      <img class="sign-in__mark" src="icons/knowledge.svg" alt="" width="56" height="56">
+      <div class="sign-in__haze" aria-hidden="true">
+        <span class="sign-in__haze-mist"></span>
+        <span class="sign-in__bubble"></span>
+        <span class="sign-in__bubble"></span>
+        <span class="sign-in__bubble"></span>
+        <span class="sign-in__bubble"></span>
+        <span class="sign-in__bubble"></span>
+        <span class="sign-in__sparkle"></span>
+        <span class="sign-in__sparkle"></span>
+        <span class="sign-in__sparkle"></span>
+        <span class="sign-in__sparkle"></span>
+        <span class="sign-in__sparkle"></span>
+        <span class="sign-in__sparkle"></span>
+      </div>
       <p class="sign-in__brand">Knowledge Hub</p>
       <h1 class="sign-in__title">Sign in</h1>
       <div class="sign-in__field">

@@ -33,12 +33,103 @@
   padding: var(--space-8) var(--space-6);
   display: grid;
   gap: var(--space-5);
+  overflow: hidden;
   background: var(--sign-in-glass-fill);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   box-shadow: var(--elev-3);
   backdrop-filter: blur(var(--sign-in-glass-blur));
   -webkit-backdrop-filter: blur(var(--sign-in-glass-blur));
+}
+
+.sign-in__haze {
+  position: relative;
+  height: clamp(6.5rem, 32vw, 8.25rem);
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+  margin: calc(var(--space-8) * -1) calc(var(--space-6) * -1) calc(var(--space-3) * -1);
+  background:
+    radial-gradient(ellipse 90% 100% at 18% 0%, color-mix(in srgb, var(--cotton) 88%, var(--shore)), transparent 74%),
+    radial-gradient(ellipse 80% 90% at 86% 8%, color-mix(in srgb, var(--shore) 70%, var(--warm-white)), transparent 72%),
+    linear-gradient(180deg, color-mix(in srgb, var(--cotton) 82%, var(--shore)), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 68%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 68%, transparent 100%);
+}
+
+.sign-in__haze-mist {
+  position: absolute;
+  inset: -24% -12% 0;
+  background:
+    radial-gradient(circle at 22% 42%, color-mix(in srgb, var(--warm-white) 80%, var(--shore)) 0 3.2rem, transparent 5.2rem),
+    radial-gradient(circle at 70% 24%, color-mix(in srgb, var(--cotton) 75%, var(--sand)) 0 2.6rem, transparent 4.4rem),
+    radial-gradient(circle at 88% 58%, color-mix(in srgb, var(--shore) 70%, var(--warm-white)) 0 2.2rem, transparent 3.8rem);
+  filter: blur(14px);
+  opacity: 0.85;
+}
+
+.sign-in__bubble {
+  position: absolute;
+  border-radius: var(--radius-full);
+  background:
+    radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--warm-white) 86%, transparent), color-mix(in srgb, var(--cotton) 42%, transparent) 58%, color-mix(in srgb, var(--shore) 28%, transparent));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--warm-white) 70%, var(--shore)),
+    0 0.2rem 0.7rem color-mix(in srgb, var(--shore) 28%, transparent);
+  animation: sign-in-bubble-float var(--d, 22s) ease-in-out infinite;
+}
+
+.sign-in__bubble:nth-child(2) { left: 6%; bottom: 2%; width: 3.8rem; height: 3.8rem; --d: 22s; --x: 0.9rem; }
+.sign-in__bubble:nth-child(3) { left: 24%; bottom: -14%; width: 5.6rem; height: 5.6rem; --d: 28s; --x: -1.1rem; }
+.sign-in__bubble:nth-child(4) { left: 52%; bottom: 12%; width: 2.6rem; height: 2.6rem; --d: 18s; --x: 0.7rem; }
+.sign-in__bubble:nth-child(5) { left: 69%; bottom: -4%; width: 4.2rem; height: 4.2rem; --d: 24s; --x: -0.8rem; }
+.sign-in__bubble:nth-child(6) { left: 86%; bottom: 18%; width: 2rem; height: 2rem; --d: 16s; --x: 0.5rem; }
+
+.sign-in__sparkle {
+  position: absolute;
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: var(--radius-full);
+  background: var(--warm-white);
+  box-shadow:
+    0 0 0.45rem color-mix(in srgb, var(--warm-white) 90%, var(--sand)),
+    0 0 0 0.12rem color-mix(in srgb, var(--sand) 35%, transparent);
+  opacity: 0;
+  animation: sign-in-sparkle var(--d, 3.8s) ease-in-out infinite;
+}
+
+.sign-in__sparkle:nth-child(7) { left: 16%; top: 24%; --d: 3.6s; animation-delay: -0.8s; }
+.sign-in__sparkle:nth-child(8) { left: 39%; top: 12%; --d: 4.4s; animation-delay: -2.1s; }
+.sign-in__sparkle:nth-child(9) { left: 61%; top: 30%; --d: 3.2s; animation-delay: -0.3s; }
+.sign-in__sparkle:nth-child(10) { left: 77%; top: 16%; --d: 4.8s; animation-delay: -1.6s; }
+.sign-in__sparkle:nth-child(11) { left: 31%; top: 44%; --d: 3.9s; animation-delay: -2.8s; }
+.sign-in__sparkle:nth-child(12) { left: 90%; top: 38%; --d: 4.2s; animation-delay: -1.1s; }
+
+@keyframes sign-in-bubble-float {
+  0%, 100% { transform: translate3d(0, 8%, 0); opacity: 0.48; }
+  50% { transform: translate3d(var(--x, 0.6rem), -36%, 0); opacity: 0.82; }
+}
+
+@keyframes sign-in-sparkle {
+  0%, 28%, 100% { opacity: 0; transform: scale(0.4); }
+  40% { opacity: 0.85; transform: scale(1.15); }
+  55% { opacity: 0.2; transform: scale(0.7); }
+  68% { opacity: 0; transform: scale(0.4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sign-in__bubble,
+  .sign-in__sparkle {
+    animation: none;
+  }
+
+  .sign-in__bubble {
+    opacity: 0.62;
+  }
+
+  .sign-in__sparkle {
+    opacity: 0.45;
+  }
 }
 
 .sign-in__mark {
