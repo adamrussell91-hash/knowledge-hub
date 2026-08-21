@@ -18,6 +18,14 @@ describe("Knowledge Hub rail", () => {
     expect(main).toContain("function findingCards");
   });
 
+  it("replaces Coach and Wiki with Chat", () => {
+    expect(main).toContain('data-nav="chat"');
+    expect(main).toContain("<span>Chat</span>");
+    expect(main).not.toContain('data-nav="wiki"');
+    expect(main).not.toContain('data-nav="coach"');
+    expect(main).toContain("data-open-chat");
+  });
+
   it("offers a quiet Clean up control beside Edit in the reader", () => {
     expect(main).toContain('class="btn btn--ghost reader__tidy" data-tidy type="button"');
     expect(main).toContain("Clean up");

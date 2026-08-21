@@ -84,6 +84,38 @@ export async function runCoach(input: {
   });
 }
 
+export type ChatRequest = {
+  messages: CoachMessage[];
+  hat: string;
+  scope?: string;
+  depth?: string;
+  workingThesis?: string;
+  draft?: string;
+  noteContext?: { pageId: string; title: string };
+  searchOutside?: boolean;
+  researchSessionId?: string;
+};
+
+export async function runChat(input: ChatRequest) {
+  if (USE_LOCAL_DATA) {
+    throw new Error("Chat needs the live API (npx netlify dev).");
+  }
+  return apiFetch<{
+    status: "done" | "researching" | "external-unavailable";
+    reply?: string;
+    research?: ResearchResult;
+    archiveFailed?: boolean;
+    coverage?: { distinctSources: number; gapCount: number; thin: boolean };
+    canSearchOutside?: boolean;
+    researchSessionId?: string;
+    reason?: string;
+  }>("/clementine-chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
 export const PODCAST_NEEDS_NETLIFY = "Podcast needs the Netlify API";
 
 function podcastPost<T>(path: string, body: unknown) {
