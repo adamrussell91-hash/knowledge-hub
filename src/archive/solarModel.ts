@@ -13,6 +13,17 @@ const A0 = 420;
 const AN = 3000;
 const TAU = Math.PI * 2;
 
+/** Eccentricity range organicizeSwarm paints onto moons/pages it scatters. */
+const SWARM_E0 = 0.1;
+const SWARM_E_SPAN = 0.32;
+/** Worst-case eccentricity — used to size clearance so a swarm can't swing inward past it at periapsis. */
+const SWARM_E_MAX = SWARM_E0 + SWARM_E_SPAN;
+/** Incline cap and y-squash factor from orbitOffset — a squashed orbit can sit closer to its parent than its radius alone suggests. */
+const INCLINE_CAP = 0.85;
+const INCLINE_SQUASH = 0.42;
+/** Smallest fraction of a swarm's orbital radius that can ever separate it from its parent, worst case (max eccentricity at periapsis, max incline squash). */
+const SWARM_MIN_RADIAL_FACTOR = (1 - SWARM_E_MAX) * (1 - INCLINE_CAP * INCLINE_SQUASH);
+
 export type BodyKind = "sun" | "planet" | "minor" | "moon" | "page" | "rock";
 
 export type Body = {
@@ -98,7 +109,7 @@ export function orbitOffset(body: Body, clock: number) {
   const ecc = mean + e * Math.sin(mean);
   const radius = body.a * (1 - e * e) / Math.max(1e-6, 1 + e * Math.cos(ecc));
   const ang = ecc + (body.argP || 0);
-  const squash = 1 - Math.min(body.incline || 0, 0.85) * 0.42;
+  const squash = 1 - Math.min(body.incline || 0, INCLINE_CAP) * INCLINE_SQUASH;
   return { x: Math.cos(ang) * radius, y: Math.sin(ang) * radius * squash };
 }
 
@@ -258,16 +269,35 @@ function organicizeSwarm(children: Body[], seed: string, inner = 0, span = 0) {
     child.phase = centers[clump]! + (hashUnit(`${child.id}:ph`) - 0.5) * 1.15;
     if (span > 0) child.a = inner + hashUnit(`${child.id}:ra`) * span;
     else child.a *= 0.7 + hashUnit(`${child.id}:ra`) * 0.85;
-    paintOrbit(child, 0.1, 0.32, 0.08, 0.55);
+    paintOrbit(child, SWARM_E0, SWARM_E_SPAN, 0.08, 0.55);
   }
 }
 
 function scatterPages(moon: Body) {
   const kids = moon.children.filter(child => child.kind === "page");
-  if (!kids.length) return;
-  const inner = moon.r * 1.8;
-  const span = Math.max(5, Math.sqrt(kids.length) * 2.8);
-  organicizeSwarm(kids, moon.id, inner, span);
+  if (kids.length) {
+    const inner = moon.r * 1.8;
+    const span = Math.max(5, Math.sqrt(kids.length) * 2.8);
+    organicizeSwarm(kids, moon.id, inner, span);
+  }
+  // Pages were just scattered onto orbits around this moon — recompute sysR now
+  // so assignMoonOrbits (which runs next) sees the moon's true footprint,
+  // not just its bare body radius.
+  recomputeSysR(moon);
+}
+
+/** Minimum orbital radius for `bodies` around a host of radius `hostR` such that, even at
+ * worst-case eccentricity and inclination, none of their own children can swing inside the host. */
+function swarmClearance(hostR: number, bodies: Body[]) {
+  const maxSysR = Math.max(0, ...bodies.map(body => body.sysR));
+  return (hostR + maxSysR + ORBIT_GAP) / SWARM_MIN_RADIAL_FACTOR;
+}
+
+/** Raises `inner0` to the safety floor if needed, scaling `span0` by the same factor so the
+ * ratio of span to inner radius — and with it the "loose swarm" spread — doesn't collapse. */
+function clearedSwarmBounds(hostR: number, bodies: Body[], inner0: number, span0: number) {
+  const inner = Math.max(inner0, swarmClearance(hostR, bodies));
+  return { inner, span: span0 * (inner / inner0) };
 }
 
 function assignMoonOrbits(planet: Body) {
@@ -278,16 +308,21 @@ function assignMoonOrbits(planet: Body) {
   const keep = moons.length <= 4 ? moons.length : Math.min(4, Math.max(2, moons.length - Math.ceil(moons.length * 0.55)));
   const majorMoons = moons.slice(0, keep);
   const belt = moons.slice(keep);
-  organicizeSwarm(
+  const majors = clearedSwarmBounds(
+    planet.r,
     majorMoons,
-    `${planet.id}:majors`,
     planet.r * 3.4,
     planet.r * (2.2 + majorMoons.length * 3.4),
   );
+  organicizeSwarm(majorMoons, `${planet.id}:majors`, majors.inner, majors.span);
   if (!belt.length) return;
-  const inner = planet.r * (10 + majorMoons.length * 2.2);
-  const span = planet.r * (12 + Math.sqrt(belt.length) * 2.2);
-  organicizeSwarm(belt, `${planet.id}:moon-belt`, inner, span);
+  const beltBounds = clearedSwarmBounds(
+    planet.r,
+    belt,
+    planet.r * (10 + majorMoons.length * 2.2),
+    planet.r * (12 + Math.sqrt(belt.length) * 2.2),
+  );
+  organicizeSwarm(belt, `${planet.id}:moon-belt`, beltBounds.inner, beltBounds.span);
   for (const moon of belt) moon.r = Math.min(moon.r, 2.4);
 }
 
@@ -529,7 +564,6 @@ export function buildSolarModel(entries: PageManifestEntry[]): SolarModel {
           ink: paint.ink,
           children: kids,
         });
-        moon.sysR = moon.r;
         scatterPages(moon);
         return moon;
       });
