@@ -1,6 +1,8 @@
-<!-- Discrete chrome utilities. Place as the last child of .page-header__actions
-     (canvas top-right). Icon-only — never labelled .btn pills for refresh/sign out.
-     Wire click handlers in the hub; keep aria-label + title for accessibility. -->
+<!-- Discrete chrome utilities + site mark. Place as the last children of
+     .page-header__actions (canvas top-right). Refresh / sign out are faded
+     icons only — never labelled .btn pills. The hub tile (.hub-mark) sits
+     after the utilities. Wire click handlers in the hub; keep aria-label +
+     title. Swap the tile src per hub (ICONS.md). -->
 <div class="hub-utilities">
   <button class="hub-icon-btn" type="button" data-hub-refresh aria-label="Refresh" title="Refresh">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -16,3 +18,4 @@
     </svg>
   </button>
 </div>
+<img class="hub-mark" src="../icons/life-hub.svg" alt="" width="32" height="32">

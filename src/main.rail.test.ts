@@ -35,8 +35,8 @@ describe("Knowledge Hub rail", () => {
   });
 
   it("makes Knowledge Hub a home control", () => {
-    expect(main).toContain('class="rail__brand" data-home');
-    expect(main).toContain('aria-label="Knowledge Hub home"');
+    expect(main).toContain('class="hub-rail__brand" data-home');
+    expect(main).toContain('href="#"');
     expect(main).toContain("function goToHome");
   });
 });
@@ -53,4 +53,3 @@ describe("note reader and editor fill the canvas", () => {
     expect(main).toContain("compose__field compose__field--body");
   });
 });
-

@@ -1,8 +1,9 @@
 /* Shared passphrase gate — locked across every hub.
  *
  * Markup: snippets/sign-in.html
- * Do not restyle per hub. Brand / supporting copy may change; structure and
- * chrome must not. Glass density overlays do not apply here on purpose.
+ * Do not restyle per hub. Only the tile src + brand eyebrow change.
+ * No supporting / purpose copy. Enter submits (form submit, not click-only).
+ * Glass density overlays do not apply here.
  */
 
 .sign-in {
@@ -40,6 +41,12 @@
   -webkit-backdrop-filter: blur(var(--sign-in-glass-blur));
 }
 
+.sign-in__mark {
+  display: block;
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
 .sign-in__brand {
   margin: 0;
   font-family: var(--font-ui);
@@ -58,14 +65,6 @@
   line-height: 1.2;
   letter-spacing: var(--tracking-tight);
   color: var(--depth);
-}
-
-.sign-in__supporting {
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-  color: var(--muted);
 }
 
 .sign-in__form {

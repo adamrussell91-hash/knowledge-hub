@@ -1,6 +1,8 @@
+@import url("./rail.css");
+
 /* Shared chrome for new hubs. Existing hubs already implement these patterns
    under local class names — copy structure from snippets/, map to tokens,
-   do not invent a parallel button or header system.
+   do not invent a parallel button or header system. Rail: css/rail.css (RAIL.md).
  */
 
 *,
@@ -77,55 +79,6 @@ html[data-hub="life"] .glass-panel {
   min-height: 100dvh;
 }
 
-.hub-rail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-5) var(--space-3);
-  background: linear-gradient(180deg, var(--depth) 0%, var(--marine) 100%);
-  color: var(--on-dark);
-}
-
-/* Rail brand: one line, CSS uppercase. Text is "Teaching Hub" / "Life Hub" /
-   "Knowledge Hub" / "Tasks Hub" — never stacked <br>, never a large title-case
-   hero on the rail. Optional tagline sits under the brand. */
-.hub-rail__brand-block {
-  padding: var(--space-1) var(--space-3) var(--space-4);
-}
-
-.hub-rail__brand {
-  margin: 0;
-  padding: 0;
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  line-height: var(--leading-snug);
-  color: var(--on-dark-muted);
-  white-space: nowrap;
-}
-
-.hub-rail__tagline {
-  margin: var(--space-1) 0 0;
-  padding: 0;
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-regular);
-  letter-spacing: var(--tracking-normal);
-  text-transform: none;
-  line-height: var(--leading-snug);
-  color: var(--on-dark-muted);
-  opacity: 0.72;
-}
-
-html[data-hub="knowledge"] .hub-rail__brand-block {
-  padding-inline: var(--space-1);
-  text-align: center;
-}
-
-html[data-hub="knowledge"] .hub-rail__brand {
-  white-space: normal;
-}
-
 .hub-canvas {
   min-width: 0;
   padding: var(--space-8) var(--space-6);
@@ -134,10 +87,6 @@ html[data-hub="knowledge"] .hub-rail__brand {
 @media (max-width: 720px) {
   .hub-layout {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .hub-rail {
-    display: none;
   }
 }
 
@@ -221,6 +170,14 @@ html[data-hub="knowledge"] .hub-rail__brand {
   width: 1.125rem;
   height: 1.125rem;
   display: block;
+}
+
+/* Site tile — canvas top-right, after .hub-utilities. Same file as favicon + login. */
+.hub-mark {
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */

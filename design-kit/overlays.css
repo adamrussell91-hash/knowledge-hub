@@ -1,7 +1,8 @@
 /* Hub overlays — the only allowed visual divergence.
  *
- * Set data-hub on <html>. Do not fork the palette, type scale, or spacing.
+ * Set data-hub on <html>. Do not fork the palette, type scale, spacing, or rail.
  * Teaching / Tasks: more glass, more tiles. Life: tiles, flatter. Knowledge: less glass.
+ * --rail-width stays 15rem on every hub (see RAIL.md). Do not override it here.
  */
 
 :root {
@@ -38,6 +39,4 @@ html[data-hub="knowledge"] {
   --hub-elev-card: var(--elev-1);
   --glass: var(--hub-glass-fill);
   --shadow: var(--elev-1);
-  /* Icon rail — product chrome, not the 15rem text rail used by Teaching/Life */
-  --rail-width: 5.75rem;
 }
