@@ -15,9 +15,9 @@ Tasks Hub: `/Users/adamrussell/Projects/tasks-hub`
 
 Load Inter, then kit `tokens.css`, `overlays.css`, `chrome.css` (new hub), then Tasks Hub CSS.
 
-`data-hub="tasks"` **clones Teaching**: more glass, more tiles, labeled left rail (not Knowledge’s icon rail). Values live in `css/overlays.css` — do not retune them in the hub.
+`data-hub="tasks"` **clones Teaching**: more glass, more tiles, the same 15rem labeled rail as every other hub. Values live in `css/overlays.css` — do not retune them in the hub. Rail rules: `RAIL.md`.
 
-Page header stays kit: uppercase eyebrow → `h1` → optional supporting → actions on the right. Rail brand is `.hub-rail__brand` (single uppercase line). Refresh and sign out use `.hub-utilities` / `.hub-icon-btn` at the canvas top-right — not labelled pills on the rail.
+Page header stays kit: uppercase eyebrow → `h1` → optional supporting → actions on the right. Rail brand is `<a class="hub-rail__brand" href="…board…">` (single uppercase line, returns to the board from anywhere). Destinations are `.hub-rail__link` (outline icon + title-case label). Refresh and sign out use `.hub-utilities` / `.hub-icon-btn` at the canvas top-right, then `.hub-mark` (`icons/tasks.svg`). Same tile is the favicon and the sign-in mark. No supporting copy on the gate. See `ICONS.md`.
 
 Agent writes: propose → **confirm card** → apply.
 
@@ -56,7 +56,7 @@ Graph and chart CSS belongs in the hub (or a copy of those modules). Do not add 
 
 ## Hard rules
 
-- Do not fork `--rail-width` to the Knowledge icon rail.
+- Do not fork `--rail-width`. Every hub, including Tasks and Knowledge, uses the 15rem labeled rail.
 - Do not flatten glass to Knowledge/Life’s `glass-panel` override. Tasks keeps Teaching frost.
 - Do not start a Tasks colour story “because work is serious.”
 - If a size or colour is missing, pick the nearest token.

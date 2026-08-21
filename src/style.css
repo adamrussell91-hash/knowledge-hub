@@ -69,11 +69,35 @@
   stroke-linejoin: round;
 }
 
+.hub-rail .rail__btn svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+}
+
 .rail__btn span {
   font-size: 0.625rem;
   font-weight: var(--weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.hub-rail .rail__btn {
+  display: flex;
+  align-items: center;
+  justify-items: initial;
+  gap: var(--space-3);
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  text-transform: none;
+}
+
+.hub-rail .rail__btn span {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-normal);
+  text-transform: none;
 }
 
 .rail__btn:hover,

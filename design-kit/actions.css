@@ -1,4 +1,6 @@
-/* Shared action chrome. Existing hubs import this instead of full chrome.css. */
+/* Shared action chrome. Existing hubs import this instead of full chrome.css.
+ * Left rail is css/rail.css (RAIL.md) — load it alongside this sheet when adopting.
+ */
 
 /* Discrete chrome utilities (refresh / sign out). Top-right of the page header —
    faded icon only, never a labelled .btn. Snippet: snippets/hub-utilities.html */
@@ -40,6 +42,14 @@
   width: 1.125rem;
   height: 1.125rem;
   display: block;
+}
+
+/* Site tile — canvas top-right, after .hub-utilities. Same file as favicon + login. */
+.hub-mark {
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
 }
 
 .btn {

@@ -3,6 +3,7 @@
 @import "../design-kit/overlays.css";
 @import "../design-kit/actions.css";
 @import "../design-kit/sign-in.css";
+@import "../design-kit/rail.css";
 
 :root {
   --paper: var(--warm-white);

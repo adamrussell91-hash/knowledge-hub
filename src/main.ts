@@ -170,7 +170,7 @@ function pageHeader(eyebrow: string, title: string, actionsInner = "") {
   const utilities = hubUtilitiesHtml();
   const actions =
     actionsInner || utilities
-      ? `<div class="page-header__actions">${actionsInner}${utilities}</div>`
+      ? `<div class="page-header__actions">${actionsInner}${utilities}<img class="hub-mark" src="design-kit/icons/knowledge.svg" alt="" width="32" height="32"></div>`
       : "";
   return `<header class="topbar page-header">
       <div class="page-header__copy">
@@ -242,21 +242,21 @@ function shell(main: string) {
     graphTeardown = null;
   }
   app.innerHTML = `<div class="app-shell">
-    <aside class="rail" aria-label="Knowledge Hub">
-      <button type="button" class="rail__brand" data-home aria-label="Knowledge Hub home">Knowledge Hub</button>
-      <nav class="rail__nav">
-        <button class="rail__btn ${view === "list" && !keywordFilter ? "is-active" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
-        <button class="rail__btn ${view === "graph" ? "is-active" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
-        <button class="rail__btn ${view === "coach" ? "is-active" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
-        <button class="rail__btn ${view === "podcast" ? "is-active" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
-        <button class="rail__btn ${view === "quiz" ? "is-active" : ""}" data-nav="quiz" type="button">${icons.quiz}<span>Quiz</span></button>
-        <button class="rail__btn ${view === "wiki" ? "is-active" : ""}" data-nav="wiki" type="button">${icons.wiki}<span>Wiki</span></button>
+    <aside class="rail hub-rail" aria-label="Knowledge Hub">
+      <div class="hub-rail__brand-block"><a href="#" class="hub-rail__brand" data-home>Knowledge Hub</a></div>
+      <nav class="rail__nav hub-rail__nav">
+        <button class="rail__btn hub-rail__link ${view === "list" && !keywordFilter ? "is-current" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
+        <button class="rail__btn hub-rail__link ${view === "graph" ? "is-current" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
+        <button class="rail__btn hub-rail__link ${view === "coach" ? "is-current" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
+        <button class="rail__btn hub-rail__link ${view === "podcast" ? "is-current" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
+        <button class="rail__btn hub-rail__link ${view === "quiz" ? "is-current" : ""}" data-nav="quiz" type="button">${icons.quiz}<span>Quiz</span></button>
+        <button class="rail__btn hub-rail__link ${view === "wiki" ? "is-current" : ""}" data-nav="wiki" type="button">${icons.wiki}<span>Wiki</span></button>
       </nav>
     </aside>
     <main class="canvas">${main}</main>
   </div>`;
 
-  app.querySelector<HTMLButtonElement>("[data-home]")!.onclick = () => goToHome();
+  app.querySelector<HTMLAnchorElement>("[data-home]")!.onclick = event => { event.preventDefault(); goToHome(); };
 
   app.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach(button => {
     button.onclick = () => {
@@ -986,13 +986,13 @@ function render() {
 
 function renderLogin() {
   app.innerHTML = `<div class="sign-in">
-    <form class="sign-in__card" method="post" action="#">
+    <form class="sign-in__card" method="post" action="#" novalidate>
+      <img class="sign-in__mark" src="design-kit/icons/knowledge.svg" alt="" width="56" height="56">
       <p class="sign-in__brand">Knowledge Hub</p>
       <h1 class="sign-in__title">Sign in</h1>
-      <p class="sign-in__supporting">The archive stays private.</p>
       <div class="sign-in__field">
         <label class="sign-in__label" for="sign-in-passphrase">Passphrase</label>
-        <input class="sign-in__input" id="sign-in-passphrase" name="passphrase" type="password" required autocomplete="current-password" />
+        <input class="sign-in__input" id="sign-in-passphrase" name="passphrase" type="password" required autocomplete="current-password" enterkeyhint="go" />
       </div>
       <p class="sign-in__error" role="alert" hidden></p>
       <button class="btn btn--primary sign-in__submit" type="submit">Sign in</button>

@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Hub</title>
+    <link rel="icon" href="../icons/knowledge.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,11 +19,19 @@
     <div class="hub-layout">
       <aside class="hub-rail">
         <div class="hub-rail__brand-block">
-          <!-- Single line; CSS uppercases. Do not stack with <br> or restyle as a hero. -->
-          <p class="hub-rail__brand">Knowledge Hub</p>
+          <!-- Always an <a> to hub home. Single line; CSS uppercases. See RAIL.md. -->
+          <a class="hub-rail__brand" href="/">Knowledge Hub</a>
           <!-- Optional: <p class="hub-rail__tagline">Private dashboard</p> -->
         </div>
-        <!-- nav buttons: use .btn.btn--ghost; colour with --on-dark on the rail -->
+        <nav class="hub-rail__nav" aria-label="Hub">
+          <a class="hub-rail__link" href="/" aria-current="page">
+            <svg class="hub-rail__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 11.5 12 4l8 7.5" />
+              <path d="M6 10.5V20h12v-9.5" />
+            </svg>
+            Home
+          </a>
+        </nav>
       </aside>
       <div class="hub-canvas">
         <header class="page-header">
@@ -50,6 +59,7 @@
                 </svg>
               </button>
             </div>
+            <img class="hub-mark" src="../icons/knowledge.svg" alt="" width="32" height="32" />
           </div>
         </header>
       </div>

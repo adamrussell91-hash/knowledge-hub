@@ -129,6 +129,8 @@
   --shadow: var(--elev-3);
 
   /* ── Layout ───────────────────────────────────────────────────────────── */
+  /* Locked. Every hub uses this labeled rail. Overlays and hub sheets must not
+     override it (Knowledge is not an icon column). Spec: RAIL.md. */
   --rail-width: 15rem;
   --measure: 68ch;
 
