@@ -7,6 +7,7 @@ import {
   UNIVERSE_BUILD,
   KIND_DEPTH,
   advanceOrbitClock,
+  fillDots,
   glowSpread,
   mountSolarView,
   presence,
@@ -53,10 +54,25 @@ function planetBody(partial: Partial<Body> = {}): Body {
 
 type Arc = { x: number; y: number; r: number; start: number; end: number };
 
+// Mirrors the browser Path2D API: arcs added to a path are batched, and
+// filling the path with one ctx.fill(path) call paints their union in one
+// pass. jsdom has no Path2D at all, which is exactly how the real "arcs fuse
+// into a flat-alpha union polygon" bug shipped three times without a failing
+// test — fillDots silently took the always-correct per-dot fallback branch
+// in every test run. Stubbing Path2D here closes that blind spot: it lets a
+// regression back to path-batched fills show up as a fillGroups entry > 1.
+class FakePath2D {
+  count = 0;
+  arc(_x: number, _y: number, _r: number, _start: number, _end: number) {
+    this.count += 1;
+  }
+}
+
 function recordingContext() {
   const arcs: Arc[] = [];
   const fullCircleStrokes: Arc[] = [];
   const images: Array<{ w: number; h: number }> = [];
+  const fillGroups: number[] = [];
   let pending: Arc | null = null;
   const ctx = {
     globalAlpha: 1,
@@ -81,7 +97,9 @@ function recordingContext() {
       pending = { x, y, r, start, end };
       arcs.push(pending);
     },
-    fill() {},
+    fill(path?: FakePath2D) {
+      fillGroups.push(path ? path.count : pending ? 1 : 0);
+    },
     stroke() {
       if (!pending) return;
       if (Math.abs(pending.end - pending.start) >= Math.PI * 2 - 1e-6) fullCircleStrokes.push(pending);
@@ -101,7 +119,7 @@ function recordingContext() {
       return { addColorStop() {} };
     },
   };
-  return { ctx, arcs, fullCircleStrokes, images };
+  return { ctx, arcs, fullCircleStrokes, images, fillGroups };
 }
 
 function installCanvas() {
@@ -109,6 +127,7 @@ function installCanvas() {
   HTMLCanvasElement.prototype.getContext = function () {
     return recorded.ctx as unknown as CanvasRenderingContext2D;
   };
+  vi.stubGlobal("Path2D", FakePath2D);
   return recorded;
 }
 
@@ -144,7 +163,7 @@ function worldPos(body: Body, model: ReturnType<typeof buildSolarModel>) {
 
 describe("presence and bands", () => {
   it("exposes a build number so a stale Universe bundle is obvious", () => {
-    expect(UNIVERSE_BUILD).toBe(18);
+    expect(UNIVERSE_BUILD).toBe(19);
   });
 
   it("maps band thresholds onto KIND_DEPTH cutoffs", () => {
@@ -224,6 +243,26 @@ describe("search hits", () => {
     expect(hits.size).toBeGreaterThan(0);
     expect([...hits].every(idx => model.bodies[idx]?.kind !== "sun")).toBe(true);
     expect(resolveSearchHits(model, "   ").size).toBe(0);
+  });
+});
+
+describe("fillDots", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("fills each overlapping same-color dot on its own path instead of unioning them into one shape", () => {
+    const recorded = installCanvas();
+    const dots = Array.from({ length: 6 }, (_, i) => ({
+      x: i * 2,
+      y: 0,
+      r: 6,
+      color: "#8a5fd6",
+      alpha: 0.4,
+    }));
+    fillDots(recorded.ctx as unknown as CanvasRenderingContext2D, dots);
+    expect(recorded.fillGroups).toHaveLength(dots.length);
+    expect(recorded.fillGroups.every(count => count === 1)).toBe(true);
   });
 });
 
