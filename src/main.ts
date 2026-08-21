@@ -170,7 +170,7 @@ function pageHeader(eyebrow: string, title: string, actionsInner = "") {
   const utilities = hubUtilitiesHtml();
   const actions =
     actionsInner || utilities
-      ? `<div class="page-header__actions">${actionsInner}${utilities}<img class="hub-mark" src="design-kit/icons/knowledge.svg" alt="" width="32" height="32"></div>`
+      ? `<div class="page-header__actions">${actionsInner}${utilities}<img class="hub-mark" src="icons/knowledge.svg" alt="" width="32" height="32"></div>`
       : "";
   return `<header class="topbar page-header">
       <div class="page-header__copy">
@@ -987,7 +987,7 @@ function render() {
 function renderLogin() {
   app.innerHTML = `<div class="sign-in">
     <form class="sign-in__card" method="post" action="#" novalidate>
-      <img class="sign-in__mark" src="design-kit/icons/knowledge.svg" alt="" width="56" height="56">
+      <img class="sign-in__mark" src="icons/knowledge.svg" alt="" width="56" height="56">
       <p class="sign-in__brand">Knowledge Hub</p>
       <h1 class="sign-in__title">Sign in</h1>
       <div class="sign-in__field">
