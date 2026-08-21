@@ -16,22 +16,39 @@ describe("chat hats", () => {
   });
 
   it("uses cheap defaults and lets discrete dials override them", () => {
-    expect(resolveChatPlan("scoping")).toEqual({
+    expect(resolveChatPlan("scoping")).toMatchObject({
       hat: hatById("scoping"),
       scope: "wide",
       depth: "single",
       kernel: "quick",
+      k: 32,
+      maxRounds: 1,
+      negation: false,
     });
-    expect(resolveChatPlan("evidence")).toMatchObject({ scope: "narrow", depth: "verified", kernel: "quick" });
-    expect(resolveChatPlan("synthesis", { depth: "iterative" })).toMatchObject({
+    expect(resolveChatPlan("evidence")).toMatchObject({
+      scope: "narrow",
+      depth: "verified",
+      kernel: "deep",
+      k: 8,
+      maxRounds: 2,
+      negation: true,
+    });
+    expect(resolveChatPlan("synthesis")).toMatchObject({
       scope: "standard",
       depth: "iterative",
       kernel: "deep",
+      maxRounds: 5,
+    });
+    expect(resolveChatPlan("methods")).toMatchObject({
+      tags: ["Research Methods and Evidence Literacy"],
+      kernel: "quick",
     });
     expect(resolveChatPlan("writing", { scope: "wide", depth: "exhaustive" })).toMatchObject({
       scope: "wide",
       depth: "exhaustive",
       kernel: "deep",
+      k: 48,
+      maxRounds: 5,
     });
   });
 });

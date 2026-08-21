@@ -9,6 +9,9 @@
 [functions.tidy]
   timeout = 26
 
+[functions.clementine-chat]
+  timeout = 26
+
 [build.environment]
   # Public CORS origin and R2 bucket name — not secrets. Netlify's scanner
   # fails Git deploys when these values appear in .env.example / wrangler config.

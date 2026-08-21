@@ -1,3 +1,4 @@
+import type { KernelSearchInput } from "./kernel";
 import type { ResearchResult } from "./schema";
 
 export type DeepStartResponse = {
@@ -9,8 +10,8 @@ export type DeepStartResponse = {
 export type ResearchBindings = {
   secret: string;
   allowedOrigin: string;
-  runQuick: (input: { query: string; documentContext?: string }) => Promise<ResearchResult>;
-  startDeep: (input: { query: string; documentContext?: string }) => Promise<DeepStartResponse>;
+  runQuick: (input: KernelSearchInput) => Promise<ResearchResult>;
+  startDeep: (input: KernelSearchInput) => Promise<DeepStartResponse>;
   getDeep: (sessionId: string) => Promise<ResearchResult | null>;
   cancelDeep: (sessionId: string) => Promise<{ status: "cancelled" } | null>;
 };
@@ -32,15 +33,39 @@ function json(status: number, body: unknown, headers: Record<string, string>) {
   });
 }
 
-async function readQuery(request: Request) {
+function asStringList(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string").map(item => item.trim()).filter(Boolean)
+    : undefined;
+}
+
+async function readQuery(request: Request): Promise<KernelSearchInput> {
   try {
-    const payload = (await request.json()) as { query?: unknown; documentContext?: unknown };
+    const payload = (await request.json()) as {
+      query?: unknown;
+      documentContext?: unknown;
+      k?: unknown;
+      tags?: unknown;
+      maxRounds?: unknown;
+      negation?: unknown;
+    };
     const query = typeof payload.query === "string" ? payload.query.trim() : "";
     const documentContext =
       typeof payload.documentContext === "string" ? payload.documentContext : undefined;
-    return { query, documentContext };
+    const k = typeof payload.k === "number" && payload.k > 0 ? payload.k : undefined;
+    const maxRounds =
+      typeof payload.maxRounds === "number" && payload.maxRounds > 0 ? payload.maxRounds : undefined;
+    const tags = asStringList(payload.tags);
+    return {
+      query,
+      documentContext,
+      k,
+      tags,
+      maxRounds,
+      negation: payload.negation === true,
+    };
   } catch {
-    return { query: "", documentContext: undefined };
+    return { query: "" };
   }
 }
 
@@ -61,20 +86,20 @@ export async function handleResearchRequest(request: Request, bindings: Research
   const path = url.pathname.replace(/\/+$/, "") || "/";
 
   if (request.method === "POST" && path.endsWith("/quick_research")) {
-    const { query, documentContext } = await readQuery(request);
-    if (!query) return json(400, { error: "query is required" }, headers);
+    const search = await readQuery(request);
+    if (!search.query) return json(400, { error: "query is required" }, headers);
     try {
-      return json(200, await bindings.runQuick({ query, documentContext }), headers);
+      return json(200, await bindings.runQuick(search), headers);
     } catch (error) {
       return json(502, { error: "Quick research failed", detail: String(error) }, headers);
     }
   }
 
   if (request.method === "POST" && path.endsWith("/deep_research/start")) {
-    const { query, documentContext } = await readQuery(request);
-    if (!query) return json(400, { error: "query is required" }, headers);
+    const search = await readQuery(request);
+    if (!search.query) return json(400, { error: "query is required" }, headers);
     try {
-      return json(200, await bindings.startDeep({ query, documentContext }), headers);
+      return json(200, await bindings.startDeep(search), headers);
     } catch (error) {
       return json(502, { error: "Deep research failed to start", detail: String(error) }, headers);
     }

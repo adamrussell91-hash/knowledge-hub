@@ -34,7 +34,7 @@ export const CHAT_HATS: ChatHat[] = [
     id: "synthesis",
     label: "Thematic synthesis",
     defaultScope: "standard",
-    defaultDepth: "single",
+    defaultDepth: "iterative",
     plan: "Retrieve, read top bodies, write a structured brief. Every claim carries an archive page id. Never invent a page.",
   },
   {
@@ -84,8 +84,26 @@ export function isChatHatId(value: string): value is ChatHatId {
   return CHAT_HATS.some(hat => hat.id === value);
 }
 
+export const METHODS_TAG = "Research Methods and Evidence Literacy";
+
+const K_FOR_SCOPE: Record<ChatScope, number> = { narrow: 8, standard: 16, wide: 32 };
+const ROUNDS_FOR_DEPTH: Record<ChatDepth, number> = {
+  single: 1,
+  verified: 2,
+  iterative: 5,
+  exhaustive: 5,
+};
+
+export type RetrieveSpec = {
+  k: number;
+  maxRounds: number;
+  kernel: KernelPath;
+  tags?: string[];
+  negation: boolean;
+};
+
 function kernelFor(depth: ChatDepth): KernelPath {
-  return depth === "iterative" || depth === "exhaustive" ? "deep" : "quick";
+  return depth === "single" ? "quick" : "deep";
 }
 
 export function resolveChatPlan(
@@ -95,5 +113,12 @@ export function resolveChatPlan(
   const hat = hatById(hatId);
   const scope = overrides.scope ?? hat.defaultScope;
   const depth = overrides.depth ?? hat.defaultDepth;
-  return { hat, scope, depth, kernel: kernelFor(depth) };
+  const spec: RetrieveSpec = {
+    k: depth === "exhaustive" ? 48 : K_FOR_SCOPE[scope],
+    maxRounds: ROUNDS_FOR_DEPTH[depth],
+    kernel: kernelFor(depth),
+    tags: hat.id === "methods" ? [METHODS_TAG] : undefined,
+    negation: hat.id === "evidence" || hat.id === "contested",
+  };
+  return { hat, scope, depth, ...spec };
 }

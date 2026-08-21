@@ -30,11 +30,19 @@ export class ResearchSession {
         sessionId: string;
         query: string;
         documentContext?: string;
+        k?: number;
+        tags?: string[];
+        maxRounds?: number;
+        negation?: boolean;
       };
       let state = initialSession({
         query: body.query,
         documentContext: body.documentContext,
         now: Date.now(),
+        k: body.k,
+        tags: body.tags,
+        maxRounds: body.maxRounds,
+        negation: body.negation,
       });
       state = await runDeepRoundKernel(state, this.env);
       await this.saveState(state);

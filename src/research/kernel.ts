@@ -3,8 +3,18 @@ import { loadCorpusCached } from "./corpusCache";
 import { excerptFromBody, fetchPageBody, type PageBody } from "./fetchPageBody";
 import { hybridRetrieve } from "./hybridRetrieve";
 import { initialSession, runRound, sessionToResult, type SessionState } from "./round";
+import { applyResearchScope } from "./scope";
 import type { ResearchResult } from "./schema";
 import { synthesizeWithAnthropic } from "./synthesize";
+
+export type KernelSearchInput = {
+  query: string;
+  documentContext?: string;
+  k?: number;
+  tags?: string[];
+  maxRounds?: number;
+  negation?: boolean;
+};
 
 export type KernelEnv = {
   ARCHIVE: {
@@ -42,19 +52,25 @@ async function githubPage(env: KernelEnv, pageId: string): Promise<PageBody | nu
   return page.id ? page : null;
 }
 
-function roundDeps(env: KernelEnv) {
+function roundDeps(env: KernelEnv, search: Pick<KernelSearchInput, "k" | "tags"> = {}) {
   return {
     retrieve: async (query: string) => {
       const corpus = await loadCorpusCached({
         text: key => r2Text(env, key),
         bytes: key => r2Bytes(env, key),
       });
+      const scoped = applyResearchScope(
+        corpus.manifest,
+        corpus.index,
+        search.tags?.length ? { tags: search.tags } : undefined,
+      );
       const queryVector = env.EMBEDDINGS_API_KEY ? await embedQuery(query, env.EMBEDDINGS_API_KEY) : null;
       return hybridRetrieve({
         query,
-        manifest: corpus.manifest,
-        index: corpus.index,
+        manifest: scoped.manifest,
+        index: scoped.index,
         queryVector,
+        k: search.k,
       });
     },
     fetchBodies: async (pageIds: string[]) => {
@@ -90,18 +106,30 @@ function roundDeps(env: KernelEnv) {
   };
 }
 
-export async function runQuickKernel(
-  input: { query: string; documentContext?: string },
-  env: KernelEnv,
-): Promise<ResearchResult> {
-  const state = await runRound(initialSession({ query: input.query, documentContext: input.documentContext, now: Date.now() }), {
-    ...roundDeps(env),
-    now: () => Date.now(),
-    finalize: true,
-  });
+export async function runQuickKernel(input: KernelSearchInput, env: KernelEnv): Promise<ResearchResult> {
+  const state = await runRound(
+    initialSession({
+      query: input.query,
+      documentContext: input.documentContext,
+      now: Date.now(),
+      k: input.k,
+      tags: input.tags,
+      negation: input.negation,
+      maxRounds: 1,
+    }),
+    {
+      ...roundDeps(env, input),
+      now: () => Date.now(),
+      finalize: true,
+    },
+  );
   return sessionToResult(state);
 }
 
 export async function runDeepRoundKernel(state: SessionState, env: KernelEnv): Promise<SessionState> {
-  return runRound(state, { ...roundDeps(env), now: () => Date.now() });
+  return runRound(state, {
+    ...roundDeps(env, { k: state.k, tags: state.tags }),
+    maxRounds: state.maxRounds,
+    now: () => Date.now(),
+  });
 }

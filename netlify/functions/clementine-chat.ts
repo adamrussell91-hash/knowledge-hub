@@ -4,6 +4,7 @@ import { requireSession } from "./_lib/requireSession";
 import { loadPromptFile } from "../../src/clementine/loadFromDisk";
 import { runChatTurn, type ChatMessage } from "../../src/chat/chatTurn";
 import { isChatHatId, type ChatDepth, type ChatScope } from "../../src/chat/hats";
+import { ResearchResultSchema } from "../../src/research/schema";
 
 const DEFAULT_KERNEL_URL = "https://knowledge-hub-research.adamrussell91.workers.dev";
 
@@ -19,6 +20,9 @@ function parseBody(raw: string | null) {
       noteContext?: unknown;
       searchOutside?: unknown;
       researchSessionId?: unknown;
+      compose?: unknown;
+      priorResearch?: unknown;
+      archiveFailed?: unknown;
     };
     if (!Array.isArray(parsed.messages)) return null;
     const messages = parsed.messages.filter(
@@ -47,6 +51,9 @@ function parseBody(raw: string | null) {
       noteContext: note,
       searchOutside: parsed.searchOutside === true,
       researchSessionId: typeof parsed.researchSessionId === "string" ? parsed.researchSessionId : undefined,
+      compose: parsed.compose === true,
+      priorResearch: ResearchResultSchema.safeParse(parsed.priorResearch).data,
+      archiveFailed: parsed.archiveFailed === true,
     };
   } catch {
     return null;
@@ -104,6 +111,9 @@ export const handler: Handler = async event => {
       noteContext: body.noteContext,
       searchOutside: body.searchOutside,
       researchSessionId: body.researchSessionId,
+      compose: body.compose,
+      priorResearch: body.priorResearch,
+      archiveFailed: body.archiveFailed,
       kernel: kernelSecret ? { url: kernelUrl, secret: kernelSecret, fetchImpl: fetch } : undefined,
       complete: (system, messages) => completeWithAnthropic(system, messages, apiKey),
     });

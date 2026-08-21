@@ -3,7 +3,8 @@ import { newHubPageId } from "../domain/page";
 import type { Page } from "../domain/page";
 import { escapeHtml, showToast } from "../lib/dom";
 import type { ResearchFinding } from "../research/schema";
-import { CHAT_HATS, DEPTHS, SCOPES, hatById, isChatHatId, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
+import { CHAT_HATS, DEPTHS, SCOPES, hatById, isChatHatId, resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
+import { appendTick, chatTick } from "./ticker";
 import { briefIsSavable, briefToPage, type SavableFinding } from "./saveBrief";
 import type { ChatTurnResult } from "./chatTurn";
 
@@ -40,6 +41,7 @@ let noteContext: { pageId: string; title: string } | undefined;
 let researchSessionId = "";
 let busy = false;
 let error = "";
+let ticks: string[] = [];
 let saveBusy = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -92,6 +94,7 @@ function resetSitting() {
   turns = [];
   researchSessionId = "";
   error = "";
+  ticks = [];
   persist();
 }
 
@@ -122,9 +125,37 @@ function lastAssistant(): ChatTurn | undefined {
   return [...turns].reverse().find(turn => turn.role === "assistant");
 }
 
+function sitting() {
+  return resolveChatPlan(hat, { scope, depth });
+}
+
+function pushTick(
+  phase: "searching" | "round" | "writing" | "failed",
+  research?: { findings?: unknown[]; followUpQueries?: string[]; round?: number },
+) {
+  const plan = sitting();
+  ticks = appendTick(
+    ticks,
+    chatTick({
+      phase,
+      hatLabel: plan.hat.label,
+      scope: plan.scope,
+      depth: plan.depth,
+      round: research?.round,
+      maxRounds: plan.maxRounds,
+      noteCount: research?.findings?.length,
+      followUps: research?.followUpQueries?.length,
+    }),
+  );
+}
+
 function applyResult(history: ChatTurn[], result: ChatTurnResult) {
   if (result.status === "researching") {
     researchSessionId = result.researchSessionId;
+    if (result.research) pushTick("round", result.research);
+    return;
+  }
+  if (result.status === "compose") {
     return;
   }
   if (result.status === "external-unavailable") {
@@ -160,20 +191,35 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
   }
   busy = true;
   error = "";
+  if (!researchSessionId && !extras.searchOutside) {
+    ticks = [];
+    pushTick("searching");
+  }
   persist();
   host.render();
   try {
-    const result = await runChat({
-      hat,
-      scope,
-      depth,
-      messages: history.map(({ role, content }) => ({ role, content })),
-      workingThesis: thesis || undefined,
-      draft: draft || undefined,
-      noteContext,
-      searchOutside: extras.searchOutside,
-      researchSessionId: researchSessionId || undefined,
-    });
+    const result = await runChat(
+      {
+        hat,
+        scope,
+        depth,
+        messages: history.map(({ role, content }) => ({ role, content })),
+        workingThesis: thesis || undefined,
+        draft: draft || undefined,
+        noteContext,
+        searchOutside: extras.searchOutside,
+        researchSessionId: researchSessionId || undefined,
+      },
+      phase => {
+        if (phase.status === "compose") {
+          pushTick(phase.research?.findings?.length ? "round" : "failed", phase.research);
+        }
+        if (phase.status === "writing") pushTick("writing", phase.research);
+        if (phase.status === "researching" && phase.research) pushTick("round", phase.research);
+        persist();
+        host.render();
+      },
+    );
     applyResult(history, result);
   } catch (caught) {
     if (!researchSessionId && !extras.searchOutside) input = outgoing;
@@ -270,6 +316,13 @@ export function renderChatRail(host: ChatRailHost) {
           ${canSave ? `<button type="button" data-save-brief ${saveBusy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>` : ""}
         </div>
         ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
+        ${
+          ticks.length
+            ? `<ol class="chat__ticker" aria-live="polite">${ticks
+                .map(line => `<li>${escapeHtml(line)}</li>`)
+                .join("")}</ol>`
+            : ""
+        }
       </form>
       <div class="coach__thread" aria-live="polite">
         ${

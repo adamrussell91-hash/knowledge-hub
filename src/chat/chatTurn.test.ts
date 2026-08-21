@@ -28,24 +28,52 @@ function researchResult(overrides: Record<string, unknown> = {}) {
 }
 
 describe("runChatTurn", () => {
-  it("does a quick archive pull for Scoping and names the hat in the prompt", async () => {
+  it("does a quick archive pull for Scoping without calling Claude yet", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => researchResult({ findings: [finding, { ...finding, pageId: "p2" }, { ...finding, pageId: "p3" }] }),
     });
-    let system = "";
+    const complete = vi.fn();
     const result = await runChatTurn({
       voice,
       universityJob,
       hat: "scoping",
       messages: [{ role: "user", content: "What do I have on Gagne?" }],
       kernel: { url: "https://kernel.test", secret: "k", fetchImpl: fetchImpl as unknown as typeof fetch },
+      complete,
+    });
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://kernel.test/quick_research");
+    expect(JSON.parse(String((fetchImpl.mock.calls[0]?.[1] as RequestInit).body))).toMatchObject({
+      query: "What do I have on Gagne?",
+      k: 32,
+      maxRounds: 1,
+      negation: false,
+    });
+    expect(fetchImpl.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(complete).not.toHaveBeenCalled();
+    expect(result.status).toBe("compose");
+    if (result.status !== "compose") return;
+    expect(result.coverage?.thin).toBe(false);
+    expect(result.research?.findings).toHaveLength(3);
+  });
+
+  it("writes the Scoping reply on a second turn that already has archive findings", async () => {
+    let system = "";
+    const fetchImpl = vi.fn();
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "scoping",
+      messages: [{ role: "user", content: "What do I have on Gagne?" }],
+      compose: true,
+      priorResearch: researchResult({ findings: [finding, { ...finding, pageId: "p2" }, { ...finding, pageId: "p3" }] }),
+      kernel: { url: "https://kernel.test", secret: "k", fetchImpl: fetchImpl as unknown as typeof fetch },
       complete: async assembled => {
         system = assembled;
         return "Three clusters, one exemplar each.";
       },
     });
-    expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://kernel.test/quick_research");
+    expect(fetchImpl).not.toHaveBeenCalled();
     expect(system).toContain("Scoping");
     expect(system).toContain("Wide sweep");
     expect(result.status).toBe("done");
@@ -70,8 +98,13 @@ describe("runChatTurn", () => {
       complete,
     });
     expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://kernel.test/deep_research/start");
+    expect(JSON.parse(String((fetchImpl.mock.calls[0]?.[1] as RequestInit).body))).toMatchObject({
+      k: 16,
+      maxRounds: 5,
+      negation: false,
+    });
     expect(complete).not.toHaveBeenCalled();
-    expect(result).toEqual({ status: "researching", researchSessionId: "sess-1" });
+    expect(result).toMatchObject({ status: "researching", researchSessionId: "sess-1" });
   });
 
   it("polls a finished deep session then completes", async () => {
