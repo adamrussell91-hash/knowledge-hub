@@ -1,4 +1,4 @@
-export type HubView = "list" | "graph" | "page" | "compose" | "coach" | "podcast" | "quiz" | "wiki";
+export type HubView = "list" | "graph" | "page" | "compose" | "chat" | "podcast" | "quiz";
 
 export type HubHomeState<PageT = unknown, ComposeT = unknown> = {
   view: HubView;
