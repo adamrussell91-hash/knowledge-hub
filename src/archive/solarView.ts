@@ -1,7 +1,7 @@
 import { attachGraphSearch, type GraphMount } from "./forceGraphBehavior";
 import { hashUnit, worldPositions, type Body, type BodyKind, type SolarModel } from "./solarModel";
 
-export const UNIVERSE_BUILD = 17;
+export const UNIVERSE_BUILD = 18;
 
 export type SolarNotePayload = { pageId: string; title: string; excerpt: string };
 
@@ -48,8 +48,8 @@ export function presence(body: Body, z: number, k: number, maxTag: number) {
   let big: number;
   if (body.kind === "planet") {
     t = clamp01((z - 2.4) / 7);
-    big = (9 + Math.sqrt(body.count / tag) * 15) / safeK;
-    if (body.giant) big *= 2.2;
+    big = (5.2 + Math.sqrt(body.count / tag) * 5) / safeK;
+    if (body.giant) big *= 1.7;
   } else if (body.kind === "minor") {
     t = clamp01((z - 2.4) / 12);
     big = (4.2 + Math.sqrt(body.count / tag) * 6) / safeK;
@@ -97,6 +97,11 @@ export function resolveSearchHits(model: SolarModel, query: string) {
     }
   }
   return hits;
+}
+
+export function glowSpread(z: number, giant: boolean) {
+  if (z < 2.4) return 0;
+  return giant ? 2.6 : 2.1;
 }
 
 function prefersReducedMotion() {
@@ -360,9 +365,10 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
     for (let i = 0; i < n; i++) {
       const body = B[i]!;
       if (body.kind !== "planet" || !VIS[i]) continue;
+      const glow = glowSpread(z, !!body.giant);
+      if (glow <= 0) continue;
       const pr = presence(body, z, view.k, maxTag);
       ctx.globalAlpha = alphaFor(i, searching) * (body.giant ? 0.62 : 0.5);
-      const glow = body.giant ? 2.6 : 2.1;
       ctx.drawImage(glowSprite(body.color), X[i]! - pr * glow, Y[i]! - pr * glow, pr * glow * 2, pr * glow * 2);
     }
     ctx.restore();
