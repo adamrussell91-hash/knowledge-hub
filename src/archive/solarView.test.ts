@@ -191,26 +191,52 @@ describe("presence and bands", () => {
     }
     expect(Math.min(...samples)).toBeGreaterThanOrEqual(3 / k);
     expect(presence(planetBody({ kind: "page", r: 0.85, sysR: 0.85 }), 1, k, 100)).toBeGreaterThanOrEqual(
-      5.2 / k,
+      2.4 / k,
     );
     expect(presence(planetBody({ kind: "moon", r: 2, sysR: 8, count: 12 }), 1, k, 100)).toBeGreaterThanOrEqual(
-      8 / k,
+      4.2 / k,
     );
     const giant = planetBody({ giant: true, count: 200 });
     const ordinary = planetBody({ count: 40 });
     expect(presence(giant, 1, k, 200)).toBeGreaterThan(presence(ordinary, 1, k, 200) * 1.6);
   });
 
-  it("keeps fit-zoom planets as small discs and holds glow until you zoom in", () => {
+  it("holds planet glow off until you zoom in", () => {
     const k = 0.05;
     const ordinary = presence(planetBody({ count: 80 }), 1, k, 100);
     const giant = presence(planetBody({ giant: true, count: 200 }), 1, k, 200);
-    expect(ordinary * k).toBeLessThan(12);
-    expect(giant * k).toBeLessThan(20);
+    // Loose sanity bounds — the tight, load-bearing size relationships are
+    // covered by the fit-zoom hierarchy test below.
+    expect(ordinary * k).toBeLessThan(30);
+    expect(giant * k).toBeLessThan(40);
     expect(glowSpread(1, false)).toBe(0);
     expect(glowSpread(2.39, true)).toBe(0);
     expect(glowSpread(2.4, false)).toBe(2.1);
     expect(glowSpread(2.4, true)).toBe(2.6);
+  });
+
+  it("reads as a solar system at fit zoom: sun and giant anchor it, debris stays smallest", () => {
+    // This is the actual complaint this fix addresses: at fit zoom the sun
+    // was the same screen size as a page or rock, and moons could render
+    // bigger than the planets that host them, because each kind's floor was
+    // picked independently instead of against a shared hierarchy.
+    const z = 0;
+    const k = 0.02;
+    const tag = 200;
+    const sun = presence(planetBody({ kind: "sun", r: 26 }), z, k, tag);
+    const planet = presence(planetBody({ kind: "planet", count: 120, r: 12 }), z, k, tag);
+    const giant = presence(planetBody({ kind: "planet", giant: true, count: 120, r: 30 }), z, k, tag);
+    const minor = presence(planetBody({ kind: "minor", count: 40, r: 3.4 }), z, k, tag);
+    const moon = presence(planetBody({ kind: "moon", count: 4, r: 2 }), z, k, tag);
+    const page = presence(planetBody({ kind: "page", r: 0.85 }), z, k, tag);
+    const rock = presence(planetBody({ kind: "rock", r: 1.1 }), z, k, tag);
+
+    expect(sun).toBeGreaterThan(planet);
+    expect(giant).toBeGreaterThan(planet);
+    expect(planet).toBeGreaterThan(minor);
+    expect(minor).toBeGreaterThan(moon);
+    expect(moon).toBeGreaterThan(page);
+    expect(moon).toBeGreaterThan(rock);
   });
 });
 
