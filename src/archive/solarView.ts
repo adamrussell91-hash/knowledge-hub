@@ -1,7 +1,7 @@
 import { attachGraphSearch, type GraphMount } from "./forceGraphBehavior";
 import { hashUnit, worldPositions, type Body, type BodyKind, type SolarModel } from "./solarModel";
 
-export const UNIVERSE_BUILD = 16;
+export const UNIVERSE_BUILD = 17;
 
 export type SolarNotePayload = { pageId: string; title: string; excerpt: string };
 
@@ -137,17 +137,19 @@ function ringDust(body: Body, x: number, y: number, pr: number, k: number, behin
   const n = body.giant ? 170 : 110;
   const inner = pr * 1.38;
   const outer = pr * 2.28;
+  const arm = hashUnit(`${body.id}:ring-arm`) * TAU;
   for (let i = 0; i < n; i++) {
     const u = hashUnit(`${body.id}:ring:${i}`);
     const frac = u;
     if (frac > 0.42 && frac < 0.54) continue;
-    const rad = inner + frac * (outer - inner);
-    const ang = hashUnit(`${body.id}:ringa:${i}`) * TAU;
+    const clump = Math.floor(hashUnit(`${body.id}:rc:${i}`) * 4);
+    const ang = arm + clump * (TAU / 4) + (hashUnit(`${body.id}:ringa:${i}`) - 0.5) * 0.7;
     const sin = Math.sin(ang);
     if (behind ? sin < 0 : sin >= 0) continue;
+    const rad = inner + frac * (outer - inner);
     dots.push({
       x: x + Math.cos(ang) * rad,
-      y: y + sin * rad * 0.22,
+      y: y + sin * rad * (0.34 + hashUnit(`${body.id}:ry:${i}`) * 0.22),
       r: (0.32 + u * 0.55) / k,
       color: body.color,
       alpha: 0.3 + u * 0.28,

@@ -245,13 +245,17 @@ function paintOrbit(body: Body, e0: number, eSpan: number, i0: number, iSpan: nu
 
 function organicizeSwarm(children: Body[], seed: string, inner = 0, span = 0) {
   if (!children.length) return;
-  const nClumps =
-    children.length <= 2 ? 1 : children.length <= 8 ? 2 : 1 + Math.floor(hashUnit(`${seed}:n`) * 2);
-  const centers = Array.from({ length: nClumps }, (_, i) => hashUnit(`${seed}:c:${i}`) * TAU);
-  const spread = children.length <= 6 ? 0.7 : 1.05;
+  const nClumps = children.length <= 2 ? 1 : children.length <= 6 ? 2 : 3;
+  const arm = hashUnit(`${seed}:arm`) * TAU;
+  const centers: number[] = [];
+  let ang = arm;
+  for (let c = 0; c < nClumps; c++) {
+    ang += c === 0 ? 0 : 0.55 + hashUnit(`${seed}:gap:${c}`) * 0.85;
+    centers.push(ang);
+  }
   for (const child of children) {
     const clump = Math.floor(hashUnit(`${child.id}:clump`) * nClumps) % nClumps;
-    child.phase = centers[clump]! + (hashUnit(`${child.id}:ph`) - 0.5) * spread;
+    child.phase = centers[clump]! + (hashUnit(`${child.id}:ph`) - 0.5) * 1.15;
     if (span > 0) child.a = inner + hashUnit(`${child.id}:ra`) * span;
     else child.a *= 0.7 + hashUnit(`${child.id}:ra`) * 0.85;
     paintOrbit(child, 0.1, 0.32, 0.08, 0.55);
@@ -274,22 +278,17 @@ function assignMoonOrbits(planet: Body) {
   const keep = moons.length <= 4 ? moons.length : Math.min(4, Math.max(2, moons.length - Math.ceil(moons.length * 0.55)));
   const majorMoons = moons.slice(0, keep);
   const belt = moons.slice(keep);
-  majorMoons.forEach((moon, i) => {
-    moon.a = planet.r * (3.4 + i * 3.1 + hashUnit(`${moon.id}:a`) * 3.6);
-    moon.phase = hashUnit(`${moon.id}:p`) * TAU;
-    paintOrbit(moon, 0.08, 0.28, 0.05, 0.38);
-  });
+  organicizeSwarm(
+    majorMoons,
+    `${planet.id}:majors`,
+    planet.r * 3.4,
+    planet.r * (2.2 + majorMoons.length * 3.4),
+  );
   if (!belt.length) return;
   const inner = planet.r * (10 + majorMoons.length * 2.2);
   const span = planet.r * (12 + Math.sqrt(belt.length) * 2.2);
-  const swarms = [0, 1].map(i => hashUnit(`${planet.id}:belt:${i}`) * TAU);
-  for (const moon of belt) {
-    moon.a = inner + hashUnit(`${moon.id}:ba`) * span;
-    const swarm = Math.floor(hashUnit(`${moon.id}:bs`) * 2) % 2;
-    moon.phase = swarms[swarm]! + (hashUnit(`${moon.id}:bp`) - 0.5) * 0.9;
-    paintOrbit(moon, 0.2, 0.38, 0.22, 0.55);
-    moon.r = Math.min(moon.r, 2.4);
-  }
+  organicizeSwarm(belt, `${planet.id}:moon-belt`, inner, span);
+  for (const moon of belt) moon.r = Math.min(moon.r, 2.4);
 }
 
 function placePlanets(planets: Body[]) {
@@ -339,21 +338,7 @@ function decorateCharacters(planets: Body[]) {
   const otherR = Math.max(0, ...planets.filter(planet => planet !== giant).map(planet => planet.r));
   giant.r = Math.max(giant.r * 2.5, otherR * 2.2, 28);
   giant.e = 0.035 + hashUnit(`${giant.id}:ge`) * 0.05;
-  const belt = giant.children
-    .filter(child => child.kind === "moon")
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3);
-  if (belt.length === 3) {
-    const mid = (belt[0]!.a + belt[1]!.a + belt[2]!.a) / 3;
-    const line = hashUnit(`${giant.id}:belt`) * TAU;
-    belt.forEach((moon, i) => {
-      moon.a = mid * (0.97 + i * 0.025);
-      moon.phase = line + (i - 1) * 0.22;
-      moon.e = 0.015;
-      moon.argP = 0;
-      moon.incline = 0.04;
-    });
-  }
+  assignMoonOrbits(giant);
   const saturn = scored[1]?.planet;
   if (saturn && saturn !== giant) saturn.ringed = true;
 }
@@ -435,6 +420,8 @@ function applyPeriods(bodies: Body[]) {
     if (parent.period > 0 && period >= parent.period * 0.72) {
       period = parent.period * (0.14 + hashUnit(`${body.id}:year`) * 0.42);
     }
+    period *= 0.8 + hashUnit(`${body.id}:tempo`) * 0.4;
+    if (parent.period > 0) period = Math.min(period, parent.period * 0.7);
     body.period = period;
   }
 }
