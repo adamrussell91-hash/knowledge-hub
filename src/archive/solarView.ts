@@ -35,26 +35,42 @@ function clamp01(x: number) {
   return Math.max(0, Math.min(1, x));
 }
 
+// Screen-space floor per kind, in pixels — the minimum size a body renders
+// at even when it's too small (or too zoomed out) to read at true scale.
+// These mirror the actual world-space size hierarchy from solarModel.ts
+// (sun r=26 > planet/giant > minor > moon > page/rock), compressed enough
+// that debris stays visible without making the sun the same size as a note.
+// Getting this ordering wrong is exactly what made fit-zoom look like a flat
+// pile of same-size dots instead of a solar system.
+const SUN_FLOOR_PX = 15;
+const PLANET_FLOOR_PX = 8.6;
+const MINOR_FLOOR_PX = 6.2;
+const MOON_FLOOR_PX = 4.2;
+const DEBRIS_FLOOR_PX = 2.4;
+
 export function presence(body: Body, z: number, k: number, maxTag: number) {
   const safeK = Math.max(k, 1e-9);
   const tag = Math.max(maxTag, 1);
+  if (body.kind === "sun") {
+    return Math.max(body.r, SUN_FLOOR_PX / safeK);
+  }
   if (body.kind === "page" || body.kind === "rock") {
-    return Math.max(body.r, 5.2 / safeK);
+    return Math.max(body.r, DEBRIS_FLOOR_PX / safeK);
   }
   if (body.kind === "moon") {
-    return Math.max(body.r, 8 / safeK);
+    return Math.max(body.r, MOON_FLOOR_PX / safeK);
   }
   let t: number;
   let big: number;
   if (body.kind === "planet") {
     t = clamp01((z - 2.4) / 7);
-    big = (5.2 + Math.sqrt(body.count / tag) * 5) / safeK;
+    big = (PLANET_FLOOR_PX + Math.sqrt(body.count / tag) * 5) / safeK;
     if (body.giant) big *= 1.7;
   } else if (body.kind === "minor") {
     t = clamp01((z - 2.4) / 12);
-    big = (4.2 + Math.sqrt(body.count / tag) * 6) / safeK;
+    big = (MINOR_FLOOR_PX + Math.sqrt(body.count / tag) * 6) / safeK;
   } else {
-    return Math.max(body.r, 5.2 / safeK);
+    return Math.max(body.r, DEBRIS_FLOOR_PX / safeK);
   }
   return Math.max(big + (body.r - big) * t, 3 / safeK);
 }
