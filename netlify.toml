@@ -72,6 +72,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/clementine-chat"
+  to = "/.netlify/functions/clementine-chat"
+  status = 200
+
+[[redirects]]
   from = "/api/curator"
   to = "/.netlify/functions/curator"
   status = 200

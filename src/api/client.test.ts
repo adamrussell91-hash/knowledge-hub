@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getPage, listPages, runCoach, savePage, signAttachment, tidyEndpoint, tidyPage } from "./client";
+import { getPage, listPages, runChat, runCoach, savePage, signAttachment, tidyEndpoint, tidyPage } from "./client";
 import { API_BASE } from "./config";
 
 describe("api client", () => {
@@ -41,6 +41,29 @@ describe("api client", () => {
     const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit;
     expect(String(init.body)).toContain("A claim");
     expect(String(init.body)).not.toMatch(/kernel/i);
+    expect(JSON.stringify(init.headers)).not.toMatch(/x-research-kernel-secret/i);
+  });
+
+  it("posts chat turns to the session API without a kernel secret", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: "done", reply: "Three clusters." }),
+      }),
+    );
+    await expect(
+      runChat({
+        hat: "scoping",
+        messages: [{ role: "user", content: "Gagne" }],
+      }),
+    ).resolves.toMatchObject({ status: "done", reply: "Three clusters." });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/clementine-chat"),
+      expect.objectContaining({ credentials: "include", method: "POST" }),
+    );
+    const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit;
+    expect(String(init.body)).toContain("scoping");
     expect(JSON.stringify(init.headers)).not.toMatch(/x-research-kernel-secret/i);
   });
 

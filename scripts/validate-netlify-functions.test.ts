@@ -35,6 +35,7 @@ describe("GitHub Pages deploy", () => {
 describe("Note tidy button uses the session API host", () => {
   it("adds a session-gated /api/tidy function without new Netlify secrets", async () => {
     const config = await readFile(path.join(process.cwd(), "netlify.toml"), "utf8");
+    expect(config).toContain("/api/clementine-chat");
     expect(config).toContain("/api/tidy");
     expect(config).toContain("prompts/tidy.md");
     const source = await readFile(path.join(process.cwd(), "netlify/functions/tidy.ts"), "utf8");
