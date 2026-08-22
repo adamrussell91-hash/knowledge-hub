@@ -129,6 +129,7 @@ type ChatResponse = {
 export type ChatPhase = {
   status: "searching" | "compose" | "researching" | "writing";
   research?: ResearchResult;
+  archiveFailed?: boolean;
 };
 
 async function postChat(input: ChatRequest) {
@@ -147,8 +148,8 @@ export async function runChat(input: ChatRequest, onPhase?: (phase: ChatPhase) =
     onPhase?.({ status: "searching" });
     const result = await postChat(input);
     if (result.status === "compose") {
-      onPhase?.({ status: "compose", research: result.research });
-      onPhase?.({ status: "writing", research: result.research });
+      onPhase?.({ status: "compose", research: result.research, archiveFailed: result.archiveFailed });
+      onPhase?.({ status: "writing", research: result.research, archiveFailed: result.archiveFailed });
       return postChat({
         ...input,
         compose: true,

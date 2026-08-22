@@ -44,7 +44,7 @@ describe("runChatTurn", () => {
     });
     expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://kernel.test/quick_research");
     expect(JSON.parse(String((fetchImpl.mock.calls[0]?.[1] as RequestInit).body))).toMatchObject({
-      query: "What do I have on Gagne?",
+      query: "Gagne",
       k: 32,
       maxRounds: 1,
       negation: false,
@@ -126,6 +126,78 @@ describe("runChatTurn", () => {
     expect(result.status).toBe("done");
     if (result.status !== "done") return;
     expect(result.reply).toBe("A structured brief.");
+  });
+
+  it("uses the live archive when the kernel comes back empty", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => researchResult({ findings: [] }),
+    });
+    const complete = vi.fn();
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "scoping",
+      messages: [{ role: "user", content: "what do I have on attribution theory" }],
+      kernel: { url: "https://kernel.test", secret: "k", fetchImpl: fetchImpl as unknown as typeof fetch },
+      archivePull: async () =>
+        researchResult({
+          query: "attribution theory",
+          findings: [{ ...finding, pageId: "page_attr", title: "Weiner attribution theory" }],
+        }),
+      complete,
+    });
+    expect(complete).not.toHaveBeenCalled();
+    expect(result.status).toBe("compose");
+    if (result.status !== "compose") return;
+    expect(result.archiveFailed).toBeFalsy();
+    expect(result.research?.findings[0]?.pageId).toBe("page_attr");
+  });
+
+  it("uses the live archive when the kernel is missing or times out", async () => {
+    const complete = vi.fn();
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "scoping",
+      messages: [{ role: "user", content: "what do I have on attribution theory" }],
+      archivePull: async () =>
+        researchResult({
+          query: "attribution theory",
+          findings: [{ ...finding, pageId: "page_attr", title: "Weiner attribution theory" }],
+        }),
+      complete,
+    });
+    expect(result.status).toBe("compose");
+    if (result.status !== "compose") return;
+    expect(result.archiveFailed).toBeFalsy();
+    expect(result.research?.findings[0]?.title).toMatch(/attribution/i);
+  });
+
+  it("recovers live archive notes on the compose turn if the first pull was empty", async () => {
+    let system = "";
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "scoping",
+      messages: [{ role: "user", content: "what do I have on attribution theory" }],
+      compose: true,
+      priorResearch: researchResult({ findings: [] }),
+      archivePull: async () =>
+        researchResult({
+          findings: [{ ...finding, pageId: "page_attr", title: "Weiner attribution theory" }],
+        }),
+      complete: async assembled => {
+        system = assembled;
+        return "You have Weiner on the stack.";
+      },
+    });
+    expect(system).toContain("page_attr");
+    expect(system).toContain("Weiner attribution theory");
+    expect(result.status).toBe("done");
+    if (result.status !== "done") return;
+    expect(result.archiveFailed).toBeFalsy();
+    expect(result.research?.findings[0]?.pageId).toBe("page_attr");
   });
 
   it("does not invent a web search when Search outside is clicked", async () => {
