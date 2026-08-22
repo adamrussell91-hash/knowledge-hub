@@ -30,7 +30,10 @@ describe("Knowledge Hub rail", () => {
     expect(main).toContain('class="btn btn--ghost reader__tidy" data-tidy type="button"');
     expect(main).toContain("Clean up");
     expect(main).toContain("Cleaning up…");
+    expect(main).toContain("readerTopicPillsHtml");
+    expect(main).toContain("cardSupportingText");
     expect(main).not.toMatch(/hub-utilities[\s\S]*data-tidy/);
+    expect(main).not.toContain('class="chip"');
   });
 
   it("filters the archive by origin pills already on notes", () => {

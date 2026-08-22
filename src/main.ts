@@ -29,8 +29,10 @@ import type { ResearchFinding } from "./research/schema";
 import { escapeHtml, showToast } from "./lib/dom";
 import { hubUtilitiesHtml } from "./lib/hubChrome";
 import { renderMarkdown } from "./lib/markdown";
+import { cardSupportingText } from "./archive/cardText";
 import { archiveEmptyHtml } from "./archive/emptyList";
 import { goHome } from "./archive/goHome";
+import { readerTopicPillsHtml } from "./archive/readerMeta";
 import {
   emptyOriginFilter,
   originFilterHtml,
@@ -51,7 +53,7 @@ import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
 import { enterChatRail, leaveChatRail, renderChatRail } from "./chat/rail";
 import { connectedLinksHtml } from "./wiki/connectedHtml";
-import { addOrigin, isOriginKind, removeOrigin } from "./origin/normalize";
+import { addOrigin, isOriginKind, originKey, removeOrigin } from "./origin/normalize";
 import { resolvedOrigins } from "./origin/notesPlace";
 import { originComposeFieldHtml, originPillsHtml, parseOriginRemoveValue } from "./origin/pills";
 import { applyTopicTags, toggleTopicTag } from "./tidy/applyTags";
@@ -82,6 +84,7 @@ let originLabelQuery = "";
 let originLabelOpen = false;
 let composeTagQuery = "";
 let composeTagOpen = false;
+let composeOriginDraft: Origin | null = null;
 let activePage: Page | null = null;
 let tidyBusy = false;
 let listScrollTop = 0;
@@ -242,6 +245,7 @@ function resetOriginLabelChrome() {
 function resetComposeTagChrome() {
   composeTagQuery = "";
   composeTagOpen = false;
+  composeOriginDraft = null;
 }
 
 function goToHome() {
@@ -334,11 +338,12 @@ async function refreshVisible() {
 
 function rowHtml(item: PageManifestEntry) {
   const meta = cardMeta(item);
+  const supporting = cardSupportingText(item.title, item.excerpt);
   return `<button class="card" type="button" data-id="${escapeHtml(item.id)}" style="height:${ROW_HEIGHT}px">
     <p class="card__meta">${meta ? escapeHtml(meta) : "—"}</p>
     <div>
       <h2 class="card__title">${escapeHtml(item.title)}</h2>
-      <p class="card__excerpt">${escapeHtml(item.excerpt)}</p>
+      ${supporting ? `<p class="card__excerpt">${escapeHtml(supporting)}</p>` : ""}
     </div>
   </button>`;
 }
@@ -690,24 +695,26 @@ function findingCards(findings: ResearchFinding[]): string {
 
 function renderPage(page: Page) {
   const topics = topicKeywords(page.tags);
-  const chips = topics
-    .slice(0, 6)
-    .map(tag => `<span class="chip">${escapeHtml(tag)}</span>`)
-    .join("");
+  const openCompose = (draft: Origin | null = null) => {
+    compose = composeFromPage(page);
+    resetComposeTagChrome();
+    composeOriginDraft = draft;
+    view = "compose";
+    render();
+  };
 
   shell(`
-    <article class="reader">
-      <div class="reader__actions">
-        <button class="reader__back" data-back type="button">← Archive</button>
+    ${pageHeader(
+      topics[0] ? escapeHtml(topics[0]) : "Note",
+      escapeHtml(page.title),
+      `<button class="reader__back" data-back type="button">← Archive</button>
         <button class="btn" data-edit type="button">Edit</button>
         <button class="btn btn--ghost reader__tidy" data-tidy type="button" ${tidyBusy ? "disabled" : ""}>${tidyBusy ? "Cleaning up…" : "Clean up"}</button>
-        <button class="btn btn--ghost" data-open-chat type="button">Chat</button>
-        ${hubUtilitiesHtml()}
-      </div>
-      <p class="eyebrow">${topics[0] ? escapeHtml(topics[0]) : "Note"}</p>
-      <h1 class="reader__title">${escapeHtml(page.title)}</h1>
-      ${originPillsHtml(resolvedOrigins(page))}
-      <div class="reader__meta">${chips}</div>
+        <button class="btn btn--ghost" data-open-chat type="button">Chat</button>`,
+    )}
+    <article class="reader">
+      ${originPillsHtml(resolvedOrigins(page), { openEdit: true })}
+      ${readerTopicPillsHtml(topics.slice(0, 6))}
       <div class="reader__body">${renderMarkdown(page.body)}</div>
       ${connectedLinksHtml(page, entries)}
       ${renderAttachments(page)}
@@ -719,12 +726,10 @@ function renderPage(page: Page) {
     view = "list";
     render();
   };
-  app.querySelector<HTMLButtonElement>("[data-edit]")!.onclick = () => {
-    compose = composeFromPage(page);
-    resetComposeTagChrome();
-    view = "compose";
-    render();
-  };
+  app.querySelector<HTMLButtonElement>("[data-edit]")!.onclick = () => openCompose();
+  app.querySelectorAll<HTMLButtonElement>("[data-edit-origins]").forEach(button => {
+    button.onclick = () => openCompose(parseOriginRemoveValue(button.dataset.editOrigins ?? ""));
+  });
   app.querySelector<HTMLButtonElement>("[data-open-chat]")!.onclick = () => {
     leaveSpecialRails();
     view = "chat";
@@ -798,7 +803,7 @@ function renderCompose(state: ComposeState) {
           ${topicTagPickerHtml(state.tags, composeTagQuery, composeTagOpen)}
         </div>
       </div>
-      ${originComposeFieldHtml(state.origins)}
+      ${originComposeFieldHtml(state.origins, composeOriginDraft)}
       <div class="compose__field compose__field--body">
         <label for="compose-body">Body (markdown)</label>
         <textarea id="compose-body">${escapeHtml(state.body)}</textarea>
@@ -948,7 +953,11 @@ function renderCompose(state: ComposeState) {
     const kind = app.querySelector<HTMLSelectElement>("#compose-origin-kind")?.value ?? "";
     const label = app.querySelector<HTMLInputElement>("#compose-origin-label")?.value ?? "";
     if (!isOriginKind(kind) || !label.trim()) return;
-    compose.origins = addOrigin(compose.origins, { kind, label });
+    const next = composeOriginDraft
+      ? addOrigin(removeOrigin(compose.origins, composeOriginDraft), { kind, label })
+      : addOrigin(compose.origins, { kind, label });
+    compose.origins = next;
+    composeOriginDraft = null;
     render();
   };
   app.querySelector<HTMLButtonElement>("[data-origin-add]")?.addEventListener("click", addOriginFromFields);
@@ -965,9 +974,23 @@ function renderCompose(state: ComposeState) {
       const target = parseOriginRemoveValue(button.dataset.originRemove ?? "");
       if (!target) return;
       compose.origins = removeOrigin(compose.origins, target);
+      if (composeOriginDraft && originKey(composeOriginDraft) === originKey(target)) {
+        composeOriginDraft = null;
+      }
       render();
     };
   });
+  app.querySelectorAll<HTMLButtonElement>("[data-origin-edit]").forEach(button => {
+    button.onclick = () => {
+      if (!compose) return;
+      syncFields();
+      composeOriginDraft = parseOriginRemoveValue(button.dataset.originEdit ?? "");
+      render();
+    };
+  });
+  if (composeOriginDraft) {
+    app.querySelector<HTMLInputElement>("#compose-origin-label")?.focus();
+  }
   app.querySelector<HTMLButtonElement>("[data-compose-save]")!.onclick = () => void saveCompose();
   bindCaptureControls(app, {
     syncFields,
