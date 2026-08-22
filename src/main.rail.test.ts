@@ -33,6 +33,12 @@ describe("Knowledge Hub rail", () => {
     expect(main).not.toMatch(/hub-utilities[\s\S]*data-tidy/);
   });
 
+  it("filters the archive by origin pills already on notes", () => {
+    expect(main).toContain("originFilterHtml");
+    expect(main).toContain("pageMatchesOriginFilter");
+    expect(css).toContain(".origin-filters");
+  });
+
   it("has no University / Notes split in the rail, filters, or compose", () => {
     expect(main).not.toContain('data-nav="university"');
     expect(main).not.toContain('data-nav="notes"');

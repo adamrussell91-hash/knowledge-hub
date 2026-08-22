@@ -22,7 +22,7 @@ export function originComposeFieldHtml(origins: Origin[]) {
   ).join("");
   return `<div class="compose__field">
         <label id="compose-origins-label">Origin</label>
-        <p class="compose__hint">Degree, unit, notebook, book, or PD session. For later filters.</p>
+        <p class="compose__hint">Degree, unit, notebook, book, or PD session. The archive filters by these.</p>
         ${originPillsHtml(pageOrigins({ origins }), { removable: true }) || `<p class="compose__hint">None yet.</p>`}
         <div class="origin-add">
           <select id="compose-origin-kind" aria-label="Origin kind">${options}</select>

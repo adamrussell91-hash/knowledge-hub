@@ -29,6 +29,14 @@ import { hubUtilitiesHtml } from "./lib/hubChrome";
 import { renderMarkdown } from "./lib/markdown";
 import { archiveEmptyHtml } from "./archive/emptyList";
 import { goHome } from "./archive/goHome";
+import {
+  emptyOriginFilter,
+  originFilterHtml,
+  originFilterTitle,
+  pageMatchesOriginFilter,
+  toggleOriginKind,
+  toggleOriginLabel,
+} from "./archive/originFilter";
 import { searchCluster } from "./archive/graphFocus";
 import { mountGraphPreview } from "./archive/graphPreview";
 import { buildArchiveGraph, topicKeywords, vocabularyPresent } from "./archive/keywordGraph";
@@ -64,6 +72,7 @@ let visible: PageManifestEntry[] = [];
 let view: View = "list";
 let query = "";
 let keywordFilter = "";
+let originFilter = emptyOriginFilter();
 let activePage: Page | null = null;
 let tidyBusy = false;
 let listScrollTop = 0;
@@ -171,7 +180,11 @@ function pageHeader(eyebrow: string, title: string, actionsInner = "") {
 }
 
 function listTitle() {
-  return keywordFilter || "Archive";
+  return originFilterTitle(originFilter) || keywordFilter || "Archive";
+}
+
+function archiveIsUnfiltered() {
+  return !keywordFilter && !originFilter.kind;
 }
 
 function renderAttachments(page: Page) {
@@ -214,10 +227,11 @@ function clearPageHash() {
 
 function goToHome() {
   leaveSpecialRails();
-  const next = goHome({ view, query, keywordFilter, activePage, compose });
+  const next = goHome({ view, query, keywordFilter, originFilter, activePage, compose });
   view = next.view;
   query = next.query;
   keywordFilter = next.keywordFilter;
+  originFilter = next.originFilter;
   activePage = next.activePage;
   compose = next.compose;
   clearPageHash();
@@ -234,7 +248,7 @@ function shell(main: string) {
     <aside class="rail hub-rail" aria-label="Knowledge Hub">
       <div class="hub-rail__brand-block"><a href="#" class="hub-rail__brand" data-home>Knowledge Hub</a></div>
       <nav class="rail__nav hub-rail__nav">
-        <button class="rail__btn hub-rail__link ${view === "list" && !keywordFilter ? "is-current" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
+        <button class="rail__btn hub-rail__link ${view === "list" && archiveIsUnfiltered() ? "is-current" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
         <button class="rail__btn hub-rail__link ${view === "graph" ? "is-current" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
         <button class="rail__btn hub-rail__link ${view === "chat" ? "is-current" : ""}" data-nav="chat" type="button">${icons.chat}<span>Chat</span></button>
         <button class="rail__btn hub-rail__link ${view === "podcast" ? "is-current" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
@@ -268,6 +282,7 @@ function shell(main: string) {
       }
       leaveSpecialRails();
       keywordFilter = "";
+      originFilter = emptyOriginFilter();
       view = "list";
       activePage = null;
       clearPageHash();
@@ -289,6 +304,7 @@ async function refreshVisible() {
   const source = query ? await searchPages(query) : entries;
   visible = source.filter(item => {
     if (keywordFilter && !topicKeywords(item.tags).includes(keywordFilter)) return false;
+    if (!pageMatchesOriginFilter(item, originFilter)) return false;
     return true;
   });
 }
@@ -335,7 +351,7 @@ function renderList() {
   shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · reading migrated data · no Netlify deploy</p>` : ""}
     ${pageHeader(
-      `Private archive${keywordFilter ? " · keyword" : ""}`,
+      `Private archive${originFilter.kind ? " · origin" : keywordFilter ? " · keyword" : ""}`,
       escapeHtml(listTitle()),
       `<button class="btn" data-new-note type="button">New note</button>
         <div class="viewbar">
@@ -353,6 +369,7 @@ function renderList() {
           : ""
       }
     </div>
+    ${originFilterHtml(entries, originFilter)}
     <p class="list-count">${visible.length.toLocaleString()} notes</p>
     <div class="cards list-viewport" aria-label="Archive list"></div>
   `);
@@ -368,6 +385,27 @@ function renderList() {
   };
   app.querySelector<HTMLButtonElement>("[data-clear-keyword]")?.addEventListener("click", () => {
     keywordFilter = "";
+    listScrollTop = 0;
+    void refreshVisible().then(render);
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-origin-kind]").forEach(button => {
+    button.onclick = () => {
+      const kind = button.dataset.originKind ?? "";
+      if (!isOriginKind(kind)) return;
+      originFilter = toggleOriginKind(originFilter, kind);
+      listScrollTop = 0;
+      void refreshVisible().then(render);
+    };
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-origin-label]").forEach(button => {
+    button.onclick = () => {
+      originFilter = toggleOriginLabel(originFilter, button.dataset.originLabel ?? "");
+      listScrollTop = 0;
+      void refreshVisible().then(render);
+    };
+  });
+  app.querySelector<HTMLButtonElement>("[data-clear-origin]")?.addEventListener("click", () => {
+    originFilter = emptyOriginFilter();
     listScrollTop = 0;
     void refreshVisible().then(render);
   });

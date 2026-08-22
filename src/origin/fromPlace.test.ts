@@ -88,6 +88,19 @@ The lecture itself.`),
     ]);
   });
 
+  it("fills notebook, book, and PD from the recovered Notion snapshot", () => {
+    expect(
+      stampPageOrigins({
+        tags: ["Note"],
+        body: "Lecture notes.",
+        source_notion_id: "163f794f84768001aebffe92627dc423",
+      }),
+    ).toEqual([
+      { kind: "book", label: "Atomic Habits" },
+      { kind: "notebook", label: "Cognitive Psychology" },
+    ]);
+  });
+
   it("keeps pills already on the page and adds recovered ones", () => {
     expect(
       stampPageOrigins({

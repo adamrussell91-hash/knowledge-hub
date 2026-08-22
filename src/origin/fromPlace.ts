@@ -1,5 +1,6 @@
 import type { Origin, OriginKind } from "../domain/page";
 import { mergeOrigins, normalizeOriginLabel, normalizeOrigins } from "./normalize";
+import { originsFromNotesPlace } from "./notesPlace";
 import { applyUnitDegreeMap } from "./unitDegrees";
 
 const UNIT_CODE = /^[A-Z]{2,}\d/i;
@@ -130,11 +131,17 @@ export function originsFromNotionProperties(properties: Record<string, unknown>)
 }
 
 export function stampPageOrigins(
-  page: { tags: string[]; body: string; origins?: Origin[] },
+  page: { tags: string[]; body: string; origins?: Origin[]; source_notion_id?: string },
   extra: Origin[] = [],
 ) {
   return applyUnitDegreeMap(
-    mergeOrigins(page.origins ?? [], originsFromUnitTags(page.tags), originsFromBody(page.body), extra),
+    mergeOrigins(
+      page.origins ?? [],
+      originsFromUnitTags(page.tags),
+      originsFromBody(page.body),
+      originsFromNotesPlace(page.source_notion_id),
+      extra,
+    ),
   );
 }
 

@@ -28,6 +28,21 @@ describe("stamp origins", () => {
     });
   });
 
+  it("stamps notebook, book, and PD from the committed Notion snapshot", () => {
+    expect(
+      applyStampedOrigins(
+        page({
+          tags: ["Note"],
+          body: "Lecture.",
+          source_notion_id: "163f794f84768001aebffe92627dc423",
+        }),
+      )?.origins,
+    ).toEqual([
+      { kind: "book", label: "Atomic Habits" },
+      { kind: "notebook", label: "Cognitive Psychology" },
+    ]);
+  });
+
   it("stamps degree and unit from body and tags without Notion", () => {
     expect(applyStampedOrigins(page())?.origins).toEqual([
       { kind: "degree", label: "Master of Education (Gifted Education)" },
