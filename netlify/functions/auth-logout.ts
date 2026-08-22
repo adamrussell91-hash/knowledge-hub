@@ -1,16 +1,14 @@
 import type { Handler } from "@netlify/functions";
-import { expiredSessionCookie } from "./_lib/authLogin";
-import { cors, preflight } from "./_lib/cors";
+import { expiredSessionCookies } from "./_lib/authLogin";
+import { jsonHeaders, preflight, requestOrigin } from "./_lib/cors";
 
 export const handler: Handler = async event => {
   const pre = preflight(event);
   if (pre) return pre;
   return {
     statusCode: 200,
-    headers: {
-      ...cors(event.headers.origin),
-      "Set-Cookie": expiredSessionCookie(),
-    },
+    headers: jsonHeaders(requestOrigin(event.headers)),
+    multiValueHeaders: { "Set-Cookie": expiredSessionCookies() },
     body: JSON.stringify({ ok: true }),
   };
 };

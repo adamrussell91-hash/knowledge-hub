@@ -1,9 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getPage, listPages, runChat, runCoach, savePage, signAttachment, tidyEndpoint, tidyPage } from "./client";
+import { fetchSession, getPage, listPages, login, runChat, runCoach, savePage, signAttachment, tidyEndpoint, tidyPage } from "./client";
 import { API_BASE } from "./config";
 
 describe("api client", () => {
   beforeEach(() => vi.restoreAllMocks());
+
+  it("posts login with credentials and does not cache the response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    await expect(login("secret")).resolves.toBe(true);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/auth-login"),
+      expect.objectContaining({ method: "POST", credentials: "include", cache: "no-store" }),
+    );
+  });
+
+  it("treats a 401 login as an invalid passphrase", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 }));
+    await expect(login("nope")).resolves.toBe(false);
+  });
+
+  it("confirms the session cookie was stored", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ authenticated: true }) }));
+    await expect(fetchSession()).resolves.toBe(true);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/auth-session"),
+      expect.objectContaining({ credentials: "include", cache: "no-store" }),
+    );
+  });
 
   it("lists pages", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [{ id: "p" }] }));

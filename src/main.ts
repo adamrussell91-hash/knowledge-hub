@@ -6,6 +6,7 @@ import {
   USE_LOCAL_DATA,
   getAttachmentUrl,
   getPage,
+  fetchSession,
   listPages,
   login,
   logout,
@@ -981,6 +982,20 @@ function bindSignInEnter(form: HTMLFormElement) {
   });
 }
 
+function renderLoadError() {
+  app.innerHTML = `<div class="sign-in">
+    <div class="sign-in__card">
+      <p class="sign-in__brand">Knowledge Hub</p>
+      <h1 class="sign-in__title">Couldn't load the archive</h1>
+      <p class="sign-in__error" role="alert">Signed in, but the archive did not load.</p>
+      <button class="btn btn--primary sign-in__submit" type="button" data-retry>Try again</button>
+    </div>
+  </div>`;
+  app.querySelector<HTMLButtonElement>("[data-retry]")!.onclick = () => {
+    void boot({ signedIn: true });
+  };
+}
+
 function renderLogin(message?: string) {
   app.innerHTML = `<div class="sign-in">
     <form class="sign-in__card" method="post" action="#" novalidate>
@@ -1023,7 +1038,11 @@ function renderLogin(message?: string) {
         showSignInError("Invalid passphrase");
         return;
       }
-      await boot({ failedLoginMessage: "Unable to sign in. Please try again." });
+      if (!(await fetchSession())) {
+        showSignInError("Unable to sign in. Please try again.");
+        return;
+      }
+      await boot({ signedIn: true });
     } catch {
       showSignInError("Unable to sign in. Please try again.");
     } finally {
@@ -1034,7 +1053,7 @@ function renderLogin(message?: string) {
   input?.focus();
 }
 
-async function boot(options?: { failedLoginMessage?: string }) {
+async function boot(options?: { failedLoginMessage?: string; signedIn?: boolean }) {
   try {
     entries = await listPages();
     await refreshVisible();
@@ -1056,6 +1075,15 @@ async function boot(options?: { failedLoginMessage?: string }) {
   } catch {
     if (USE_LOCAL_DATA) {
       app.innerHTML = `<div class="sign-in"><div class="sign-in__card"><h1 class="sign-in__title">Local data missing</h1><p class="sign-in__supporting">Run the migrator first, then restart <code>npm run dev</code>.</p></div></div>`;
+      return;
+    }
+    if (options?.signedIn) {
+      const stillIn = await fetchSession().catch(() => false);
+      if (stillIn) {
+        renderLoadError();
+        return;
+      }
+      renderLogin("Unable to sign in. Please try again.");
       return;
     }
     if (options?.failedLoginMessage) {
