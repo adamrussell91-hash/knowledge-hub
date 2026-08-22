@@ -1003,7 +1003,6 @@ function renderLogin(message?: string) {
         <span class="sign-in__sparkle"></span>
         <span class="sign-in__sparkle"></span>
       </div>
-      <img class="sign-in__mark" src="icons/knowledge.svg" alt="" width="56" height="56">
       <p class="sign-in__brand">Knowledge Hub</p>
       <h1 class="sign-in__title">Sign in</h1>
       <div class="sign-in__field">

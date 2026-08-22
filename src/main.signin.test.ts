@@ -7,6 +7,7 @@ const dir = dirname(fileURLToPath(import.meta.url));
 const main = readFileSync(join(dir, "main.ts"), "utf8");
 const index = readFileSync(join(dir, "..", "index.html"), "utf8");
 const signInCss = readFileSync(join(dir, "..", "design-kit", "sign-in.css"), "utf8");
+const renderLogin = main.slice(main.indexOf("function renderLogin"), main.indexOf("async function boot"));
 
 describe("Knowledge Hub sign-in gate", () => {
   it("posts the live passphrase at the API so a phone can store a first-party cookie", () => {
@@ -17,15 +18,15 @@ describe("Knowledge Hub sign-in gate", () => {
     expect(main).not.toContain("form.onsubmit");
   });
 
-  it("shows the locked hub tile and a bounced passphrase error", () => {
-    expect(main).toContain('class="sign-in__mark"');
-    expect(main).toContain("icons/knowledge.svg");
+  it("shows the locked tile-free gate and a bounced passphrase error", () => {
+    expect(renderLogin).not.toContain('class="sign-in__mark"');
+    expect(renderLogin).not.toContain("icons/knowledge.svg");
     expect(main).toContain("takeSignInQuery");
     expect(main).toContain("failedLoginMessage");
   });
 
-  it("keeps the passphrase field large enough that iOS will not zoom", () => {
-    expect(signInCss).toContain("font-size: var(--text-md)");
+  it("uses the locked design-kit passphrase field sizing", () => {
+    expect(signInCss).toContain("font-size: var(--text-base)");
     expect(index).toContain("interactive-widget=resizes-content");
   });
 });

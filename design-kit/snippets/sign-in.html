@@ -1,9 +1,9 @@
-<!-- Locked passphrase gate. Only the hub tile + brand eyebrow change per hub.
-     No supporting / purpose copy. Enter must submit — wire form submit
-     (snippets/sign-in.js), never button click only, never onsubmit="return false".
-     Load: tokens.css → overlays.css → actions.css → sign-in.css -->
+<!-- Locked passphrase gate. Only brand + supporting copy may change per hub.
+     No hub tile / .sign-in__mark. Prefer form.sign-in__card
+     (field siblings of brand/title). Load:
+     tokens.css → overlays.css → actions.css → sign-in.css -->
 <div class="sign-in">
-  <form class="sign-in__card" method="post" action="#" novalidate>
+  <form class="sign-in__card" method="post" action="#">
     <div class="sign-in__haze" aria-hidden="true">
       <span class="sign-in__haze-mist"></span>
       <span class="sign-in__bubble"></span>
@@ -18,9 +18,9 @@
       <span class="sign-in__sparkle"></span>
       <span class="sign-in__sparkle"></span>
     </div>
-    <img class="sign-in__mark" src="../icons/life-hub.svg" alt="" width="56" height="56">
-    <p class="sign-in__brand">Life Hub</p>
+    <p class="sign-in__brand">Hub name</p>
     <h1 class="sign-in__title">Sign in</h1>
+    <p class="sign-in__supporting">One line of purpose.</p>
     <div class="sign-in__field">
       <label class="sign-in__label" for="sign-in-passphrase">Passphrase</label>
       <input
@@ -30,7 +30,6 @@
         type="password"
         required
         autocomplete="current-password"
-        enterkeyhint="go"
       />
     </div>
     <p class="sign-in__error" role="alert" hidden></p>
