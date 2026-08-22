@@ -45,6 +45,12 @@ describe("runTidy", () => {
     expect(excerptFromTidyBody("# Heading\n\nA useful note.")).toBe("A useful note.");
   });
 
+  it("strips bold markers and list dashes from the excerpt", () => {
+    expect(excerptFromTidyBody("**Main Thesis:**\n\n- Information networks create order.")).toBe(
+      "Main Thesis: Information networks create order.",
+    );
+  });
+
   it("writes a changed full page and its matching manifest entry", async () => {
     const writes: Page[] = [];
     let manifest: unknown;

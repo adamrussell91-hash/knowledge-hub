@@ -25,4 +25,15 @@ describe("cardSupportingText", () => {
   it("hides a blank excerpt", () => {
     expect(cardSupportingText("A note", "   ")).toBe("");
   });
+
+  it("shows a readable line instead of raw markdown", () => {
+    expect(
+      cardSupportingText(
+        "Errors the fantasy of infallibility",
+        "**Religious Texts and Early Christianity** **Jewish and Christian Texts** - **Mishnah and Talmud**: Jewish legal codes. - Early Christianity ...",
+      ),
+    ).toBe(
+      "Religious Texts and Early Christianity Jewish and Christian Texts Mishnah and Talmud: Jewish legal codes. Early Christianity ...",
+    );
+  });
 });

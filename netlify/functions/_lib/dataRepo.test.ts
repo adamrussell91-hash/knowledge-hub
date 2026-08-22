@@ -4,6 +4,11 @@ import type { Page } from "../../../src/domain/page";
 const page: Page = { id: "p", title: "Title", area: "notes", tags: [], body: "# Heading\n\nText content", connected: [], attachments: [], source_notion_id: "p", source_notion_url: "https://notion.so/p", created_at: "2024-01-01T00:00:00.000Z", updated_at: "2024-01-01T00:00:00.000Z", schema_version: 1 };
 describe("toManifestEntry", () => {
   it("removes markdown headings", () => expect(toManifestEntry(page).excerpt).toBe("Text content"));
+  it("strips bold markers and list dashes", () => {
+    expect(toManifestEntry({ ...page, body: "**Main Thesis:**\n\n- Networks create order." }).excerpt).toBe(
+      "Main Thesis: Networks create order.",
+    );
+  });
   it("copies created_at onto the manifest row", () => {
     expect(toManifestEntry(page).created_at).toBe("2024-01-01T00:00:00.000Z");
   });
