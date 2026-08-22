@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Page } from "../src/domain/page";
-import { applyStampedOrigins, originKindCounts, parseStampArgs, stampOrigins } from "./stamp-origins";
+import { applyStampedOrigins, originKindCounts, parseStampArgs, stampOrigins, syncManifestOrigins } from "./stamp-origins";
 
 const page = (overrides: Partial<Page> = {}): Page => ({
   id: "page_notion_abc",
@@ -87,6 +87,19 @@ describe("stamp origins", () => {
         }),
       )?.origins,
     ).toEqual([{ kind: "unit", label: "EDUC6119" }]);
+  });
+
+  it("copies existing page pills onto a list row that never got them", () => {
+    const ready = page({
+      id: "page_notion_00c518fb7b884781a60f702ec3185eb3",
+      origins: [{ kind: "notebook", label: "Boy's Education" }],
+    });
+    expect(
+      syncManifestOrigins(
+        [{ id: ready.id, title: ready.title, area: ready.area, tags: ready.tags, excerpt: "Lecture." }],
+        [ready],
+      )[0]?.origins,
+    ).toEqual([{ kind: "notebook", label: "Boy's Education" }]);
   });
 
   it("leaves a page unchanged when origins are already complete", () => {

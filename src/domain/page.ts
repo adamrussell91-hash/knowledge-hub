@@ -32,6 +32,7 @@ export const PageManifestEntrySchema = z.object({
   tags: z.array(z.string()),
   excerpt: z.string(),
   origins: z.array(OriginSchema).optional(),
+  source_notion_id: z.string().optional(),
   created_at: z.string().datetime().optional(),
 });
 export type PageManifestEntry = z.infer<typeof PageManifestEntrySchema>;

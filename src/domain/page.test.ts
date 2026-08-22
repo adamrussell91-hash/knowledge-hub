@@ -111,6 +111,19 @@ describe("PageManifestEntrySchema", () => {
     });
   });
 
+  it("keeps source_notion_id on a list row so filters can recover pills", () => {
+    expect(
+      PageManifestEntrySchema.parse({
+        id: "p",
+        title: "Title",
+        area: "notes",
+        tags: [],
+        excerpt: "Summary",
+        source_notion_id: "page_notion_00c518fb7b884781a60f702ec3185eb3",
+      }).source_notion_id,
+    ).toBe("page_notion_00c518fb7b884781a60f702ec3185eb3");
+  });
+
   it("keeps created_at when present", () => {
     expect(
       PageManifestEntrySchema.parse({
