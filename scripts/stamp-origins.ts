@@ -41,8 +41,8 @@ function originsChanged(page: Page, next: Page["origins"]) {
 
 export function applyStampedOrigins(page: Page, extra: Page["origins"] = []) {
   const origins = stampPageOrigins(page, extra ?? []);
-  if (!origins.length || !originsChanged(page, origins)) return null;
-  return { ...page, origins };
+  if (!originsChanged(page, origins)) return null;
+  return origins.length ? { ...page, origins } : { ...page, origins: undefined };
 }
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {

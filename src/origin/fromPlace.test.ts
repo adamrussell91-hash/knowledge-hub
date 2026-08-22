@@ -119,5 +119,8 @@ The lecture itself.`),
       { kind: "notebook", label: "Wellbeing" },
       { kind: "unit", label: "HNO6014" },
     ]);
+    expect(applyUnitDegreeMap([{ kind: "unit", label: "EDUC6119" }])).toEqual([
+      { kind: "unit", label: "EDUC6119" },
+    ]);
   });
 });

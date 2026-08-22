@@ -27,6 +27,19 @@ describe("origin normalize", () => {
     ]);
   });
 
+  it("drops placeholder degree and notebook-cover labels", () => {
+    expect(
+      normalizeOrigins([
+        { kind: "degree", label: "Transformational Leadership Certificate" },
+        { kind: "degree", label: "Advanced Insights in Cognitive Psychology" },
+        { kind: "degree", label: "CSP-eligible postgraduate degree" },
+        { kind: "degree", label: "Trimester 1 2027 entry" },
+        { kind: "notebook", label: "Notebook Cover" },
+        { kind: "unit", label: "EDUC6119" },
+      ]),
+    ).toEqual([{ kind: "unit", label: "EDUC6119" }]);
+  });
+
   it("matches required origin pills for later filters", () => {
     const page = {
       origins: [

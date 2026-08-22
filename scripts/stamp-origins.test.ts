@@ -36,6 +36,21 @@ describe("stamp origins", () => {
     ]);
   });
 
+  it("strips dropped degree labels and does not put them back", () => {
+    expect(
+      applyStampedOrigins(
+        page({
+          tags: ["EDUC6119"],
+          body: "Lecture.",
+          origins: [
+            { kind: "degree", label: "Transformational Leadership Certificate" },
+            { kind: "unit", label: "EDUC6119" },
+          ],
+        }),
+      )?.origins,
+    ).toEqual([{ kind: "unit", label: "EDUC6119" }]);
+  });
+
   it("leaves a page unchanged when origins are already complete", () => {
     expect(
       applyStampedOrigins(

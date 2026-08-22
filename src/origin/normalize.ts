@@ -16,6 +16,18 @@ export function normalizeOriginLabel(label: string) {
   return label.replace(/\s+/g, " ").trim();
 }
 
+const DROPPED_ORIGIN_LABELS = new Set([
+  "transformational leadership certificate",
+  "advanced insights in cognitive psychology",
+  "csp-eligible postgraduate degree",
+  "trimester 1 2027 entry",
+  "notebook cover",
+]);
+
+export function isDroppedOriginLabel(label: string) {
+  return DROPPED_ORIGIN_LABELS.has(normalizeOriginLabel(label).toLowerCase());
+}
+
 export function originKey(origin: Origin) {
   return `${origin.kind}:${normalizeOriginLabel(origin.label).toLowerCase()}`;
 }
@@ -29,7 +41,7 @@ export function normalizeOrigins(origins: Origin[]) {
   const out: Origin[] = [];
   for (const origin of origins) {
     const label = normalizeOriginLabel(origin.label);
-    if (!label || !isOriginKind(origin.kind)) continue;
+    if (!label || !isOriginKind(origin.kind) || isDroppedOriginLabel(label)) continue;
     const key = `${origin.kind}:${label.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
