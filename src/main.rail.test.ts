@@ -37,6 +37,9 @@ describe("Knowledge Hub rail", () => {
     expect(main).toContain("originFilterHtml");
     expect(main).toContain("pageMatchesOriginFilter");
     expect(css).toContain(".origin-filters");
+    expect(css).toContain(".tag-pill");
+    expect(css).not.toContain(".filter-chip");
+    expect(main).not.toContain("filter-chip");
   });
 
   it("has no University / Notes split in the rail, filters, or compose", () => {

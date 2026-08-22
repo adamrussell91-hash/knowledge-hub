@@ -53,15 +53,16 @@ export function toggleOriginLabel(filter: OriginFilterState, label: string): Ori
   return { kind: filter.kind, label };
 }
 
-export function originFilterHtml(entries: { origins?: Origin[] }[], filter: OriginFilterState) {
-  const kinds = ORIGIN_KINDS.map(kind => {
-    const active = filter.kind === kind ? " is-active" : "";
-    return `<button class="filter-chip${active}" type="button" data-origin-kind="${kind}">${escapeHtml(ORIGIN_KIND_LABELS[kind])}</button>`;
-  }).join("");
+function filterPill(label: string, selected: boolean, attrs: string) {
+  return `<button type="button" class="tag-pill${selected ? " is-selected" : ""}" aria-pressed="${selected}" ${attrs}>${escapeHtml(label)}</button>`;
+}
+
+export function originFilterHtml(entries: { id?: string; origins?: Origin[] }[], filter: OriginFilterState) {
+  const kinds = ORIGIN_KINDS.map(kind =>
+    filterPill(ORIGIN_KIND_LABELS[kind], filter.kind === kind, `data-origin-kind="${kind}"`),
+  ).join("");
   const clear = filter.kind
-    ? `<button class="filter-chip is-active" type="button" data-clear-origin>Clear ${escapeHtml(
-        filter.label || ORIGIN_KIND_LABELS[filter.kind],
-      )}</button>`
+    ? filterPill(`Clear ${filter.label || ORIGIN_KIND_LABELS[filter.kind]}`, true, "data-clear-origin")
     : "";
   let labels = "";
   if (filter.kind) {
@@ -70,16 +71,15 @@ export function originFilterHtml(entries: { origins?: Origin[] }[], filter: Orig
       labels = `<p class="list-count">No ${escapeHtml(ORIGIN_KIND_LABELS[filter.kind].toLowerCase())} pills on notes yet.</p>`;
     } else {
       const chips = options
-        .map(item => {
-          const active = filter.label === item.label ? " is-active" : "";
-          return `<button class="filter-chip${active}" type="button" data-origin-label="${escapeHtml(item.label)}">${escapeHtml(item.label)}</button>`;
-        })
+        .map(item =>
+          filterPill(item.label, filter.label === item.label, `data-origin-label="${escapeHtml(item.label)}"`),
+        )
         .join("");
-      labels = `<div class="filters" role="list" aria-label="${escapeHtml(ORIGIN_KIND_LABELS[filter.kind])} filters">${chips}</div>`;
+      labels = `<div class="tag-pills" role="list" aria-label="${escapeHtml(ORIGIN_KIND_LABELS[filter.kind])} filters">${chips}</div>`;
     }
   }
   return `<div class="origin-filters">
-      <div class="filters" role="tablist" aria-label="Origin">${kinds}${clear}</div>
+      <div class="tag-pills" role="group" aria-label="Origin">${kinds}${clear}</div>
       ${labels}
     </div>`;
 }

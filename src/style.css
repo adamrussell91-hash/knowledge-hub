@@ -218,33 +218,6 @@
   outline-offset: 1px;
 }
 
-.filters {
-  display: flex;
-  gap: 0;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--line);
-}
-
-.filter-chip {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  border-radius: 0;
-  padding: 0.55rem 0.75rem;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-}
-
-.filter-chip.is-active {
-  background: transparent;
-  border-color: transparent;
-  border-bottom-color: var(--navy);
-  color: var(--navy);
-}
-
 .origin-filters {
   display: flex;
   flex-direction: column;

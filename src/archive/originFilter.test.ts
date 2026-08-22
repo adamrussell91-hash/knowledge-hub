@@ -67,11 +67,14 @@ describe("archive origin filters", () => {
 
   it("renders kind chips and the active label row", () => {
     const html = originFilterHtml(pages, { kind: "book", label: "Atomic Habits" });
+    expect(html).toContain('class="tag-pill is-selected"');
+    expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('data-origin-kind="notebook"');
     expect(html).toContain('data-origin-kind="book"');
     expect(html).toContain('data-origin-kind="pd"');
     expect(html).toContain('data-origin-label="Atomic Habits"');
     expect(html).toContain("Clear Atomic Habits");
+    expect(html).not.toContain("filter-chip");
     expect(originFilterTitle({ kind: "book", label: "Atomic Habits" })).toBe("Atomic Habits");
   });
 });

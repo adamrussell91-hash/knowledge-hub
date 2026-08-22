@@ -366,8 +366,8 @@ function renderList() {
       <input class="search" value="${escapeHtml(query)}" placeholder="Search titles, tags, excerpts…" aria-label="Search archive" />
       ${
         keywordFilter
-          ? `<div class="filters">
-        <button class="filter-chip is-active" data-clear-keyword type="button">Clear “${escapeHtml(keywordFilter)}”</button>
+          ? `<div class="tag-pills">
+        <button class="tag-pill is-selected" data-clear-keyword type="button" aria-pressed="true">Clear “${escapeHtml(keywordFilter)}”</button>
       </div>`
           : ""
       }
