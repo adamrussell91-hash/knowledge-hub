@@ -52,6 +52,7 @@ export type ChatTurnInput = {
 
 export const KERNEL_BUDGET_MS = 20_000;
 export const QUICK_KERNEL_BUDGET_MS = 8_000;
+export const START_KERNEL_BUDGET_MS = 8_000;
 const ARCHIVE_FAILED_NOTE =
   "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation.";
 
@@ -184,6 +185,7 @@ async function startDeep(input: ChatTurnInput): Promise<ChatTurnResult> {
       const response = await kernelFetch(input.kernel, "/deep_research/start", {
         method: "POST",
         body: JSON.stringify(searchBody(input)),
+        signal: AbortSignal.timeout(START_KERNEL_BUDGET_MS),
       });
       if (response.ok) {
         const payload = (await response.json()) as { sessionId?: string; result?: ResearchResult };

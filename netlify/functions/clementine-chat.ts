@@ -111,6 +111,7 @@ export const handler: Handler = async event => {
             body: JSON.stringify(input),
             signal: AbortSignal.timeout(8_000),
           });
+          if (response.status === 404) throw new Error("Chat write clock is not deployed on the Worker");
           if (!response.ok) throw new Error(`Write start failed ${response.status}`);
           return response.json();
         },
@@ -130,6 +131,9 @@ export const handler: Handler = async event => {
     const message = error instanceof Error ? error.message : String(error);
     if (message.startsWith("Prompt file missing:")) {
       return { statusCode: 500, headers: cors(origin), body: JSON.stringify({ error: message }) };
+    }
+    if (/write clock is not deployed/i.test(message)) {
+      return { statusCode: 503, headers: cors(origin), body: JSON.stringify({ error: message }) };
     }
     return { statusCode: 502, headers: cors(origin), body: JSON.stringify({ error: "Chat turn failed" }) };
   }

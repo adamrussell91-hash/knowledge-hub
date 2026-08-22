@@ -3,7 +3,7 @@ import type { ResearchFinding, ResearchResult, ResearchStatus } from "./schema";
 import type { SynthesisOutput } from "./synthesize";
 
 export const DEFAULT_MAX_ROUNDS = 5;
-export const DEFAULT_MAX_MS = 3 * 60 * 1000;
+export const DEFAULT_MAX_MS = 10 * 60 * 1000;
 
 export type PageSnippet = {
   title: string;

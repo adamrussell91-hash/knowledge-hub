@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runChatTurn } from "./chatTurn";
+import { runChatTurn, START_KERNEL_BUDGET_MS } from "./chatTurn";
 
 const voice = readFileSync(join(process.cwd(), "prompts/clementine-voice.md"), "utf8");
 const universityJob = readFileSync(join(process.cwd(), "prompts/clementine-university.md"), "utf8");
@@ -86,9 +86,10 @@ describe("runChatTurn", () => {
   });
 
   it("starts a deep Worker session and does not call Claude yet", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ sessionId: "sess-1", status: "running", result: researchResult({ status: "running", findings: [] }) }),
+      json: async () => ({ sessionId: "sess-1", status: "running", result: researchResult({ status: "running", round: 0, findings: [] }) }),
     });
     const complete = vi.fn();
     const result = await runChatTurn({
@@ -106,6 +107,7 @@ describe("runChatTurn", () => {
       maxRounds: 5,
       negation: false,
     });
+    expect(timeout).toHaveBeenCalledWith(START_KERNEL_BUDGET_MS);
     expect(complete).not.toHaveBeenCalled();
     expect(result).toMatchObject({ status: "researching", researchSessionId: "sess-1" });
   });

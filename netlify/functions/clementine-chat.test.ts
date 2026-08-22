@@ -129,6 +129,33 @@ describe("clementine-chat handler", () => {
     expect(JSON.parse(response.body ?? "{}").error).toMatch(/write clock/i);
   });
 
+  it("does not fall back to Anthropic on Netlify when the Worker write route is missing", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes("quick_research")) {
+        return {
+          ok: true,
+          json: async () => ({
+            query: "Gagne",
+            round: 1,
+            status: "done",
+            findings: [],
+            gaps: [],
+            followUpQueries: [],
+          }),
+        };
+      }
+      if (String(url).includes("/chat/write/start")) {
+        return { ok: false, status: 404, json: async () => ({ error: "Not found" }) };
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const response = await handler(event() as never, {} as never);
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body ?? "{}").error).toMatch(/not deployed/i);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
+  });
+
   it("starts a deep session without calling Anthropic", async () => {
     const fetchImpl = vi.fn(async (url: string) => {
       if (String(url).includes("deep_research/start")) {
