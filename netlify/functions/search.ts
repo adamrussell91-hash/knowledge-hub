@@ -1,5 +1,6 @@
 import type { Handler } from "@netlify/functions";
 import type { PageManifestEntry } from "../../src/domain/page";
+import { resolvedOrigins } from "../../src/origin/notesPlace";
 import { cors, preflight } from "./_lib/cors";
 import { createDataRepo } from "./_lib/dataRepo";
 import { requireSession } from "./_lib/requireSession";
@@ -9,7 +10,7 @@ export function rankByQuery(entries: PageManifestEntry[], query: string) {
   if (!needle) return [];
   return entries
     .filter(entry =>
-      [entry.title, entry.excerpt, ...entry.tags, ...(entry.origins ?? []).map(origin => origin.label)].some(value =>
+      [entry.title, entry.excerpt, ...entry.tags, ...resolvedOrigins(entry).map(origin => origin.label)].some(value =>
         value.toLowerCase().includes(needle),
       ),
     )

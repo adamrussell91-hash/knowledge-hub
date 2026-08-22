@@ -1,6 +1,6 @@
 import type { Origin, OriginKind } from "../domain/page";
 import { mergeOrigins, normalizeOriginLabel, normalizeOrigins } from "./normalize";
-import { originsFromNotesPlace } from "./notesPlace";
+import { extractNotionHex, originsFromNotesPlace } from "./notesPlace";
 import { applyUnitDegreeMap } from "./unitDegrees";
 
 const UNIT_CODE = /^[A-Z]{2,}\d/i;
@@ -131,7 +131,14 @@ export function originsFromNotionProperties(properties: Record<string, unknown>)
 }
 
 export function stampPageOrigins(
-  page: { tags: string[]; body: string; origins?: Origin[]; source_notion_id?: string },
+  page: {
+    id?: string;
+    tags: string[];
+    body: string;
+    origins?: Origin[];
+    source_notion_id?: string;
+    source_notion_url?: string;
+  },
   extra: Origin[] = [],
 ) {
   return applyUnitDegreeMap(
@@ -140,13 +147,15 @@ export function stampPageOrigins(
       originsFromUnitTags(page.tags),
       originsFromBody(page.body),
       originsFromNotesPlace(page.source_notion_id),
+      originsFromNotesPlace(page.id),
+      originsFromNotesPlace(page.source_notion_url),
       extra,
     ),
   );
 }
 
 export function notionIdFromSource(sourceNotionId: string) {
-  const hex = sourceNotionId.replace(/-/g, "");
-  if (!/^[0-9a-f]{32}$/i.test(hex)) return null;
+  const hex = extractNotionHex(sourceNotionId);
+  if (!hex) return null;
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }

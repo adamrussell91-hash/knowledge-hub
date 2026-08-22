@@ -44,6 +44,13 @@ describe("archive origin filters", () => {
     expect(originLabelsForKind(pages, "degree")).toEqual([]);
   });
 
+  it("recovers notebook and book pills from a page_notion id when the manifest stored none", () => {
+    const recovered = [{ id: "page_notion_00c518fb7b884781a60f702ec3185eb3", title: "Boys" }];
+    expect(pageMatchesOriginFilter(recovered[0]!, { kind: "notebook", label: "" })).toBe(true);
+    expect(originLabelsForKind(recovered, "notebook")).toEqual([{ label: "Boy's Education", count: 1 }]);
+    expect(originLabelsForKind(recovered, "book")).toEqual([]);
+  });
+
   it("toggles kind and label chips", () => {
     const notebook = toggleOriginKind(emptyOriginFilter(), "notebook");
     expect(notebook).toEqual({ kind: "notebook", label: "" });

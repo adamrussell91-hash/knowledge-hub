@@ -1,5 +1,6 @@
 import type { Page, PageManifestEntry } from "../domain/page";
 import { PageManifestEntrySchema, PageSchema } from "../domain/page";
+import { resolvedOrigins } from "../origin/notesPlace";
 import { z } from "zod";
 
 const ManifestSchema = z.array(PageManifestEntrySchema);
@@ -14,13 +15,19 @@ async function readJson<T>(path: string): Promise<T> {
 }
 
 export function normalizeManifestRow(entry: Record<string, unknown>) {
+  const origins = resolvedOrigins({
+    id: typeof entry.id === "string" ? entry.id : undefined,
+    origins: Array.isArray(entry.origins) ? entry.origins : undefined,
+    source_notion_id: typeof entry.source_notion_id === "string" ? entry.source_notion_id : undefined,
+    source_notion_url: typeof entry.source_notion_url === "string" ? entry.source_notion_url : undefined,
+  });
   return {
     id: entry.id,
     title: entry.title,
     area: entry.area,
     tags: entry.tags ?? [],
     excerpt: entry.excerpt ?? "",
-    ...(Array.isArray(entry.origins) ? { origins: entry.origins } : {}),
+    ...(origins.length ? { origins } : {}),
     ...(typeof entry.created_at === "string" ? { created_at: entry.created_at } : {}),
   };
 }
@@ -55,7 +62,7 @@ export async function localSearchPages(query: string): Promise<PageManifestEntry
       entry.excerpt,
       entry.area,
       ...entry.tags,
-      ...(entry.origins ?? []).flatMap(origin => [origin.kind, origin.label]),
+      ...resolvedOrigins(entry).flatMap(origin => [origin.kind, origin.label]),
     ]
       .join(" ")
       .toLowerCase()

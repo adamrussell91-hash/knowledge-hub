@@ -50,7 +50,8 @@ import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
 import { enterChatRail, leaveChatRail, renderChatRail } from "./chat/rail";
 import { connectedLinksHtml } from "./wiki/connectedHtml";
-import { addOrigin, isOriginKind, pageOrigins, removeOrigin } from "./origin/normalize";
+import { addOrigin, isOriginKind, removeOrigin } from "./origin/normalize";
+import { resolvedOrigins } from "./origin/notesPlace";
 import { originComposeFieldHtml, originPillsHtml, parseOriginRemoveValue } from "./origin/pills";
 import { applyTopicTags, normalizeTopicTags, toggleTopicTag } from "./tidy/applyTags";
 import { TOPIC_VOCABULARY } from "./tidy/vocabulary";
@@ -132,7 +133,7 @@ function composeFromPage(page: Page): ComposeState {
     title: page.title,
     area: page.area,
     tags: [...page.tags],
-    origins: [...pageOrigins(page)],
+    origins: [...resolvedOrigins(page)],
     body: page.body,
     existing: [...page.attachments],
     pending: [],
@@ -627,7 +628,7 @@ function renderPage(page: Page) {
       </div>
       <p class="eyebrow">${topics[0] ? escapeHtml(topics[0]) : "Note"}</p>
       <h1 class="reader__title">${escapeHtml(page.title)}</h1>
-      ${originPillsHtml(pageOrigins(page))}
+      ${originPillsHtml(resolvedOrigins(page))}
       <div class="reader__meta">${chips}</div>
       <div class="reader__body">${renderMarkdown(page.body)}</div>
       ${connectedLinksHtml(page, entries)}

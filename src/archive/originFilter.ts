@@ -1,6 +1,7 @@
 import { ORIGIN_KINDS, type Origin, type OriginKind } from "../domain/page";
 import { escapeHtml } from "../lib/dom";
-import { ORIGIN_KIND_LABELS, pageMatchesOrigins, pageOrigins } from "../origin/normalize";
+import { ORIGIN_KIND_LABELS, pageMatchesOrigins } from "../origin/normalize";
+import { resolvedOrigins } from "../origin/notesPlace";
 
 export type OriginFilterState = {
   kind: OriginKind | "";
@@ -11,16 +12,23 @@ export function emptyOriginFilter(): OriginFilterState {
   return { kind: "", label: "" };
 }
 
-export function pageMatchesOriginFilter(page: { origins?: Origin[] }, filter: OriginFilterState) {
+export function pageMatchesOriginFilter(
+  page: { id?: string; origins?: Origin[]; source_notion_id?: string; source_notion_url?: string },
+  filter: OriginFilterState,
+) {
+  const origins = resolvedOrigins(page);
   if (!filter.kind) return true;
-  if (filter.label) return pageMatchesOrigins(page, [{ kind: filter.kind, label: filter.label }]);
-  return pageOrigins(page).some(origin => origin.kind === filter.kind);
+  if (filter.label) return pageMatchesOrigins({ origins }, [{ kind: filter.kind, label: filter.label }]);
+  return origins.some(origin => origin.kind === filter.kind);
 }
 
-export function originLabelsForKind(entries: { origins?: Origin[] }[], kind: OriginKind) {
+export function originLabelsForKind(
+  entries: { id?: string; origins?: Origin[]; source_notion_id?: string; source_notion_url?: string }[],
+  kind: OriginKind,
+) {
   const counts = new Map<string, number>();
   for (const entry of entries) {
-    const labels = new Set(pageOrigins(entry).filter(origin => origin.kind === kind).map(origin => origin.label));
+    const labels = new Set(resolvedOrigins(entry).filter(origin => origin.kind === kind).map(origin => origin.label));
     for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
   }
   return [...counts.entries()]
