@@ -2,8 +2,9 @@ import { ChatWriteDroppedError, runChat, savePage, tidyPage, USE_LOCAL_DATA } fr
 import { newHubPageId } from "../domain/page";
 import type { Page } from "../domain/page";
 import { escapeHtml, showToast } from "../lib/dom";
-import type { ResearchFinding } from "../research/schema";
+import { renderMarkdown } from "../lib/markdown";
 import { CHAT_HATS, DEPTHS, SCOPES, hatById, isChatHatId, resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
+import { researchFromFindings, searchedNotesHtml, thinkingHistoryHtml } from "./sources";
 import { appendTick, chatTick } from "./ticker";
 import { briefIsSavable, briefToPage, type SavableFinding } from "./saveBrief";
 import type { ChatTurnResult } from "./chatTurn";
@@ -15,13 +16,13 @@ export type ChatRailHost = {
   onOpenPage?: (pageId: string) => void;
   onSavedPage?: (page: Page) => Promise<void> | void;
   pageHeader: (eyebrow: string, title: string, actionsInner?: string) => string;
-  findingCards: (findings: ResearchFinding[]) => string;
 };
 
 type ChatTurn = {
   role: "user" | "assistant";
   content: string;
   findings?: SavableFinding[];
+  ticks?: string[];
   archiveFailed?: boolean;
   coverageThin?: boolean;
   canSearchOutside?: boolean;
@@ -43,6 +44,8 @@ let writeSessionId = "";
 let busy = false;
 let error = "";
 let ticks: string[] = [];
+let thinkingOpen = false;
+const sourcesOpen = new Set<number>();
 let saveBusy = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -50,7 +53,7 @@ function persist() {
   try {
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ hat, scope, depth, showDials, thesis, draft, input, turns, noteContext, researchSessionId, writeSessionId }),
+      JSON.stringify({ hat, scope, depth, showDials, thesis, draft, input, turns, noteContext, researchSessionId, writeSessionId, ticks }),
     );
   } catch {
     /* private mode / SSR */
@@ -73,6 +76,7 @@ function restore() {
       noteContext: { pageId: string; title: string };
       researchSessionId: string;
       writeSessionId: string;
+      ticks: string[];
     }>;
     if (saved.hat && isChatHatId(saved.hat)) hat = saved.hat;
     scope = saved.scope;
@@ -85,6 +89,7 @@ function restore() {
     noteContext = saved.noteContext;
     researchSessionId = saved.researchSessionId ?? "";
     writeSessionId = saved.writeSessionId ?? "";
+    ticks = Array.isArray(saved.ticks) ? saved.ticks.filter((line): line is string => typeof line === "string") : ticks;
   } catch {
     /* keep defaults */
   }
@@ -134,7 +139,7 @@ function sitting() {
 }
 
 function pushTick(
-  phase: "searching" | "round" | "writing" | "failed",
+  phase: "searching" | "library" | "round" | "writing" | "failed",
   research?: { findings?: unknown[]; followUpQueries?: string[]; round?: number },
 ) {
   const plan = sitting();
@@ -183,6 +188,7 @@ function applyResult(history: ChatTurn[], result: ChatTurnResult) {
       role: "assistant",
       content: result.reply,
       findings: result.research?.findings,
+      ticks: [...ticks],
       archiveFailed: result.archiveFailed,
       coverageThin: result.coverage?.thin,
       canSearchOutside: result.canSearchOutside,
@@ -204,9 +210,11 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
   }
   busy = true;
   error = "";
+  const sittingLibrary = researchFromFindings(lastAssistant()?.findings ?? []);
   if (!researchSessionId && !writeSessionId && !extras.searchOutside) {
     ticks = [];
-    pushTick("searching");
+    if (sittingLibrary.findings.length) pushTick("library", sittingLibrary);
+    else pushTick("searching");
   }
   persist();
   host.render();
@@ -223,6 +231,7 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
         searchOutside: extras.searchOutside,
         researchSessionId: researchSessionId || undefined,
         writeSessionId: writeSessionId || undefined,
+        sittingLibrary: sittingLibrary.findings.length ? sittingLibrary : undefined,
       },
       phase => {
         if (phase.status === "compose") {
@@ -336,28 +345,27 @@ export function renderChatRail(host: ChatRailHost) {
             : ""
         }
         <label for="chat-input">Message</label>
-        <textarea id="chat-input" rows="4" placeholder="Ask about the archive…">${escapeHtml(input)}</textarea>
+        <textarea id="chat-input" rows="3" placeholder="Ask about the archive…">${escapeHtml(input)}</textarea>
         <div class="alchemist__actions">
           <button type="submit" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${busy || researchSessionId || writeSessionId ? "Still working…" : "Send"}</button>
           ${canSave ? `<button type="button" data-save-brief ${saveBusy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>` : ""}
         </div>
         ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
-        ${
-          ticks.length
-            ? `<ol class="chat__ticker" aria-live="polite">${ticks
-                .map(line => `<li>${escapeHtml(line)}</li>`)
-                .join("")}</ol>`
-            : ""
-        }
+        ${busy || researchSessionId || writeSessionId ? `<p class="chat__status" aria-live="polite">Still working…</p>` : ""}
+        ${busy || researchSessionId || writeSessionId ? thinkingHistoryHtml(ticks, thinkingOpen) : ""}
       </form>
       <div class="coach__thread" aria-live="polite">
         ${
           turns.length
             ? turns
-                .map(
-                  turn => `<article class="coach-msg coach-msg--${turn.role} glass-panel">
+                .map((turn, index) => {
+                  const body =
+                    turn.role === "assistant"
+                      ? `<div class="coach-msg__body">${renderMarkdown(turn.content)}</div>`
+                      : `<div class="coach-msg__body coach-msg__body--plain">${escapeHtml(turn.content)}</div>`;
+                  return `<article class="coach-msg coach-msg--${turn.role} glass-panel">
                     <p class="coach-msg__who">${turn.role === "user" ? "You" : "Clementine"}</p>
-                    <p class="coach-msg__body">${escapeHtml(turn.content)}</p>
+                    ${body}
                     ${turn.archiveFailed ? `<p class="alchemist__error">Archive pull failed this turn — she continued with what she had.</p>` : ""}
                     ${turn.coverageThin ? `<p class="alchemist__mode">Coverage is thin.</p>` : ""}
                     ${
@@ -365,9 +373,10 @@ export function renderChatRail(host: ChatRailHost) {
                         ? `<button type="button" data-search-outside ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>Search outside</button>`
                         : ""
                     }
-                    ${turn.findings?.length ? `<div class="coach-msg__citations">${host.findingCards(turn.findings)}</div>` : ""}
-                  </article>`,
-                )
+                    ${turn.role === "assistant" && turn.ticks?.length ? thinkingHistoryHtml(turn.ticks, thinkingOpen && index === turns.length - 1) : ""}
+                    ${turn.findings?.length ? searchedNotesHtml(turn.findings, sourcesOpen.has(index), index) : ""}
+                  </article>`;
+                })
                 .join("")
             : `<p class="empty">${current.plan}</p>`
         }
@@ -432,5 +441,18 @@ export function renderChatRail(host: ChatRailHost) {
   });
   host.app.querySelectorAll<HTMLButtonElement>("[data-open-page]").forEach(button => {
     button.onclick = () => host.onOpenPage?.(button.dataset.openPage!);
+  });
+  host.app.querySelectorAll<HTMLDetailsElement>("[data-thinking-history]").forEach(el => {
+    el.ontoggle = () => {
+      thinkingOpen = el.open;
+    };
+  });
+  host.app.querySelectorAll<HTMLDetailsElement>("[data-searched-notes]").forEach(el => {
+    el.ontoggle = () => {
+      const turn = Number(el.dataset.searchedNotes);
+      if (Number.isNaN(turn)) return;
+      if (el.open) sourcesOpen.add(turn);
+      else sourcesOpen.delete(turn);
+    };
   });
 }

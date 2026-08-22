@@ -1179,7 +1179,6 @@ function render() {
         await openPage(saved.id);
       },
       pageHeader,
-      findingCards,
     });
   }
   if (view === "podcast") {

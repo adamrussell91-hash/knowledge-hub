@@ -24,6 +24,7 @@ function parseBody(raw: string | null) {
       writeSessionId?: unknown;
       compose?: unknown;
       priorResearch?: unknown;
+      sittingLibrary?: unknown;
       archiveFailed?: unknown;
     };
     if (!Array.isArray(parsed.messages)) return null;
@@ -56,6 +57,7 @@ function parseBody(raw: string | null) {
       writeSessionId: typeof parsed.writeSessionId === "string" ? parsed.writeSessionId : undefined,
       compose: parsed.compose === true,
       priorResearch: ResearchResultSchema.safeParse(parsed.priorResearch).data,
+      sittingLibrary: ResearchResultSchema.safeParse(parsed.sittingLibrary).data,
       archiveFailed: parsed.archiveFailed === true,
     };
   } catch {
@@ -97,6 +99,7 @@ export const handler: Handler = async event => {
       writeSessionId: body.writeSessionId,
       compose: body.compose,
       priorResearch: body.priorResearch,
+      sittingLibrary: body.sittingLibrary,
       archiveFailed: body.archiveFailed,
       kernel: { url: kernelUrl, secret: kernelSecret, fetchImpl: fetch },
       archivePull: pullLiveArchive,

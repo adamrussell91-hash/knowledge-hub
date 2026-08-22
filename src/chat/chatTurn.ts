@@ -1,7 +1,7 @@
 import { assembleClementinePrompt } from "../clementine/assemble";
 import { topicQuery } from "../research/topicQuery";
 import { ResearchResultSchema, type ResearchResult } from "../research/schema";
-import { compactArchiveNote } from "./archiveNote";
+import { compactArchiveNote, compactSittingNote } from "./archiveNote";
 import { coverageFromResearch, type CoverageRead } from "./coverage";
 import { resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
 import type { ChatMessage } from "./messages";
@@ -43,6 +43,7 @@ export type ChatTurnInput = {
   writeSessionId?: string;
   compose?: boolean;
   priorResearch?: ResearchResult;
+  sittingLibrary?: ResearchResult;
   archiveFailed?: boolean;
   kernel?: ChatKernel;
   archivePull?: ArchivePull;
@@ -168,6 +169,10 @@ async function resolveArchive(input: ChatTurnInput): Promise<ArchivePack> {
 
 function archiveNote(research: ResearchResult): ArchivePack {
   return { research, note: compactArchiveNote(research) };
+}
+
+function sittingNote(research: ResearchResult): ArchivePack {
+  return { research, note: compactSittingNote(research) };
 }
 
 function composeFrom(archive: ArchivePack): ChatTurnResult {
@@ -362,6 +367,9 @@ export async function runChatTurn(input: ChatTurnInput): Promise<ChatTurnResult>
       return { status: "researching", researchSessionId: archive.researching, research: archive.research };
     }
     return finishArchive(input, archive);
+  }
+  if (input.sittingLibrary?.findings.length) {
+    return finishArchive(input, sittingNote(input.sittingLibrary));
   }
   if (plan.kernel === "deep") {
     return startDeep(input);

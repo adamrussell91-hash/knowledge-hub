@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactArchiveNote } from "./archiveNote";
+import { compactArchiveNote, compactSittingNote } from "./archiveNote";
 
 function finding(id: string, title = `Note ${id}`) {
   return {
@@ -30,5 +30,18 @@ describe("compactArchiveNote", () => {
     expect(note).toContain("p12");
     expect(note).not.toMatch(/long analysis/i);
     expect(note).not.toContain("A".repeat(400));
+  });
+
+  it("tells a follow-up to use the sitting notes first", () => {
+    const note = compactSittingNote({
+      query: "q",
+      round: 1,
+      status: "done",
+      findings: [finding("p1")],
+      gaps: [],
+      followUpQueries: [],
+    });
+    expect(note).toContain("sitting's searched notes");
+    expect(note).toContain("p1");
   });
 });

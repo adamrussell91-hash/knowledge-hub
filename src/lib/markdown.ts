@@ -25,6 +25,16 @@ export function renderMarkdown(markdown: string): string {
       .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
       .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, "<span class=\"md-link\">$1</span>");
 
+  const isTableRow = (text: string) => /^\s*\|.+\|\s*$/.test(text);
+  const isTableSep = (text: string) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(text);
+  const tableCells = (text: string) =>
+    text
+      .trim()
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .split("|")
+      .map(cell => cell.trim());
+
   while (i < lines.length) {
     const line = lines[i];
 
@@ -93,10 +103,34 @@ export function renderMarkdown(markdown: string): string {
       continue;
     }
 
+    if (isTableRow(line) && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+      closeLists();
+      const header = tableCells(line);
+      i += 2;
+      const rows: string[][] = [];
+      while (i < lines.length && isTableRow(lines[i]) && !isTableSep(lines[i])) {
+        rows.push(tableCells(lines[i]));
+        i++;
+      }
+      html.push(
+        `<div class="md-table-wrap"><table><thead><tr>${header
+          .map(cell => `<th>${inline(cell)}</th>`)
+          .join("")}</tr></thead><tbody>${rows
+          .map(row => `<tr>${row.map(cell => `<td>${inline(cell)}</td>`).join("")}</tr>`)
+          .join("")}</tbody></table></div>`,
+      );
+      continue;
+    }
+
     closeLists();
     const para = [line];
     i++;
-    while (i < lines.length && lines[i].trim() && !/^(#{1,3}\s|[-*]\s|\d+\.\s|>|---+\s*$)/.test(lines[i])) {
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !/^(#{1,3}\s|[-*]\s|\d+\.\s|>|---+\s*$)/.test(lines[i]) &&
+      !isTableRow(lines[i])
+    ) {
       para.push(lines[i]);
       i++;
     }

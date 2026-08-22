@@ -90,6 +90,34 @@ describe("api client", () => {
     expect(JSON.stringify(init.headers)).not.toMatch(/x-research-kernel-secret/i);
   });
 
+  it("does not announce a new archive search when a sitting library is already attached", async () => {
+    const phases: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: "writing", writeSessionId: "w-lib" }),
+      }),
+    );
+    await runChat(
+      {
+        hat: "scoping",
+        messages: [
+          { role: "user", content: "self determination theory" },
+          { role: "assistant", content: "A brief." },
+          { role: "user", content: "Say more" },
+        ],
+        sittingLibrary: { findings: [{ pageId: "p1" }], gaps: [] } as never,
+      },
+      phase => {
+        phases.push(phase.status);
+      },
+    );
+    expect(phases).not.toContain("searching");
+    const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit;
+    expect(String(init.body)).toContain("sittingLibrary");
+  });
+
   it("reports search then write phases when the Worker clock takes the reply", async () => {
     const research = { findings: [{ pageId: "p1" }], gaps: [] };
     const phases: string[] = [];

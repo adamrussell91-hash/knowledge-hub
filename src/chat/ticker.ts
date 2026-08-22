@@ -1,4 +1,4 @@
-export type ChatTickPhase = "searching" | "round" | "writing" | "failed";
+export type ChatTickPhase = "searching" | "library" | "round" | "writing" | "failed";
 
 export type ChatTickInput = {
   phase: ChatTickPhase;
@@ -14,6 +14,12 @@ export type ChatTickInput = {
 export function chatTick(input: ChatTickInput): string {
   const sitting = `${input.hatLabel} · ${input.scope} · ${input.depth}`;
   if (input.phase === "searching") return `Searching archive — ${sitting}`;
+  if (input.phase === "library") {
+    const notes = input.noteCount ?? 0;
+    return notes
+      ? `Using ${notes} searched note${notes === 1 ? "" : "s"} from this sitting`
+      : "Using the sitting library";
+  }
   if (input.phase === "failed") return `Archive pull failed — writing with what she has`;
   if (input.phase === "writing") {
     const notes = input.noteCount ?? 0;
@@ -27,6 +33,6 @@ export function chatTick(input: ChatTickInput): string {
 }
 
 export function appendTick(lines: string[], next: string, cap = 8) {
-  if (lines[lines.length - 1] === next) return lines;
+  if (lines.includes(next)) return lines;
   return [...lines, next].slice(-cap);
 }

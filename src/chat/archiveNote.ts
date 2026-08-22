@@ -24,3 +24,8 @@ export function compactArchiveNote(research: ResearchResult): string {
     : "";
   return `Archive findings (${research.findings.length} notes — cite these ids, never invent pages):\n${lines.join("\n\n")}${more}`;
 }
+
+/** Follow-up turns keep the sitting's searched notes as the first source pack. */
+export function compactSittingNote(research: ResearchResult): string {
+  return `${compactArchiveNote(research)}\n\nThese are the sitting's searched notes. Use them first. If they do not cover this question, say what is missing. Do not invent pages. A wider archive pull is not attached this turn.`;
+}

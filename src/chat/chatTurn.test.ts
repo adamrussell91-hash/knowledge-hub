@@ -254,6 +254,37 @@ describe("runChatTurn", () => {
     expect(result.research?.findings).toHaveLength(3);
   });
 
+  it("writes from the sitting library on a follow-up without a new archive pull", async () => {
+    const fetchImpl = vi.fn();
+    const archivePull = vi.fn();
+    const write = {
+      start: vi.fn(async (input: { system: string }) => {
+        expect(input.system).toContain("sitting's searched notes");
+        expect(input.system).toContain("Stoicism notes");
+        return { writeSessionId: "w-lib", status: "writing" as const };
+      }),
+      poll: vi.fn(),
+    };
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "scoping",
+      messages: [
+        { role: "user", content: "self determination theory" },
+        { role: "assistant", content: "A first brief." },
+        { role: "user", content: "Say more about autonomy" },
+      ],
+      sittingLibrary: researchResult({ findings: [finding, { ...finding, pageId: "p2" }] }),
+      kernel: { url: "https://kernel.test", secret: "k", fetchImpl: fetchImpl as unknown as typeof fetch },
+      archivePull,
+      write,
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(archivePull).not.toHaveBeenCalled();
+    expect(write.start).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "writing", writeSessionId: "w-lib" });
+  });
+
   it("does not invent a web search when Search outside is clicked", async () => {
     const fetchImpl = vi.fn();
     const result = await runChatTurn({

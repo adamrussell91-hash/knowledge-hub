@@ -113,6 +113,7 @@ export type ChatRequest = {
   writeSessionId?: string;
   compose?: boolean;
   priorResearch?: ResearchResult;
+  sittingLibrary?: ResearchResult;
   archiveFailed?: boolean;
 };
 
@@ -193,7 +194,9 @@ export async function runChat(input: ChatRequest, onPhase?: (phase: ChatPhase) =
     throw new Error("Chat needs the live API (npx netlify dev).");
   }
   try {
-    onPhase?.({ status: "searching" });
+    if (!input.writeSessionId && !input.researchSessionId && !input.compose && !input.sittingLibrary?.findings?.length) {
+      onPhase?.({ status: "searching" });
+    }
     const result = await postChat(input);
     if (result.status === "writing") {
       onPhase?.({ status: "writing", research: result.research, archiveFailed: result.archiveFailed });
