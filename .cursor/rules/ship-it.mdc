@@ -1,0 +1,17 @@
+---
+description: Finished work must land on main and deploy. Never stop at a draft PR.
+alwaysApply: true
+---
+
+# Ship it
+
+Adam never wants a finished fix left on a branch. A draft PR is not shipped. "Ready for review" is not shipped.
+
+When the work is done:
+
+1. Commit
+2. Push
+3. Merge to `main` (do not wait for Adam to merge)
+4. Confirm the production deploy started (this repo: GitHub Pages on `main`)
+
+Do not stop at "the PR is up." Do not ask him to merge. He should not still be looking at the bug.
