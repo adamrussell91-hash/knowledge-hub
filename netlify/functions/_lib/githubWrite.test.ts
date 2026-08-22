@@ -23,6 +23,25 @@ describe("githubWrite", () => {
     });
   });
 
+  it("reads oversized files via the Git blob API when Contents has no payload", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes("/git/blobs/abc")) {
+        return { ok: true, status: 200, text: async () => '[{"id":"p"}]', json: async () => ({}) };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ sha: "abc", encoding: "none", content: "", size: 1_775_327 }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    await expect(getContent("owner/repo", "token", "manifest.json")).resolves.toEqual({
+      sha: "abc",
+      text: '[{"id":"p"}]',
+    });
+    expect(String(fetchImpl.mock.calls[1]?.[0])).toContain("/git/blobs/abc");
+  });
+
   it("sends sha on update and throws on 409", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 409, text: async () => "conflict" });
     vi.stubGlobal("fetch", fetchImpl);

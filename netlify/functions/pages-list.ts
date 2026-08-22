@@ -8,9 +8,20 @@ export const handler: Handler = async event => {
   if (pre) return pre;
   const denied = requireSession(event);
   if (denied) return denied;
-  return {
-    statusCode: 200,
-    headers: jsonHeaders(requestOrigin(event.headers)),
-    body: JSON.stringify(await createDataRepo().listManifest()),
-  };
+  const origin = requestOrigin(event.headers);
+  try {
+    return {
+      statusCode: 200,
+      headers: jsonHeaders(origin),
+      body: JSON.stringify(await createDataRepo().listManifest()),
+    };
+  } catch (error) {
+    return {
+      statusCode: 502,
+      headers: jsonHeaders(origin),
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : "Archive failed to load",
+      }),
+    };
+  }
 };
