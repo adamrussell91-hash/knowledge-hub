@@ -48,9 +48,9 @@ describe("runTidy", () => {
   it("writes a changed full page and its matching manifest entry", async () => {
     const writes: Page[] = [];
     let manifest: unknown;
-    await runTidy({ id: "p", readPage: async () => page("p"), listPageIds: async () => ["p"], readManifest: async () => [{ id: "p", title: "p", area: "notes", tags: ["Philosophy Knowledge and Society"], excerpt: "Clean note." }], writeManifest: async value => { manifest = value; }, readState: async () => ({ tidied: {} }), writeState: async () => {}, propose: async () => ({ tags: ["Philosophy Knowledge and Society"], body: "Changed body.", title: "New title" }), writePage: async p => { writes.push(p); }, now: () => "2026-08-12T00:00:00.000Z" });
-    expect(writes[0]).toMatchObject({ title: "New title", tags: ["Philosophy Knowledge and Society"], body: "Changed body.", updated_at: "2026-08-12T00:00:00.000Z" });
-    expect(manifest).toEqual([{ id: "p", title: "New title", area: "notes", tags: ["Philosophy Knowledge and Society"], excerpt: "Changed body." }]);
+    await runTidy({ id: "p", readPage: async () => page("p", { origins: [{ kind: "unit", label: "EDST5805" }] }), listPageIds: async () => ["p"], readManifest: async () => [{ id: "p", title: "p", area: "notes", tags: ["Philosophy Knowledge and Society"], excerpt: "Clean note.", origins: [{ kind: "unit", label: "EDST5805" }] }], writeManifest: async value => { manifest = value; }, readState: async () => ({ tidied: {} }), writeState: async () => {}, propose: async () => ({ tags: ["Philosophy Knowledge and Society"], body: "Changed body.", title: "New title" }), writePage: async p => { writes.push(p); }, now: () => "2026-08-12T00:00:00.000Z" });
+    expect(writes[0]).toMatchObject({ title: "New title", tags: ["Philosophy Knowledge and Society"], body: "Changed body.", updated_at: "2026-08-12T00:00:00.000Z", origins: [{ kind: "unit", label: "EDST5805" }] });
+    expect(manifest).toEqual([{ id: "p", title: "New title", area: "notes", tags: ["Philosophy Knowledge and Society"], excerpt: "Changed body.", origins: [{ kind: "unit", label: "EDST5805" }] }]);
   });
 
   it("persists successful progress when one note fails so the next scan resumes", async () => {

@@ -1,6 +1,6 @@
 import "./tokens.css";
 import "./style.css";
-import type { Attachment, Page, PageManifestEntry } from "./domain/page";
+import type { Attachment, Origin, Page, PageManifestEntry } from "./domain/page";
 import { newHubPageId } from "./domain/page";
 import {
   USE_LOCAL_DATA,
@@ -9,13 +9,11 @@ import {
   listPages,
   login,
   logout,
-  runCoach,
   savePage,
   searchPages,
   signAttachment,
   tidyPage,
   uploadSignedFile,
-  type CoachMessage,
 } from "./api/client";
 import { isPageHash, pageHashForId, pageIdFromHash } from "./routing/pageHash";
 import { runCapture } from "./api/captureClient";
@@ -27,10 +25,18 @@ import {
 } from "./capture";
 import type { ResearchFinding } from "./research/schema";
 import { escapeHtml, showToast } from "./lib/dom";
-import { hubUtilitiesHtml, titleRowHtml } from "./lib/hubChrome";
+import { hubUtilitiesHtml } from "./lib/hubChrome";
 import { renderMarkdown } from "./lib/markdown";
 import { archiveEmptyHtml } from "./archive/emptyList";
 import { goHome } from "./archive/goHome";
+import {
+  emptyOriginFilter,
+  originFilterHtml,
+  originFilterTitle,
+  pageMatchesOriginFilter,
+  toggleOriginKind,
+  toggleOriginLabel,
+} from "./archive/originFilter";
 import { searchCluster } from "./archive/graphFocus";
 import { mountGraphPreview } from "./archive/graphPreview";
 import { buildArchiveGraph, topicKeywords, vocabularyPresent } from "./archive/keywordGraph";
@@ -40,8 +46,10 @@ import { buildSolarModel, type SolarModel } from "./archive/solarModel";
 import { UNIVERSE_BUILD, mountSolarView, resolveSearchHits } from "./archive/solarView";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
-import { enterWikiRail, leaveWikiRail, renderWikiRail } from "./wiki/rail";
+import { enterChatRail, leaveChatRail, renderChatRail } from "./chat/rail";
 import { connectedLinksHtml } from "./wiki/connectedHtml";
+import { addOrigin, isOriginKind, pageOrigins, removeOrigin } from "./origin/normalize";
+import { originComposeFieldHtml, originPillsHtml, parseOriginRemoveValue } from "./origin/pills";
 import { applyTopicTags, normalizeTopicTags, toggleTopicTag } from "./tidy/applyTags";
 import { TOPIC_VOCABULARY } from "./tidy/vocabulary";
 
@@ -50,16 +58,10 @@ type View =
   | "graph"
   | "page"
   | "compose"
-  | "coach"
+  | "chat"
   | "podcast"
-  | "quiz"
-  | "wiki";
+  | "quiz";
 type GraphMode = "constellation" | "showAll" | "universe";
-
-type CoachTurn = CoachMessage & {
-  findings?: ResearchFinding[];
-  archiveFailed?: boolean;
-};
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const ROW_HEIGHT = 68;
@@ -70,6 +72,7 @@ let visible: PageManifestEntry[] = [];
 let view: View = "list";
 let query = "";
 let keywordFilter = "";
+let originFilter = emptyOriginFilter();
 let activePage: Page | null = null;
 let tidyBusy = false;
 let listScrollTop = 0;
@@ -86,18 +89,12 @@ function getSolarModel() {
   return model;
 }
 
-let coachThesis = "";
-let coachDraft = "";
-let coachInput = "";
-let coachBusy = false;
-let coachError = "";
-let coachTurns: CoachTurn[] = [];
-
 type ComposeState = {
   id: string;
   title: string;
   area: "notes" | "university";
   tags: string[];
+  origins: Origin[];
   body: string;
   existing: Attachment[];
   pending: File[];
@@ -116,6 +113,7 @@ function blankCompose(): ComposeState {
     title: "",
     area: "notes",
     tags: [],
+    origins: [],
     body: "",
     existing: [],
     pending: [],
@@ -132,6 +130,7 @@ function composeFromPage(page: Page): ComposeState {
     title: page.title,
     area: page.area,
     tags: [...page.tags],
+    origins: [...pageOrigins(page)],
     body: page.body,
     existing: [...page.attachments],
     pending: [],
@@ -145,10 +144,9 @@ function composeFromPage(page: Page): ComposeState {
 const icons = {
   archive: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z"/><path d="M9 7V5h6v2"/><path d="M8 12h8"/></svg>`,
   graph: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="6" r="2.2"/><circle cx="18" cy="14" r="2.2"/><path d="M8 11l3-3M13.5 8l3 4"/></svg>`,
-  coach: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h10v14H5z"/><path d="M8 9h4M8 13h4"/><path d="M17 8l4 4-6 6h-4v-4z"/></svg>`,
+  chat: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h11v8H5z"/><path d="M8 14v3l3-3h5"/></svg>`,
   podcast: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="3"/><path d="M8 10a4 4 0 0 0 8 0"/><path d="M6 10a6 6 0 0 0 12 0"/><path d="M12 13v6M9 19h6"/></svg>`,
   quiz: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v16H8z"/><path d="M11 8h2M11 12h2M11 16h1"/></svg>`,
-  wiki: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v12H5z"/><path d="M8 10h8M8 14h5"/></svg>`,
 };
 
 function kindBadge(attachment: Attachment) {
@@ -170,19 +168,23 @@ function pageHeader(eyebrow: string, title: string, actionsInner = "") {
   const utilities = hubUtilitiesHtml();
   const actions =
     actionsInner || utilities
-      ? `<div class="page-header__actions">${actionsInner}${utilities}</div>`
+      ? `<div class="page-header__actions">${actionsInner}${utilities}<img class="hub-mark" src="icons/knowledge.svg" alt="" width="32" height="32"></div>`
       : "";
   return `<header class="topbar page-header">
       <div class="page-header__copy">
         <p class="eyebrow page-header__eyebrow">${eyebrow}</p>
-        ${titleRowHtml(title)}
+        <h1 class="page-header__title">${title}</h1>
       </div>
       ${actions}
     </header>`;
 }
 
 function listTitle() {
-  return keywordFilter || "Archive";
+  return originFilterTitle(originFilter) || keywordFilter || "Archive";
+}
+
+function archiveIsUnfiltered() {
+  return !keywordFilter && !originFilter.kind;
 }
 
 function renderAttachments(page: Page) {
@@ -214,7 +216,7 @@ function renderAttachments(page: Page) {
 function leaveSpecialRails() {
   if (view === "podcast") leavePodcastRail();
   if (view === "quiz") leaveQuizRail();
-  if (view === "wiki") leaveWikiRail();
+  if (view === "chat") leaveChatRail();
 }
 
 function clearPageHash() {
@@ -225,10 +227,11 @@ function clearPageHash() {
 
 function goToHome() {
   leaveSpecialRails();
-  const next = goHome({ view, query, keywordFilter, activePage, compose });
+  const next = goHome({ view, query, keywordFilter, originFilter, activePage, compose });
   view = next.view;
   query = next.query;
   keywordFilter = next.keywordFilter;
+  originFilter = next.originFilter;
   activePage = next.activePage;
   compose = next.compose;
   clearPageHash();
@@ -245,12 +248,11 @@ function shell(main: string) {
     <aside class="rail hub-rail" aria-label="Knowledge Hub">
       <div class="hub-rail__brand-block"><a href="#" class="hub-rail__brand" data-home>Knowledge Hub</a></div>
       <nav class="rail__nav hub-rail__nav">
-        <button class="rail__btn hub-rail__link ${view === "list" && !keywordFilter ? "is-current" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
+        <button class="rail__btn hub-rail__link ${view === "list" && archiveIsUnfiltered() ? "is-current" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
         <button class="rail__btn hub-rail__link ${view === "graph" ? "is-current" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
-        <button class="rail__btn hub-rail__link ${view === "coach" ? "is-current" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
+        <button class="rail__btn hub-rail__link ${view === "chat" ? "is-current" : ""}" data-nav="chat" type="button">${icons.chat}<span>Chat</span></button>
         <button class="rail__btn hub-rail__link ${view === "podcast" ? "is-current" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
         <button class="rail__btn hub-rail__link ${view === "quiz" ? "is-current" : ""}" data-nav="quiz" type="button">${icons.quiz}<span>Quiz</span></button>
-        <button class="rail__btn hub-rail__link ${view === "wiki" ? "is-current" : ""}" data-nav="wiki" type="button">${icons.wiki}<span>Wiki</span></button>
       </nav>
     </aside>
     <main class="canvas">${main}</main>
@@ -263,10 +265,9 @@ function shell(main: string) {
       const next = button.dataset.nav!;
       const special: Record<string, View> = {
         graph: "graph",
-        coach: "coach",
+        chat: "chat",
         podcast: "podcast",
         quiz: "quiz",
-        wiki: "wiki",
       };
       if (special[next]) {
         leaveSpecialRails();
@@ -275,12 +276,13 @@ function shell(main: string) {
         clearPageHash();
         if (next === "podcast") enterPodcastRail();
         if (next === "quiz") enterQuizRail();
-        if (next === "wiki") enterWikiRail();
+        if (next === "chat") enterChatRail();
         render();
         return;
       }
       leaveSpecialRails();
       keywordFilter = "";
+      originFilter = emptyOriginFilter();
       view = "list";
       activePage = null;
       clearPageHash();
@@ -302,6 +304,7 @@ async function refreshVisible() {
   const source = query ? await searchPages(query) : entries;
   visible = source.filter(item => {
     if (keywordFilter && !topicKeywords(item.tags).includes(keywordFilter)) return false;
+    if (!pageMatchesOriginFilter(item, originFilter)) return false;
     return true;
   });
 }
@@ -348,7 +351,7 @@ function renderList() {
   shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · reading migrated data · no Netlify deploy</p>` : ""}
     ${pageHeader(
-      `Private archive${keywordFilter ? " · keyword" : ""}`,
+      `Private archive${originFilter.kind ? " · origin" : keywordFilter ? " · keyword" : ""}`,
       escapeHtml(listTitle()),
       `<button class="btn" data-new-note type="button">New note</button>
         <div class="viewbar">
@@ -366,6 +369,7 @@ function renderList() {
           : ""
       }
     </div>
+    ${originFilterHtml(entries, originFilter)}
     <p class="list-count">${visible.length.toLocaleString()} notes</p>
     <div class="cards list-viewport" aria-label="Archive list"></div>
   `);
@@ -381,6 +385,27 @@ function renderList() {
   };
   app.querySelector<HTMLButtonElement>("[data-clear-keyword]")?.addEventListener("click", () => {
     keywordFilter = "";
+    listScrollTop = 0;
+    void refreshVisible().then(render);
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-origin-kind]").forEach(button => {
+    button.onclick = () => {
+      const kind = button.dataset.originKind ?? "";
+      if (!isOriginKind(kind)) return;
+      originFilter = toggleOriginKind(originFilter, kind);
+      listScrollTop = 0;
+      void refreshVisible().then(render);
+    };
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-origin-label]").forEach(button => {
+    button.onclick = () => {
+      originFilter = toggleOriginLabel(originFilter, button.dataset.originLabel ?? "");
+      listScrollTop = 0;
+      void refreshVisible().then(render);
+    };
+  });
+  app.querySelector<HTMLButtonElement>("[data-clear-origin]")?.addEventListener("click", () => {
+    originFilter = emptyOriginFilter();
     listScrollTop = 0;
     void refreshVisible().then(render);
   });
@@ -582,104 +607,6 @@ function findingCards(findings: ResearchFinding[]): string {
     .join("");
 }
 
-function renderCoach() {
-  shell(`
-    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · coach needs the Netlify API (session + Anthropic). The browser never talks to the research kernel.</p>` : ""}
-    ${pageHeader("Professor Clementine Haig", "University office")}
-    <section class="coach">
-      <form class="coach__form glass-panel">
-        <label for="coach-thesis">Working thesis</label>
-        <input id="coach-thesis" value="${escapeHtml(coachThesis)}" placeholder="The claim, in one sentence" />
-        <label for="coach-draft">Draft</label>
-        <textarea id="coach-draft" rows="8" placeholder="Paste a section…">${escapeHtml(coachDraft)}</textarea>
-        <label for="coach-input">Message</label>
-        <textarea id="coach-input" rows="4" placeholder="Ask her about the argument…">${escapeHtml(coachInput)}</textarea>
-        <div class="alchemist__actions">
-          <button type="submit" ${coachBusy ? "disabled" : ""}>${coachBusy ? "Reading…" : "Send"}</button>
-          ${coachThesis ? `<p class="alchemist__mode">Thesis in play</p>` : `<p class="alchemist__mode">Optional thesis — she will still start with the argument</p>`}
-        </div>
-        ${coachError ? `<p class="alchemist__error">${escapeHtml(coachError)}</p>` : ""}
-      </form>
-      <div class="coach__thread" aria-live="polite">
-        ${
-          coachTurns.length
-            ? coachTurns
-                .map(
-                  turn => `<article class="coach-msg coach-msg--${turn.role} glass-panel">
-                    <p class="coach-msg__who">${turn.role === "user" ? "You" : "Clementine"}</p>
-                    <p class="coach-msg__body">${escapeHtml(turn.content)}</p>
-                    ${
-                      turn.archiveFailed
-                        ? `<p class="alchemist__error">Archive pull failed this turn — she continued with what she had.</p>`
-                        : ""
-                    }
-                    ${turn.findings?.length ? `<div class="coach-msg__citations">${findingCards(turn.findings)}</div>` : ""}
-                  </article>`,
-                )
-                .join("")
-            : `<p class="empty">She is waiting. Put a claim or a messy paragraph on the table.</p>`
-        }
-      </div>
-    </section>
-  `);
-
-  const form = app.querySelector("form")!;
-  const thesis = app.querySelector<HTMLInputElement>("#coach-thesis")!;
-  const draft = app.querySelector<HTMLTextAreaElement>("#coach-draft")!;
-  const input = app.querySelector<HTMLTextAreaElement>("#coach-input")!;
-
-  thesis.oninput = () => {
-    coachThesis = thesis.value;
-  };
-  draft.oninput = () => {
-    coachDraft = draft.value;
-  };
-  input.oninput = () => {
-    coachInput = input.value;
-  };
-
-  form.onsubmit = async event => {
-    event.preventDefault();
-    coachThesis = thesis.value.trim();
-    coachDraft = draft.value;
-    coachInput = input.value.trim();
-    if (!coachInput) return;
-    const history: CoachTurn[] = [...coachTurns, { role: "user", content: coachInput }];
-    coachTurns = history;
-    const outgoing = coachInput;
-    coachInput = "";
-    coachBusy = true;
-    coachError = "";
-    render();
-    try {
-      const result = await runCoach({
-        messages: history.map(({ role, content }) => ({ role, content })),
-        workingThesis: coachThesis || undefined,
-        draft: coachDraft || undefined,
-      });
-      coachTurns = [
-        ...history,
-        {
-          role: "assistant",
-          content: result.reply,
-          findings: result.research?.findings,
-          archiveFailed: result.archiveFailed,
-        },
-      ];
-    } catch (error) {
-      coachInput = outgoing;
-      coachError = error instanceof Error ? error.message : "Coach failed";
-    } finally {
-      coachBusy = false;
-      render();
-    }
-  };
-
-  app.querySelectorAll<HTMLButtonElement>("[data-open-page]").forEach(button => {
-    button.onclick = () => void openPage(button.dataset.openPage!);
-  });
-}
-
 function renderPage(page: Page) {
   const topics = topicKeywords(page.tags);
   const chips = topics
@@ -693,10 +620,12 @@ function renderPage(page: Page) {
         <button class="reader__back" data-back type="button">← Archive</button>
         <button class="btn" data-edit type="button">Edit</button>
         <button class="btn btn--ghost reader__tidy" data-tidy type="button" ${tidyBusy ? "disabled" : ""}>${tidyBusy ? "Cleaning up…" : "Clean up"}</button>
+        <button class="btn btn--ghost" data-open-chat type="button">Chat</button>
         ${hubUtilitiesHtml()}
       </div>
       <p class="eyebrow">${topics[0] ? escapeHtml(topics[0]) : "Note"}</p>
-      ${titleRowHtml(escapeHtml(page.title), "reader__title")}
+      <h1 class="reader__title">${escapeHtml(page.title)}</h1>
+      ${originPillsHtml(pageOrigins(page))}
       <div class="reader__meta">${chips}</div>
       <div class="reader__body">${renderMarkdown(page.body)}</div>
       ${connectedLinksHtml(page, entries)}
@@ -712,6 +641,14 @@ function renderPage(page: Page) {
   app.querySelector<HTMLButtonElement>("[data-edit]")!.onclick = () => {
     compose = composeFromPage(page);
     view = "compose";
+    render();
+  };
+  app.querySelector<HTMLButtonElement>("[data-open-chat]")!.onclick = () => {
+    leaveSpecialRails();
+    view = "chat";
+    enterChatRail({ noteContext: { pageId: page.id, title: page.title } });
+    activePage = null;
+    clearPageHash();
     render();
   };
   app.querySelector<HTMLButtonElement>("[data-tidy]")!.onclick = async () => {
@@ -782,6 +719,7 @@ function renderCompose(state: ComposeState) {
           }).join("")}
         </div>
       </div>
+      ${originComposeFieldHtml(state.origins)}
       <div class="compose__field compose__field--body">
         <label for="compose-body">Body (markdown)</label>
         <textarea id="compose-body">${escapeHtml(state.body)}</textarea>
@@ -868,6 +806,32 @@ function renderCompose(state: ComposeState) {
       render();
     };
   });
+  const addOriginFromFields = () => {
+    if (!compose) return;
+    syncFields();
+    const kind = app.querySelector<HTMLSelectElement>("#compose-origin-kind")?.value ?? "";
+    const label = app.querySelector<HTMLInputElement>("#compose-origin-label")?.value ?? "";
+    if (!isOriginKind(kind) || !label.trim()) return;
+    compose.origins = addOrigin(compose.origins, { kind, label });
+    render();
+  };
+  app.querySelector<HTMLButtonElement>("[data-origin-add]")?.addEventListener("click", addOriginFromFields);
+  app.querySelector<HTMLInputElement>("#compose-origin-label")?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addOriginFromFields();
+    }
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-origin-remove]").forEach(button => {
+    button.onclick = () => {
+      if (!compose) return;
+      syncFields();
+      const target = parseOriginRemoveValue(button.dataset.originRemove ?? "");
+      if (!target) return;
+      compose.origins = removeOrigin(compose.origins, target);
+      render();
+    };
+  });
   app.querySelector<HTMLButtonElement>("[data-compose-save]")!.onclick = () => void saveCompose();
   bindCaptureControls(app, {
     syncFields,
@@ -923,6 +887,7 @@ async function saveCompose() {
       title: snapshot.title.trim(),
       area: snapshot.area,
       tags: applyTopicTags(snapshot.tags, snapshot.tags),
+      origins: snapshot.origins,
       body: snapshot.body,
       connected: activePage?.connected ?? [],
       attachments: [...snapshot.existing, ...uploaded],
@@ -953,7 +918,21 @@ function render() {
   if (view === "compose" && compose) return renderCompose(compose);
   if (view === "page" && activePage) return renderPage(activePage);
   if (view === "graph") return renderGraph();
-  if (view === "coach") return renderCoach();
+  if (view === "chat") {
+    return renderChatRail({
+      app,
+      shell,
+      render,
+      onOpenPage: pageId => void openPage(pageId),
+      onSavedPage: async saved => {
+        entries = await listPages();
+        await refreshVisible();
+        await openPage(saved.id);
+      },
+      pageHeader,
+      findingCards,
+    });
+  }
   if (view === "podcast") {
     return renderPodcastRail({
       app,
@@ -971,14 +950,6 @@ function render() {
       shell,
       render,
       onOpenPage: id => void openPage(id),
-    });
-  }
-  if (view === "wiki") {
-    return renderWikiRail({
-      app,
-      shell,
-      render,
-      onOpenPage: pageId => void openPage(pageId),
     });
   }
   return renderList();

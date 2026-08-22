@@ -8,6 +8,7 @@ describe("goHome", () => {
         view: "page",
         query: "caesar",
         keywordFilter: "Philosophy Knowledge and Society",
+        originFilter: { kind: "notebook", label: "Cognitive Psychology" },
         activePage: { id: "page_notion_abc" },
         compose: { id: "page_notion_abc" },
       }),
@@ -15,6 +16,7 @@ describe("goHome", () => {
       view: "list",
       query: "",
       keywordFilter: "",
+      originFilter: { kind: "", label: "" },
       activePage: null,
       compose: null,
     });
@@ -26,6 +28,7 @@ describe("goHome", () => {
         view: "quiz",
         query: "",
         keywordFilter: "Pedagogy and Instructional Design",
+        originFilter: { kind: "book", label: "Atomic Habits" },
         activePage: null,
         compose: null,
       }),

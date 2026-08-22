@@ -7,6 +7,11 @@ describe("toManifestEntry", () => {
   it("copies created_at onto the manifest row", () => {
     expect(toManifestEntry(page).created_at).toBe("2024-01-01T00:00:00.000Z");
   });
+  it("copies origin pills onto the manifest row", () => {
+    expect(toManifestEntry({ ...page, origins: [{ kind: "notebook", label: "Brown 2022" }] }).origins).toEqual([
+      { kind: "notebook", label: "Brown 2022" },
+    ]);
+  });
 });
 describe("githubNetworkError", () => it("preserves the underlying network cause", () => expect(githubNetworkError(Object.assign(new TypeError("fetch failed"), { cause: new Error("connect ETIMEDOUT") })).message).toContain("connect ETIMEDOUT")));
-describe("parseManifest", () => it("accepts page metadata without fetching every body", () => expect(parseManifest([{ id: "p", title: "Title", area: "notes", tags: [], excerpt: "Summary", path: "pages/p.json" }])).toEqual([{ id: "p", title: "Title", area: "notes", tags: [], excerpt: "Summary", path: "pages/p.json" }])));
+describe("parseManifest", () => it("accepts page metadata without fetching every body", () => expect(parseManifest([{ id: "p", title: "Title", area: "notes", tags: [], excerpt: "Summary", origins: [{ kind: "unit", label: "EDST5805" }], path: "pages/p.json" }])).toEqual([{ id: "p", title: "Title", area: "notes", tags: [], excerpt: "Summary", origins: [{ kind: "unit", label: "EDST5805" }], path: "pages/p.json" }])));

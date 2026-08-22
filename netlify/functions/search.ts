@@ -8,7 +8,11 @@ export function rankByQuery(entries: PageManifestEntry[], query: string) {
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
   return entries
-    .filter(entry => [entry.title, entry.excerpt, ...entry.tags].some(value => value.toLowerCase().includes(needle)))
+    .filter(entry =>
+      [entry.title, entry.excerpt, ...entry.tags, ...(entry.origins ?? []).map(origin => origin.label)].some(value =>
+        value.toLowerCase().includes(needle),
+      ),
+    )
     .sort((a, b) => Number(b.title.toLowerCase().includes(needle)) - Number(a.title.toLowerCase().includes(needle)));
 }
 

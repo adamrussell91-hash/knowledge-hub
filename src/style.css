@@ -139,18 +139,6 @@
   min-width: 0;
 }
 
-.page-header__title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.page-header__title-row .hub-mark {
-  width: 2rem;
-  height: 2rem;
-  flex-shrink: 0;
-}
-
 .page-header__actions {
   flex-shrink: 0;
 }
@@ -255,6 +243,13 @@
   border-color: transparent;
   border-bottom-color: var(--navy);
   color: var(--navy);
+}
+
+.origin-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
 }
 
 .list-count {
@@ -584,6 +579,64 @@
   gap: var(--space-5);
   grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
   align-items: start;
+}
+
+.chat__picker-label,
+.chat__dials-toggle {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chat__dials-toggle,
+.chat__text-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--wave);
+  text-align: left;
+}
+
+.chat .graph-modes {
+  margin-bottom: var(--space-2);
+}
+
+.chat__dials {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.chat__dials select {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+}
+
+.chat__ticker {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat__ticker li {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.chat__ticker li:last-child {
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
 }
 
 .coach__form {
@@ -1555,6 +1608,64 @@
 .tag-pill:focus-visible {
   outline: 2px solid var(--wave);
   outline-offset: 2px;
+}
+
+.origin-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+
+.origin-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  background: var(--shallow);
+  color: var(--navy);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+.origin-pill__kind {
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.origin-pill__remove {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--navy);
+  padding: 0 0 0 var(--space-1);
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.origin-pill__remove:focus-visible {
+  outline: 2px solid var(--wave);
+  outline-offset: 2px;
+}
+
+.origin-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.compose .origin-add select,
+.compose .origin-add input {
+  width: auto;
+  min-width: 8rem;
+  flex: 1 1 8rem;
 }
 
 .compose__field {

@@ -8,6 +8,7 @@ const page: Page = {
   title: "New note",
   area: "notes",
   tags: [],
+  origins: [{ kind: "unit", label: "EDST5805" }],
   body: "Hello",
   connected: [],
   attachments: [],
@@ -28,8 +29,25 @@ describe("savePageRecord", () => {
     expect(saved.id).toBe(page.id);
     expect(putContent.mock.calls[0]?.[0]).toBe("pages/page_hub_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json");
     expect(putContent.mock.calls[1]?.[0]).toBe("manifest.json");
-    const manifest = JSON.parse(putContent.mock.calls[1]?.[1] as string) as { id: string }[];
+    const manifest = JSON.parse(putContent.mock.calls[1]?.[1] as string) as {
+      id: string;
+      origins?: { kind: string; label: string }[];
+    }[];
     expect(manifest[0]?.id).toBe(page.id);
+    expect(manifest[0]?.origins).toEqual([{ kind: "unit", label: "EDST5805" }]);
+  });
+
+  it("keeps origins already on GitHub when the client omits them", async () => {
+    const existing = { ...page, origins: [{ kind: "degree" as const, label: "MEd" }, { kind: "unit" as const, label: "EDST5805" }] };
+    const { origins: _omit, ...withoutOrigins } = page;
+    const getContent = vi
+      .fn()
+      .mockResolvedValueOnce({ sha: "page1", text: JSON.stringify(existing) })
+      .mockResolvedValueOnce({ sha: "man1", text: "[]" });
+    const putContent = vi.fn().mockResolvedValue(undefined);
+    await savePageRecord(withoutOrigins as Page, { getContent, putContent });
+    const written = JSON.parse(putContent.mock.calls[0]?.[1] as string) as Page;
+    expect(written.origins).toEqual(existing.origins);
   });
 
   it("retries the manifest once on 409 then succeeds", async () => {
