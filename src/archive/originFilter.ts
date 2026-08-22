@@ -2,6 +2,7 @@ import { ORIGIN_KINDS, type Origin, type OriginKind } from "../domain/page";
 import { escapeHtml } from "../lib/dom";
 import { ORIGIN_KIND_LABELS, pageMatchesOrigins } from "../origin/normalize";
 import { resolvedOrigins } from "../origin/notesPlace";
+import { optionPickerHtml } from "../ui/optionPicker";
 
 export type OriginFilterState = {
   kind: OriginKind | "";
@@ -57,7 +58,24 @@ function filterPill(label: string, selected: boolean, attrs: string) {
   return `<button type="button" class="tag-pill${selected ? " is-selected" : ""}" aria-pressed="${selected}" ${attrs}>${escapeHtml(label)}</button>`;
 }
 
-export function originFilterHtml(entries: { id?: string; origins?: Origin[] }[], filter: OriginFilterState) {
+const KIND_NOUN: Record<OriginKind, [string, string]> = {
+  degree: ["degree", "degrees"],
+  unit: ["unit", "units"],
+  notebook: ["notebook", "notebooks"],
+  book: ["book", "books"],
+  pd: ["session", "sessions"],
+};
+
+export function originLabelNoun(kind: OriginKind, count: number) {
+  const [one, many] = KIND_NOUN[kind];
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+export function originFilterHtml(
+  entries: { id?: string; origins?: Origin[]; source_notion_id?: string; source_notion_url?: string }[],
+  filter: OriginFilterState,
+  chrome: { labelQuery?: string; labelOpen?: boolean } = {},
+) {
   const kinds = ORIGIN_KINDS.map(kind =>
     filterPill(ORIGIN_KIND_LABELS[kind], filter.kind === kind, `data-origin-kind="${kind}"`),
   ).join("");
@@ -70,12 +88,22 @@ export function originFilterHtml(entries: { id?: string; origins?: Origin[] }[],
     if (!options.length) {
       labels = `<p class="list-count">No ${escapeHtml(ORIGIN_KIND_LABELS[filter.kind].toLowerCase())} pills on notes yet.</p>`;
     } else {
-      const chips = options
-        .map(item =>
-          filterPill(item.label, filter.label === item.label, `data-origin-label="${escapeHtml(item.label)}"`),
-        )
-        .join("");
-      labels = `<div class="tag-pills" role="list" aria-label="${escapeHtml(ORIGIN_KIND_LABELS[filter.kind])} filters">${chips}</div>`;
+      const open = chrome.labelOpen ?? !filter.label;
+      labels = optionPickerHtml({
+        selected: filter.label ? [filter.label] : [],
+        options: options.map(item => ({ label: item.label, detail: String(item.count) })),
+        query: chrome.labelQuery ?? "",
+        open,
+        searchId: "origin-label-search",
+        searchLabel: `Find a ${ORIGIN_KIND_LABELS[filter.kind].toLowerCase()}`,
+        searchPlaceholder: "Start typing…",
+        emptyLabel: "Nothing matches that.",
+        countLabel: originLabelNoun(filter.kind, options.length),
+        addLabel: `Choose a ${ORIGIN_KIND_LABELS[filter.kind].toLowerCase()}`,
+        changeLabel: "Change",
+        selectedAttr: "data-origin-label",
+        optionAttr: "data-origin-option",
+      });
     }
   }
   return `<div class="origin-filters">

@@ -36,10 +36,13 @@ describe("Knowledge Hub rail", () => {
   it("filters the archive by origin pills already on notes", () => {
     expect(main).toContain("originFilterHtml");
     expect(main).toContain("pageMatchesOriginFilter");
+    expect(main).toContain("topicTagPickerHtml");
     expect(css).toContain(".origin-filters");
     expect(css).toContain(".tag-pill");
+    expect(css).toContain(".option-picker");
     expect(css).not.toContain(".filter-chip");
     expect(main).not.toContain("filter-chip");
+    expect(main).not.toContain("TOPIC_VOCABULARY.map");
   });
 
   it("has no University / Notes split in the rail, filters, or compose", () => {

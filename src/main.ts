@@ -35,6 +35,7 @@ import {
   emptyOriginFilter,
   originFilterHtml,
   originFilterTitle,
+  originLabelsForKind,
   pageMatchesOriginFilter,
   toggleOriginKind,
   toggleOriginLabel,
@@ -53,8 +54,9 @@ import { connectedLinksHtml } from "./wiki/connectedHtml";
 import { addOrigin, isOriginKind, removeOrigin } from "./origin/normalize";
 import { resolvedOrigins } from "./origin/notesPlace";
 import { originComposeFieldHtml, originPillsHtml, parseOriginRemoveValue } from "./origin/pills";
-import { applyTopicTags, normalizeTopicTags, toggleTopicTag } from "./tidy/applyTags";
-import { TOPIC_VOCABULARY } from "./tidy/vocabulary";
+import { applyTopicTags, toggleTopicTag } from "./tidy/applyTags";
+import { remainingTopicTags, topicTagPickerHtml } from "./tidy/tagPicker";
+import { filterPickerOptions, optionPickerListHtml } from "./ui/optionPicker";
 
 type View =
   | "list"
@@ -76,6 +78,10 @@ let view: View = "list";
 let query = "";
 let keywordFilter = "";
 let originFilter = emptyOriginFilter();
+let originLabelQuery = "";
+let originLabelOpen = false;
+let composeTagQuery = "";
+let composeTagOpen = false;
 let activePage: Page | null = null;
 let tidyBusy = false;
 let listScrollTop = 0;
@@ -228,6 +234,16 @@ function clearPageHash() {
   }
 }
 
+function resetOriginLabelChrome() {
+  originLabelQuery = "";
+  originLabelOpen = false;
+}
+
+function resetComposeTagChrome() {
+  composeTagQuery = "";
+  composeTagOpen = false;
+}
+
 function goToHome() {
   leaveSpecialRails();
   const next = goHome({ view, query, keywordFilter, originFilter, activePage, compose });
@@ -237,6 +253,8 @@ function goToHome() {
   originFilter = next.originFilter;
   activePage = next.activePage;
   compose = next.compose;
+  resetOriginLabelChrome();
+  resetComposeTagChrome();
   clearPageHash();
   listScrollTop = 0;
   void refreshVisible().then(render);
@@ -286,6 +304,8 @@ function shell(main: string) {
       leaveSpecialRails();
       keywordFilter = "";
       originFilter = emptyOriginFilter();
+      resetOriginLabelChrome();
+      resetComposeTagChrome();
       view = "list";
       activePage = null;
       clearPageHash();
@@ -372,7 +392,7 @@ function renderList() {
           : ""
       }
     </div>
-    ${originFilterHtml(entries, originFilter)}
+    ${originFilterHtml(entries, originFilter, { labelQuery: originLabelQuery, labelOpen: originLabelOpen })}
     <p class="list-count">${visible.length.toLocaleString()} notes</p>
     <div class="cards list-viewport" aria-label="Archive list"></div>
   `);
@@ -383,6 +403,7 @@ function renderList() {
   };
   app.querySelector<HTMLButtonElement>("[data-new-note]")!.onclick = () => {
     compose = blankCompose();
+    resetComposeTagChrome();
     view = "compose";
     render();
   };
@@ -391,27 +412,84 @@ function renderList() {
     listScrollTop = 0;
     void refreshVisible().then(render);
   });
+  const applyOriginFilter = () => {
+    listScrollTop = 0;
+    void refreshVisible().then(render);
+  };
+
   app.querySelectorAll<HTMLButtonElement>("[data-origin-kind]").forEach(button => {
     button.onclick = () => {
       const kind = button.dataset.originKind ?? "";
       if (!isOriginKind(kind)) return;
       originFilter = toggleOriginKind(originFilter, kind);
-      listScrollTop = 0;
-      void refreshVisible().then(render);
+      originLabelQuery = "";
+      originLabelOpen = Boolean(originFilter.kind);
+      applyOriginFilter();
     };
   });
   app.querySelectorAll<HTMLButtonElement>("[data-origin-label]").forEach(button => {
     button.onclick = () => {
       originFilter = toggleOriginLabel(originFilter, button.dataset.originLabel ?? "");
-      listScrollTop = 0;
-      void refreshVisible().then(render);
+      originLabelQuery = "";
+      originLabelOpen = !originFilter.label;
+      applyOriginFilter();
     };
+  });
+  const bindOriginOptions = () => {
+    app.querySelectorAll<HTMLButtonElement>("[data-origin-option]").forEach(button => {
+      button.onclick = () => {
+        originFilter = toggleOriginLabel(originFilter, button.dataset.originOption ?? "");
+        originLabelQuery = "";
+        originLabelOpen = false;
+        applyOriginFilter();
+      };
+    });
+  };
+  bindOriginOptions();
+  app.querySelector<HTMLButtonElement>("[data-picker-open]")?.addEventListener("click", () => {
+    originLabelOpen = true;
+    render();
+  });
+  app.querySelector<HTMLButtonElement>("[data-picker-close]")?.addEventListener("click", () => {
+    originLabelOpen = false;
+    originLabelQuery = "";
+    render();
   });
   app.querySelector<HTMLButtonElement>("[data-clear-origin]")?.addEventListener("click", () => {
     originFilter = emptyOriginFilter();
-    listScrollTop = 0;
-    void refreshVisible().then(render);
+    resetOriginLabelChrome();
+    applyOriginFilter();
   });
+  const originSearch = app.querySelector<HTMLInputElement>("#origin-label-search");
+  const originKind = originFilter.kind;
+  if (originSearch && originKind) {
+    const rewriteOriginList = () => {
+      const list = app.querySelector("[data-picker-list]");
+      if (!list) return;
+      const remaining = originLabelsForKind(entries, originKind)
+        .filter(item => item.label.toLowerCase() !== originFilter.label.toLowerCase())
+        .map(item => ({ label: item.label, detail: String(item.count) }));
+      list.innerHTML = optionPickerListHtml({
+        options: filterPickerOptions(remaining, originLabelQuery),
+        optionAttr: "data-origin-option",
+        emptyLabel: "Nothing matches that.",
+      });
+      bindOriginOptions();
+    };
+    originSearch.oninput = () => {
+      originLabelQuery = originSearch.value;
+      rewriteOriginList();
+    };
+    originSearch.onkeydown = event => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      originLabelOpen = false;
+      originLabelQuery = "";
+      render();
+    };
+    originSearch.focus();
+    originSearch.setSelectionRange(originLabelQuery.length, originLabelQuery.length);
+  }
 
   const input = app.querySelector<HTMLInputElement>(".search")!;
   input.oninput = async event => {
@@ -643,6 +721,7 @@ function renderPage(page: Page) {
   };
   app.querySelector<HTMLButtonElement>("[data-edit]")!.onclick = () => {
     compose = composeFromPage(page);
+    resetComposeTagChrome();
     view = "compose";
     render();
   };
@@ -715,11 +794,8 @@ function renderCompose(state: ComposeState) {
       <div class="compose__field">
         <label id="compose-tags-label">Tags</label>
         <p class="compose__hint">Up to 3.</p>
-        <div class="tag-pills" role="group" aria-labelledby="compose-tags-label">
-          ${TOPIC_VOCABULARY.map(tag => {
-            const on = normalizeTopicTags(state.tags).includes(tag);
-            return `<button type="button" class="tag-pill${on ? " is-selected" : ""}" data-tag-pill="${escapeHtml(tag)}" aria-pressed="${on}">${escapeHtml(tag)}</button>`;
-          }).join("")}
+        <div role="group" aria-labelledby="compose-tags-label">
+          ${topicTagPickerHtml(state.tags, composeTagQuery, composeTagOpen)}
         </div>
       </div>
       ${originComposeFieldHtml(state.origins)}
@@ -775,6 +851,7 @@ function renderCompose(state: ComposeState) {
 
   app.querySelector<HTMLButtonElement>("[data-compose-cancel]")!.onclick = () => {
     compose = null;
+    resetComposeTagChrome();
     view = activePage ? "page" : "list";
     render();
   };
@@ -806,9 +883,65 @@ function renderCompose(state: ComposeState) {
       if (!compose) return;
       syncFields();
       compose.tags = toggleTopicTag(compose.tags, button.dataset.tagPill ?? "");
+      composeTagQuery = "";
+      composeTagOpen = false;
       render();
     };
   });
+  const bindTagOptions = () => {
+    app.querySelectorAll<HTMLButtonElement>("[data-tag-option]").forEach(button => {
+      button.onclick = () => {
+        if (!compose) return;
+        syncFields();
+        compose.tags = toggleTopicTag(compose.tags, button.dataset.tagOption ?? "");
+        composeTagQuery = "";
+        composeTagOpen = false;
+        render();
+      };
+    });
+  };
+  bindTagOptions();
+  app.querySelector<HTMLButtonElement>("[data-picker-open]")?.addEventListener("click", () => {
+    if (!compose) return;
+    syncFields();
+    composeTagOpen = true;
+    render();
+  });
+  app.querySelector<HTMLButtonElement>("[data-picker-close]")?.addEventListener("click", () => {
+    if (!compose) return;
+    syncFields();
+    composeTagOpen = false;
+    composeTagQuery = "";
+    render();
+  });
+  const tagSearch = app.querySelector<HTMLInputElement>("#compose-tag-search");
+  if (tagSearch && compose) {
+    const draft = compose;
+    const rewriteTagList = () => {
+      const list = app.querySelector("[data-picker-list]");
+      if (!list) return;
+      list.innerHTML = optionPickerListHtml({
+        options: filterPickerOptions(remainingTopicTags(draft.tags), composeTagQuery),
+        optionAttr: "data-tag-option",
+        emptyLabel: "No tags match that.",
+      });
+      bindTagOptions();
+    };
+    tagSearch.oninput = () => {
+      composeTagQuery = tagSearch.value;
+      rewriteTagList();
+    };
+    tagSearch.onkeydown = event => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      syncFields();
+      composeTagOpen = false;
+      composeTagQuery = "";
+      render();
+    };
+    tagSearch.focus();
+    tagSearch.setSelectionRange(composeTagQuery.length, composeTagQuery.length);
+  }
   const addOriginFromFields = () => {
     if (!compose) return;
     syncFields();
@@ -905,6 +1038,7 @@ async function saveCompose() {
     entries = await listPages();
     activePage = saved;
     compose = null;
+    resetComposeTagChrome();
     view = "page";
     showToast("Saved");
     await refreshVisible();

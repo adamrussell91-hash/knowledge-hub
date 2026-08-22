@@ -25,6 +25,7 @@ const pages = [
     ],
   },
   { title: "Unit only", origins: [{ kind: "unit" as const, label: "EDST5805" }] },
+  { title: "Stick", origins: [{ kind: "book" as const, label: "Make It Stick" }] },
 ];
 
 describe("archive origin filters", () => {
@@ -65,7 +66,7 @@ describe("archive origin filters", () => {
     });
   });
 
-  it("renders kind chips and the active label row", () => {
+  it("renders kind chips and the chosen label without dumping the catalog", () => {
     const html = originFilterHtml(pages, { kind: "book", label: "Atomic Habits" });
     expect(html).toContain('class="tag-pill is-selected"');
     expect(html).toContain('aria-pressed="true"');
@@ -73,8 +74,20 @@ describe("archive origin filters", () => {
     expect(html).toContain('data-origin-kind="book"');
     expect(html).toContain('data-origin-kind="pd"');
     expect(html).toContain('data-origin-label="Atomic Habits"');
+    expect(html).toContain("Change");
     expect(html).toContain("Clear Atomic Habits");
+    expect(html).not.toContain("origin-label-search");
     expect(html).not.toContain("filter-chip");
     expect(originFilterTitle({ kind: "book", label: "Atomic Habits" })).toBe("Atomic Habits");
+  });
+
+  it("opens a searchable list instead of a pill dump when a kind is chosen", () => {
+    const html = originFilterHtml(pages, { kind: "notebook", label: "" });
+    expect(html).toContain("Find a notebook");
+    expect(html).toContain("2 notebooks");
+    expect(html).toContain("origin-label-search");
+    expect(html).toContain('data-origin-option="Cognitive Psychology"');
+    expect(html).toContain('data-origin-option="Pedagogy and Planning"');
+    expect(html).not.toMatch(/tag-pill[^>]+data-origin-label="Cognitive Psychology"/);
   });
 });
