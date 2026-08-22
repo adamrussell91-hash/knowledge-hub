@@ -1,4 +1,5 @@
 import type { Handler } from "@netlify/functions";
+import { expiredSessionCookie } from "./_lib/authLogin";
 import { cors, preflight } from "./_lib/cors";
 
 export const handler: Handler = async event => {
@@ -8,7 +9,7 @@ export const handler: Handler = async event => {
     statusCode: 200,
     headers: {
       ...cors(event.headers.origin),
-      "Set-Cookie": "kh_session=; Domain=.adam-russell.com; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0",
+      "Set-Cookie": expiredSessionCookie(),
     },
     body: JSON.stringify({ ok: true }),
   };
