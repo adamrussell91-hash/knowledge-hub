@@ -17,7 +17,8 @@ Hub marks: also read `ICONS.md`. The website tile is favicon + login + canvas to
 5. `css/rail.css` — **locked** left rail (also imported by `chrome.css`)
 6. `css/chrome.css` — rail, page header, buttons, confirm cards (new hubs)
 7. `icons/` — locked hub tiles + glyphs (`ICONS.md`)
-8. `snippets/` — copy the HTML, then wire behaviour (`shell.html`, `rail.html`, `hub-utilities.html`, `sign-in.html`, `sign-in.js`, `confirm-card.html`)
+8. `js/format-display-date.js` — **locked** display dates (`dd/mm/yy`)
+9. `snippets/` — copy the HTML, then wire behaviour (`shell.html`, `rail.html`, `hub-utilities.html`, `sign-in.html`, `sign-in.js`, `confirm-card.html`)
 
 ### Passphrase gate (mandatory)
 
@@ -33,6 +34,10 @@ Every hub’s front loading / password page uses `snippets/sign-in.html` + `css/
 No supporting line, purpose copy, privacy notes, extra rows, or hub-only login CSS. The kit tile is the only mark.
 
 Do **not** bind only to the button’s `click`. Do **not** put `onsubmit="return false"` on the form (that eats Enter). `novalidate` is required so a password-manager fill still reaches JS on Enter.
+
+### Display dates (mandatory)
+
+Every hub shows calendar days as **`dd/mm/yy`** via `js/format-display-date.js`. Do not call `toLocaleDateString` for a day, and do not show `YYYY-MM-DD` in the UI. Month-only labels, times, and storage keys stay as they are.
 
 ### Left rail (mandatory)
 

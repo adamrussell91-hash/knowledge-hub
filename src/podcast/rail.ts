@@ -8,6 +8,7 @@ import {
   startPodcastSeries,
 } from "../api/client";
 import { topicKeywords } from "../archive/keywordGraph";
+import { formatDisplayDate } from "../../design-kit/js/format-display-date.js";
 import { escapeHtml } from "../lib/dom";
 import { hubUtilitiesActionsHtml } from "../lib/hubChrome";
 import type { ResearchScope } from "../research/scope";
@@ -149,7 +150,7 @@ function runningNote(episode: PodcastEpisode) {
 }
 
 function formatDate(iso: string) {
-  return iso.slice(0, 10) || iso;
+  return formatDisplayDate(iso) || iso;
 }
 
 function canNext(series: PodcastSeries) {
