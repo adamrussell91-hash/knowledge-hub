@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cors, preflight } from "./cors";
+import { cors, headerValue, jsonHeaders, preflight, requestOrigin } from "./cors";
 
 describe("cors", () => {
   it("allows credentialed browser calls from the Pages origin", () => {
@@ -17,5 +17,15 @@ describe("cors", () => {
 
   it("lets real methods through", () => {
     expect(preflight({ httpMethod: "GET" } as never)).toBeNull();
+  });
+
+  it("reads Origin when the header is capitalized", () => {
+    expect(headerValue({ Origin: "https://knowledge-hub.adam-russell.com" }, "origin")).toBe(
+      "https://knowledge-hub.adam-russell.com",
+    );
+    expect(requestOrigin({ Origin: "https://knowledge-hub.adam-russell.com" })).toBe(
+      "https://knowledge-hub.adam-russell.com",
+    );
+    expect(jsonHeaders("https://knowledge-hub.adam-russell.com")["Cache-Control"]).toBe("no-store");
   });
 });

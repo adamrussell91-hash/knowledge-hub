@@ -12,8 +12,14 @@ describe("Knowledge Hub sign-in gate", () => {
     expect(renderLogin).not.toContain("location.replace");
     expect(renderLogin).not.toContain("login.html");
     expect(renderLogin).toContain("await login(");
+    expect(renderLogin).toContain("fetchSession()");
     expect(renderLogin).toContain("addEventListener(\"submit\"");
     expect(main).not.toContain("form.onsubmit");
+  });
+
+  it("does not treat an archive load failure as a failed sign-in", () => {
+    expect(main).toContain("signedIn: true");
+    expect(main).toContain("Couldn't load the archive");
   });
 
   it("does not send the phone to the API host", () => {

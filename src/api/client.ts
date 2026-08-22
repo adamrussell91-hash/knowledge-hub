@@ -48,11 +48,27 @@ export async function getAttachmentUrl(
   );
 }
 
+export async function fetchSession(): Promise<boolean> {
+  if (USE_LOCAL_DATA) return true;
+  const response = await fetch(`${API_BASE}/auth-session`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!response.ok) return false;
+  try {
+    const payload = (await response.json()) as { authenticated?: boolean };
+    return payload.authenticated === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function login(passphrase: string): Promise<boolean> {
   if (USE_LOCAL_DATA) return true;
   const response = await fetch(`${API_BASE}/auth-login`, {
     method: "POST",
     credentials: "include",
+    cache: "no-store",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ passphrase }),
   });
