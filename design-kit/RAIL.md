@@ -46,7 +46,7 @@ Copy `snippets/rail.html`. Do not invent a parallel aside.
 | Tasks | `Tasks Hub` | Board |
 
 - Markup: `<a class="hub-rail__brand" href="…">Life Hub</a>` inside `.hub-rail__brand-block`.
-- No logo, concentric mark, hub tile, or stacked `<br>` wordmark beside or above the brand. The website tile lives top-right and on sign-in (`ICONS.md`).
+- No logo, concentric mark, hub tile, or stacked `<br>` wordmark beside or above the brand. The website tile is favicon only (`ICONS.md`).
 - No collapse chevron attached to the brand. If a hub collapses the rail, that control is a separate `.hub-icon-btn`, not the wordmark.
 - Optional `.hub-rail__tagline` is not a link (e.g. Life’s “Private dashboard”).
 

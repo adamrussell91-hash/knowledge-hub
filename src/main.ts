@@ -180,7 +180,7 @@ function pageHeader(eyebrow: string, title: string, actionsInner = "") {
   const utilities = hubUtilitiesHtml();
   const actions =
     actionsInner || utilities
-      ? `<div class="page-header__actions">${actionsInner}${utilities}<img class="hub-mark" src="icons/knowledge.svg" alt="" width="32" height="32"></div>`
+      ? `<div class="page-header__actions">${actionsInner}${utilities}</div>`
       : "";
   return `<header class="topbar page-header">
       <div class="page-header__copy">
