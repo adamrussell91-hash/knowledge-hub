@@ -19,42 +19,51 @@ import type { GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
 
 export { SHOW_ALL_SETTLE_TICKS };
 
+const LAYOUT_CENTRE = { x: 760, y: 560 };
+
 export function lockShowAllNodes(nodes: GraphNodeDatum[]) {
   for (const node of nodes) {
+    if (node.departing) continue;
     node.fx = node.x ?? 0;
     node.fy = node.y ?? 0;
+    node.vx = 0;
+    node.vy = 0;
   }
+}
+
+export function unlockShowAllNodes(nodes: GraphNodeDatum[]) {
+  for (const node of nodes) {
+    if (node.departing) continue;
+    node.fx = null;
+    node.fy = null;
+  }
+}
+
+function homeFor(node: GraphNodeDatum, hubs: Map<string, { x: number; y: number }>) {
+  if (node.homeX != null && node.homeY != null) return { x: node.homeX, y: node.homeY };
+  if (node.kind === "major") return { x: node.x ?? LAYOUT_CENTRE.x, y: node.y ?? LAYOUT_CENTRE.y };
+  return hubs.get(node.parentKeyword ?? "") ?? LAYOUT_CENTRE;
 }
 
 export function createShowAllSimulation(
   nodes: GraphNodeDatum[],
   links: GraphLinkDatum[],
 ): Simulation<GraphNodeDatum, GraphLinkDatum> {
-  const majorTargets = new Map(
-    nodes
-      .filter(node => node.kind === "major")
-      .map(node => [node.label, { x: node.x ?? 760, y: node.y ?? 560 }]),
-  );
-
+  const hubHomes = new Map<string, { x: number; y: number }>();
   for (const node of nodes) {
-    if (node.kind === "major") {
-      node.fx = node.x ?? 760;
-      node.fy = node.y ?? 560;
-    } else {
-      node.fx = null;
-      node.fy = null;
-    }
+    if (node.kind !== "major") continue;
+    hubHomes.set(node.label, {
+      x: node.homeX ?? node.x ?? LAYOUT_CENTRE.x,
+      y: node.homeY ?? node.y ?? LAYOUT_CENTRE.y,
+    });
   }
 
-  const targetFor = (node: GraphNodeDatum) =>
-    node.kind === "major"
-      ? { x: node.x ?? 760, y: node.y ?? 560 }
-      : majorTargets.get(node.parentKeyword ?? "") ?? { x: 760, y: 560 };
+  unlockShowAllNodes(nodes);
 
   return forceSimulation<GraphNodeDatum>(nodes)
-    .alpha(0.9)
-    .alphaDecay(0.035)
-    .velocityDecay(0.42)
+    .alpha(0.86)
+    .alphaDecay(0.022)
+    .velocityDecay(0.46)
     .force(
       "link",
       forceLink<GraphNodeDatum, GraphLinkDatum>(links)
@@ -62,11 +71,11 @@ export function createShowAllSimulation(
         .distance(showAllLinkDistance)
         .strength(link => showAllLinkStrength(link.kind)),
     )
-    .force("charge", forceManyBody<GraphNodeDatum>().strength(showAllNodeCharge).distanceMax(1800))
-    .force("x", forceX<GraphNodeDatum>(node => targetFor(node).x).strength(showAllTargetStrength))
-    .force("y", forceY<GraphNodeDatum>(node => targetFor(node).y).strength(showAllTargetStrength))
+    .force("charge", forceManyBody<GraphNodeDatum>().strength(showAllNodeCharge).distanceMax(2000))
+    .force("x", forceX<GraphNodeDatum>(node => homeFor(node, hubHomes).x).strength(showAllTargetStrength))
+    .force("y", forceY<GraphNodeDatum>(node => homeFor(node, hubHomes).y).strength(showAllTargetStrength))
     .force(
       "collide",
-      forceCollide<GraphNodeDatum>().radius(showAllCollisionRadius).strength(0.95).iterations(2),
+      forceCollide<GraphNodeDatum>().radius(showAllCollisionRadius).strength(0.82).iterations(2),
     );
 }

@@ -9,6 +9,7 @@ import {
 } from "d3-force";
 import {
   OVERLAP_LINK_ALPHA,
+  SHOW_ALL_SPOKE_ALPHA,
   attachGraphSearch,
   canvasRadius,
   initialForceView,
@@ -25,6 +26,7 @@ import {
   type GraphMount,
 } from "./forceGraphBehavior";
 import type { ArchiveGraphModel, GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
+import { applyShowAllFade, mergeShowAllModels, SHOW_ALL_FADE_MS } from "./showAllTransition";
 import { createShowAllSimulation, lockShowAllNodes } from "./showAllSimulation";
 
 export type { ForceGraphVariant };
@@ -94,12 +96,16 @@ export function mountForceGraph(
   let selected: string | null = null;
   let dragged: GraphNodeDatum | null = null;
 
-  let simNodes: GraphNodeDatum[] = model.nodes.map(node => ({ ...node }));
+  let liveModel = model;
+  let simNodes: GraphNodeDatum[] = model.nodes.map(node => ({ ...node, opacity: node.opacity ?? 1 }));
   let simLinks: GraphLinkDatum[] = model.links.map(link => ({ ...link }));
   let nodeMap = new Map(simNodes.map(node => [node.id, node]));
   let maxWeight = 1;
   for (const link of simLinks) if (link.weight > maxWeight) maxWeight = link.weight;
   let drawRaf = 0;
+  let fadeStarted = 0;
+  let fading = simNodes.some(node => (node.opacity ?? 1) < 1 || node.departing);
+  let settleTicks = 0;
   let simulation: Simulation<GraphNodeDatum, GraphLinkDatum> = createSimulation();
 
   function refreshLookups() {
@@ -122,14 +128,28 @@ export function mountForceGraph(
     return sx >= -pad && sy >= -pad && sx <= width + pad && sy <= height + pad;
   }
 
+  function stepShowAllFade() {
+    if (!fading && !fadeStarted) return;
+    const progress = fadeStarted ? (performance.now() - fadeStarted) / SHOW_ALL_FADE_MS : 1;
+    const next = applyShowAllFade(simNodes, progress);
+    const removed = next.nodes.length !== simNodes.length;
+    simNodes = next.nodes;
+    fading = next.fading;
+    if (!fading) fadeStarted = 0;
+    if (removed) simulation.nodes(simNodes);
+    refreshLookups();
+  }
+
   function createSimulation() {
     const nodesForSim = simulationNodes(options.variant, simNodes);
     if (options.variant === "showAll") {
-      let ticks = 0;
+      settleTicks = 0;
       const sim = createShowAllSimulation(nodesForSim, simLinks)
+        .alpha(fading ? 0.42 : 0.86)
         .on("tick", () => {
-          ticks += 1;
-          if (shouldLockShowAll(ticks)) {
+          settleTicks += 1;
+          stepShowAllFade();
+          if (!fading && shouldLockShowAll(settleTicks)) {
             lockShowAllNodes(simNodes);
             sim.stop();
           }
@@ -205,13 +225,30 @@ export function mountForceGraph(
     simulation = createSimulation();
   }
 
+  function setModel(next: ArchiveGraphModel) {
+    liveModel = next;
+    const merged = mergeShowAllModels(simNodes, next);
+    simNodes = merged.nodes;
+    simLinks = merged.links;
+    fading = merged.fading;
+    fadeStarted = fading ? performance.now() : 0;
+    settleTicks = 0;
+    if (selected && !simNodes.some(node => node.label === selected && !node.departing)) {
+      selected = null;
+      onNoteSelect(null);
+    }
+    refreshLookups();
+    restartSimulation();
+    scheduleDraw();
+  }
+
   function byId() {
     return nodeMap;
   }
 
   function collapseLeaves() {
     const liveById = byId();
-    simNodes = model.nodes.map(node => {
+    simNodes = liveModel.nodes.map(node => {
       const live = liveById.get(node.id);
       return {
         ...node,
@@ -220,7 +257,7 @@ export function mountForceGraph(
         y: live?.y ?? node.y,
       };
     });
-    simLinks = model.links.map(link => ({ ...link }));
+    simLinks = liveModel.links.map(link => ({ ...link }));
     refreshLookups();
   }
 
@@ -237,7 +274,7 @@ export function mountForceGraph(
     }
     nextHub.expanded = true;
     selected = label;
-    const notes = model.leaves.get(label) ?? [];
+    const notes = liveModel.leaves.get(label) ?? [];
     if (!notes.length || nextHub.x == null || nextHub.y == null) {
       restartSimulation();
       return;
@@ -297,10 +334,9 @@ export function mountForceGraph(
   const findNode = (x: number, y: number) => {
     let hit: GraphNodeDatum | null = null;
     let best = Infinity;
-    const skipLeaves = options.variant === "showAll" && view.k < 0.11;
     for (let i = simNodes.length - 1; i >= 0; i--) {
       const node = simNodes[i];
-      if (skipLeaves && node.kind === "leaf") continue;
+      if (node.departing) continue;
       const dx = (node.x ?? 0) - x;
       const dy = (node.y ?? 0) - y;
       const dist = Math.hypot(dx, dy);
@@ -329,17 +365,18 @@ export function mountForceGraph(
 
     const emphasis = drawArgs();
     const showAll = options.variant === "showAll";
-    const showLeaves = !showAll || view.k >= 0.11;
 
     for (const link of simLinks) {
       const { source, target } = linkEnds(link, map);
       if (!source || !target || source.x == null || target.x == null || source.y == null || target.y == null) continue;
+      if (source.departing || target.departing) continue;
       const leaf = source.kind === "leaf" ? source : target.kind === "leaf" ? target : null;
       const leafOnScreen = Boolean(leaf && onScreen(leaf.x ?? 0, leaf.y ?? 0));
       if (showAll && !showAllLinkShouldDraw(link.kind, view.k, leafOnScreen)) continue;
       if (showAll && link.kind !== "spoke" && !onScreen(source.x, source.y) && !onScreen(target.x, target.y)) continue;
 
       const { active, dim } = linkDrawState(link, source, target, emphasis);
+      const fade = Math.min(source.opacity ?? 1, target.opacity ?? 1);
 
       ctx.beginPath();
       if (showAll && link.kind === "spoke") {
@@ -352,26 +389,26 @@ export function mountForceGraph(
       if (link.kind === "spoke") {
         ctx.setLineDash([4 / view.k, 5 / view.k]);
         ctx.strokeStyle = active ? "#e07a2f" : link.color;
-        ctx.globalAlpha = dim ? 0.08 : active ? 0.75 : 0.4;
+        ctx.globalAlpha = (dim ? 0.05 : active ? 0.75 : showAll ? SHOW_ALL_SPOKE_ALPHA : 0.4) * fade;
         ctx.lineWidth = 1.1 / view.k;
       } else if (link.kind === "orbit") {
         ctx.setLineDash([3 / view.k, 6 / view.k]);
         ctx.strokeStyle = active ? "#e07a2f" : link.color;
-        ctx.globalAlpha = dim ? 0.06 : active ? 0.7 : 0.28;
+        ctx.globalAlpha = (dim ? 0.06 : active ? 0.7 : 0.28) * fade;
         ctx.lineWidth = 1.4 / view.k;
       } else {
         ctx.setLineDash([]);
         const thick =
           showAll && link.kind === "overlap"
-            ? 0.75 + (link.weight / maxWeight) * 1.5
+            ? 1.1 + (link.weight / maxWeight) * 2.2
             : 1 + (link.weight / maxWeight) * 4.5;
         if (active) {
           ctx.strokeStyle = "#e07a2f";
-          ctx.globalAlpha = 0.9;
+          ctx.globalAlpha = 0.9 * fade;
           ctx.lineWidth = (thick + 1.4) / view.k;
         } else {
           ctx.strokeStyle = link.color;
-          ctx.globalAlpha = dim ? 0.05 : link.kind === "overlap" ? OVERLAP_LINK_ALPHA : 0.2;
+          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" ? OVERLAP_LINK_ALPHA : 0.2) * fade;
           ctx.lineWidth = thick / view.k;
         }
       }
@@ -380,9 +417,40 @@ export function mountForceGraph(
       ctx.globalAlpha = 1;
     }
 
+    if (showAll) {
+      for (const node of simNodes) {
+        if (node.x == null || node.y == null) continue;
+        if (!onScreen(node.x, node.y)) continue;
+        const { hot, dim } = nodeDrawState(node, emphasis);
+        const minPx = node.kind === "major" ? 3.2 : 2.4;
+        const drawR = canvasRadius(node.r, view.k, minPx);
+        const fade = node.opacity ?? 1;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, drawR, 0, Math.PI * 2);
+        ctx.fillStyle = node.color;
+        ctx.globalAlpha = (dim ? 0.18 : hot ? 1 : 0.84) * fade;
+        ctx.fill();
+        ctx.globalAlpha = fade;
+        ctx.lineWidth = 1 / view.k;
+        ctx.strokeStyle = "#fff";
+        ctx.stroke();
+        if ((view.k > 0.85 && hover === node) || (hot && node.kind !== "leaf" && view.k > 0.28)) {
+          ctx.fillStyle = node.ink;
+          ctx.globalAlpha = fade;
+          ctx.font = `500 ${Math.max(10, 11 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          const text = node.label.length > 32 ? `${node.label.slice(0, 31)}…` : node.label;
+          ctx.fillText(text, node.x + drawR + 6, node.y);
+        }
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+      return;
+    }
+
     for (const node of simNodes) {
       if (node.kind !== "leaf" || node.x == null || node.y == null) continue;
-      if (!showLeaves) continue;
       if (options.variant === "showAll" && !onScreen(node.x, node.y)) continue;
       const { hot, dim } = nodeDrawState(node, emphasis);
       const drawR = canvasRadius(node.r, view.k, options.variant === "showAll" ? 2.4 : 1.6);
@@ -628,5 +696,6 @@ export function mountForceGraph(
       options.search = query;
       scheduleDraw();
     },
+    setModel,
   );
 }

@@ -179,8 +179,9 @@ describe("force graph chrome", () => {
     expect(view).toEqual({ k, x: 200 - 100 * k, y: 150 - 50 * k });
   });
 
-  it("keeps overlap links visually subordinate", () => {
-    expect(OVERLAP_LINK_ALPHA).toBeLessThanOrEqual(0.16);
+  it("keeps overlap links visible as the network edges", () => {
+    expect(OVERLAP_LINK_ALPHA).toBeGreaterThanOrEqual(0.4);
+    expect(OVERLAP_LINK_ALPHA).toBeLessThanOrEqual(0.55);
   });
 
   it("keeps zoomed-out Show All notes larger than a pixel", () => {
@@ -195,10 +196,10 @@ describe("show all draw budget", () => {
     expect(simulationNodes("constellation", nodes)).toEqual(nodes);
   });
 
-  it("keeps local spokes stronger and shorter than cross-cluster overlaps", () => {
-    expect(showAllLinkStrength("spoke")).toBeGreaterThan(showAllLinkStrength("overlap"));
-    expect(showAllLinkDistance("spoke")).toBeLessThan(showAllLinkDistance("overlap"));
-    expect(showAllLinkStrength("overlap")).toBeLessThanOrEqual(0.01);
+  it("lets tag-sharing overlaps pull harder and closer than hub spokes", () => {
+    expect(showAllLinkStrength("overlap")).toBeGreaterThan(showAllLinkStrength("spoke"));
+    expect(showAllLinkDistance("overlap")).toBeLessThan(showAllLinkDistance("spoke"));
+    expect(showAllLinkStrength("overlap")).toBeGreaterThanOrEqual(0.3);
   });
 
   it("lets busier hubs hold wider note clouds", () => {
@@ -219,12 +220,11 @@ describe("show all draw budget", () => {
     expect(shouldLockShowAll(SHOW_ALL_SETTLE_TICKS)).toBe(true);
   });
 
-  it("only draws a spoke when the leaf is on screen and zoomed in", () => {
+  it("draws overlap edges at any zoom and keeps spokes for closer views", () => {
     expect(showAllLinkShouldDraw("spoke", 0.11, true)).toBe(false);
-    expect(showAllLinkShouldDraw("spoke", 0.12, false)).toBe(false);
-    expect(showAllLinkShouldDraw("spoke", 0.12, true)).toBe(true);
-    expect(showAllLinkShouldDraw("overlap", 0.08, true)).toBe(false);
-    expect(showAllLinkShouldDraw("overlap", 0.09, true)).toBe(true);
+    expect(showAllLinkShouldDraw("spoke", 0.18, false)).toBe(false);
+    expect(showAllLinkShouldDraw("spoke", 0.18, true)).toBe(true);
+    expect(showAllLinkShouldDraw("overlap", 0.02, true)).toBe(true);
     expect(showAllLinkShouldDraw("backbone", 0.01, false)).toBe(true);
   });
 });

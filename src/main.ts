@@ -46,7 +46,14 @@ import { searchCluster } from "./archive/graphFocus";
 import { mountGraphPreview } from "./archive/graphPreview";
 import { buildArchiveGraph, topicKeywords, vocabularyPresent } from "./archive/keywordGraph";
 import { mountForceGraph } from "./archive/forceGraph";
+import type { GraphMount } from "./archive/forceGraphBehavior";
 import { buildShowAllGraph } from "./archive/showAllGraph";
+import {
+  SHOW_ALL_GROUPINGS,
+  showAllGroupingLabel,
+  showAllGroupingMeta,
+  type ShowAllGrouping,
+} from "./archive/showAllScope";
 import { buildSolarModel, type SolarModel } from "./archive/solarModel";
 import { UNIVERSE_BUILD, mountSolarView, resolveSearchHits } from "./archive/solarView";
 import { bindUniverseKey, universeKeyHtml } from "./archive/universeKey";
@@ -90,7 +97,9 @@ let activePage: Page | null = null;
 let tidyBusy = false;
 let listScrollTop = 0;
 let graphTeardown: (() => void) | null = null;
+let graphMount: GraphMount | null = null;
 let graphMode: GraphMode = "constellation";
+let showAllGrouping: ShowAllGrouping = "tags";
 let graphSearch = "";
 let orbitSpeed = 0.5;
 let universeKeyOpen = false;
@@ -523,32 +532,49 @@ function orbitSpeedLabel(speed: number) {
   return speed === 0 ? "Paused" : `${speed.toFixed(2)}×`;
 }
 
-function renderGraph() {
-  const constellation = buildArchiveGraph(entries);
-  const excerptFor = (pageId: string) => entries.find(entry => entry.id === pageId)?.excerpt ?? "";
+function showAllModel() {
+  return buildShowAllGraph(entries, showAllGrouping);
+}
 
+function graphMetaText() {
+  const constellation = buildArchiveGraph(entries);
   const meta =
-    constellation.majorCount === 0
+    constellation.majorCount === 0 && graphMode !== "showAll"
       ? "No topic keywords yet · Universe still has a sun"
       : graphMode === "constellation"
         ? `${constellation.majorCount} topics · click a hub to open its constellation`
         : graphMode === "showAll"
-          ? "Every note · hubs as landmarks · lines where notes share tags"
+          ? showAllGroupingMeta(showAllGrouping)
           : `Universe v${UNIVERSE_BUILD}`;
-
   const searching = graphSearch.trim();
-  let searchHint = searching ? ` · search “${escapeHtml(searching)}”` : "";
+  let searchHint = searching ? ` · search “${searching}”` : "";
   if (searching) {
     const hits =
       graphMode === "universe"
         ? resolveSearchHits(getSolarModel(), graphSearch).size
         : searchCluster(
-            (graphMode === "showAll" ? buildShowAllGraph(entries, constellation) : constellation).nodes,
+            (graphMode === "showAll" ? showAllModel() : constellation).nodes,
             graphSearch,
           ).size;
     if (!hits) searchHint += " · no matches";
     else if (graphMode === "universe") searchHint += ` · ${hits} match${hits === 1 ? "" : "es"}`;
   }
+  return `${meta}${searchHint}`;
+}
+
+function writeGraphChrome() {
+  const meta = app.querySelector(".graph-toolbar__meta");
+  if (meta) meta.textContent = graphMetaText();
+  app.querySelectorAll<HTMLButtonElement>("[data-show-all-group]").forEach(button => {
+    const active = button.dataset.showAllGroup === showAllGrouping;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function renderGraph() {
+  const constellation = buildArchiveGraph(entries);
+  const excerptFor = (pageId: string) => entries.find(entry => entry.id === pageId)?.excerpt ?? "";
 
   shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · graph stays on this canvas</p>` : ""}
@@ -562,11 +588,21 @@ function renderGraph() {
     )}
     <div class="graph-wrap">
       <div class="graph-toolbar glass-panel">
-        <div class="graph-modes">
+        <div class="graph-modes" role="group" aria-label="Graph mode">
           <button type="button" data-graph-mode="constellation" class="${graphMode === "constellation" ? "is-active" : ""}">Constellation</button>
           <button type="button" data-graph-mode="showAll" class="${graphMode === "showAll" ? "is-active" : ""}">Show All</button>
           <button type="button" data-graph-mode="universe" class="${graphMode === "universe" ? "is-active" : ""}">Universe</button>
         </div>
+        ${
+          graphMode === "showAll"
+            ? `<div class="graph-modes" role="group" aria-label="Show All grouping">
+                ${SHOW_ALL_GROUPINGS.map(
+                  grouping =>
+                    `<button type="button" data-show-all-group="${grouping}" aria-pressed="${grouping === showAllGrouping}" class="${grouping === showAllGrouping ? "is-active" : ""}">${showAllGroupingLabel(grouping)}</button>`,
+                ).join("")}
+              </div>`
+            : ""
+        }
         <input class="graph-search" type="search" placeholder="Search keywords and notes" value="${escapeHtml(graphSearch)}" />
         ${
           graphMode === "universe"
@@ -577,7 +613,7 @@ function renderGraph() {
               </label>`
             : ""
         }
-        <p class="graph-toolbar__meta">${meta}${searchHint}</p>
+        <p class="graph-toolbar__meta">${escapeHtml(graphMetaText())}</p>
       </div>
       <div class="graph-stage"></div>
       ${graphMode === "universe" ? universeKeyHtml(universeKeyOpen) : ""}
@@ -591,18 +627,28 @@ function renderGraph() {
 
   app.querySelectorAll<HTMLButtonElement>("[data-graph-mode]").forEach(button => {
     button.onclick = () => {
-      graphMode = button.dataset.graphMode as GraphMode;
+      const next = button.dataset.graphMode as GraphMode;
+      if (next === graphMode) return;
+      graphMode = next;
       render();
+    };
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-show-all-group]").forEach(button => {
+    button.onclick = () => {
+      const next = button.dataset.showAllGroup as ShowAllGrouping;
+      if (!next || next === showAllGrouping) return;
+      showAllGrouping = next;
+      writeGraphChrome();
+      graphMount?.setModel(showAllModel());
     };
   });
 
   const search = app.querySelector<HTMLInputElement>(".graph-search")!;
   search.oninput = () => {
     graphSearch = search.value;
-    render();
-    const next = app.querySelector<HTMLInputElement>(".graph-search")!;
-    next.focus();
-    next.setSelectionRange(graphSearch.length, graphSearch.length);
+    graphMount?.setSearch(graphSearch);
+    writeGraphChrome();
   };
 
   const stage = app.querySelector<HTMLElement>(".graph-stage")!;
@@ -626,7 +672,7 @@ function renderGraph() {
     if (open && !preview.el.hidden) open.click();
   };
 
-  let stop = () => {};
+  let mounted: GraphMount;
   if (graphMode === "universe") {
     const clock = { speed: orbitSpeed };
     const slider = app.querySelector<HTMLInputElement>("[data-orbit-speed]");
@@ -638,23 +684,24 @@ function renderGraph() {
         if (readout) readout.textContent = orbitSpeedLabel(orbitSpeed);
       };
     }
-    stop = mountSolarView(stage, getSolarModel(), {
+    mounted = mountSolarView(stage, getSolarModel(), {
       search: graphSearch,
       onNoteSelect,
       clock,
     });
   } else {
-    const model = graphMode === "showAll" ? buildShowAllGraph(entries, constellation) : constellation;
-    stop = mountForceGraph(
+    mounted = mountForceGraph(
       stage,
-      model,
+      graphMode === "showAll" ? showAllModel() : constellation,
       { onNoteSelect },
       { variant: graphMode, search: graphSearch, excerptFor },
     );
   }
+  graphMount = mounted;
   graphTeardown = () => {
     document.onkeydown = null;
-    stop();
+    graphMount = null;
+    mounted();
   };
 }
 

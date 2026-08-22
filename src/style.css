@@ -872,6 +872,11 @@
   gap: var(--space-2);
 }
 
+.graph-toolbar .graph-modes + .graph-modes {
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--line);
+}
+
 .graph-modes button {
   border: 1px solid var(--line);
   background: transparent;

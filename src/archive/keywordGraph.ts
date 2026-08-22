@@ -55,6 +55,17 @@ export function colorForTopic(tag: string) {
   return KEYWORD_PALETTE[index >= 0 ? index : 0]!;
 }
 
+export function colorForHub(label: string) {
+  const canonical = canonicalTopicTag(label);
+  if (canonical) return colorForTopic(canonical);
+  let hash = 2166136261;
+  for (let i = 0; i < label.length; i++) {
+    hash ^= label.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return KEYWORD_PALETTE[(hash >>> 0) % KEYWORD_PALETTE.length]!;
+}
+
 export function vocabularyPresent(tagLists: string[][]) {
   const present = new Set(tagLists.flatMap(topicKeywords));
   return TOPIC_VOCABULARY.filter(tag => present.has(tag));
@@ -81,6 +92,10 @@ export type GraphNodeDatum = {
   vy?: number;
   fx?: number | null;
   fy?: number | null;
+  homeX?: number;
+  homeY?: number;
+  opacity?: number;
+  departing?: boolean;
 };
 
 export type GraphLinkKind = "backbone" | "orbit" | "spoke" | "overlap";

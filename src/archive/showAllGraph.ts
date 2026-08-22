@@ -1,13 +1,18 @@
 import type { PageManifestEntry } from "../domain/page";
 import {
-  buildArchiveGraph,
+  colorForHub,
   topicKeywords,
   type ArchiveGraphModel,
   type GraphLinkDatum,
   type GraphNodeDatum,
 } from "./keywordGraph";
+import {
+  filterShowAllEntries,
+  hubLabelsFor,
+  type ShowAllGrouping,
+} from "./showAllScope";
 
-const OVERLAP_MIN_SHARED = 2;
+const OVERLAP_PER_NOTE = 3;
 const OVERLAP_MAX_EDGES = 800;
 const LAYOUT_CENTRE = { x: 760, y: 560 };
 export const SHOW_ALL_CLUSTER_GAP = 320;
@@ -39,6 +44,10 @@ function organicSeed(id: string, index: number, count: number, radiusScale = 1) 
   return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
 }
 
+function hubRadius(count: number) {
+  return Math.max(7, Math.min(18, 7 + Math.sqrt(Math.max(count, 1)) * 1.6));
+}
+
 function placeHubs(nodes: GraphNodeDatum[]) {
   const majors = nodes.filter(node => node.kind === "major");
   const maxFootprint = Math.max(...majors.map(node => showAllClusterRadius(node.count)), CLUSTER_MIN_RADIUS);
@@ -51,124 +60,166 @@ function placeHubs(nodes: GraphNodeDatum[]) {
     const angle = (Math.PI * 2 * index) / Math.max(majors.length, 1) - Math.PI / 2;
     node.x = LAYOUT_CENTRE.x + Math.cos(angle) * ringRadius;
     node.y = LAYOUT_CENTRE.y + Math.sin(angle) * ringRadius;
+    node.homeX = node.x;
+    node.homeY = node.y;
   });
-  const majorByLabel = new Map(majors.map(node => [node.label, node]));
-  const minors = nodes.filter(node => node.kind === "minor");
-  const minorsByOwner = new Map<string, GraphNodeDatum[]>();
-  for (const minor of minors) {
-    const key = minor.parentKeyword ?? "";
-    const list = minorsByOwner.get(key) ?? [];
-    list.push(minor);
-    minorsByOwner.set(key, list);
-  }
-  for (const [owner, siblings] of minorsByOwner) {
-    const parent = majorByLabel.get(owner);
-    siblings.forEach((minor, index) => {
-      const seed = organicSeed(minor.id, index, Math.max(siblings.length, 1), 0.58);
-      minor.x = (parent?.x ?? LAYOUT_CENTRE.x) + seed.x;
-      minor.y = (parent?.y ?? LAYOUT_CENTRE.y) + seed.y;
-    });
-  }
 }
 
-function overlapLinks(eligible: PageManifestEntry[]): GraphLinkDatum[] {
-  const tagSets = eligible.map(entry => new Set(topicKeywords(entry.tags)));
-  const freq = new Map<string, number>();
-  const byTag = new Map<string, number[]>();
-  tagSets.forEach((tags, index) => {
-    for (const tag of tags) {
-      freq.set(tag, (freq.get(tag) ?? 0) + 1);
-      const list = byTag.get(tag) ?? [];
-      list.push(index);
-      byTag.set(tag, list);
-    }
-  });
+function pairKey(a: string, b: string) {
+  return a < b ? `${a}||${b}` : `${b}||${a}`;
+}
 
-  const overlaps: GraphLinkDatum[] = [];
+function overlapScore(
+  left: Set<string>,
+  right: Set<string>,
+  leftHub: string,
+  rightHub: string,
+) {
+  let shared = 0;
+  for (const tag of left) {
+    if (right.has(tag)) shared += 1;
+  }
+  const union = left.size + right.size - shared || 1;
+  const cross = leftHub && rightHub && leftHub !== rightHub ? 5 : 0;
+  return shared * 10 + shared / union + cross;
+}
+
+function overlapLinks(
+  eligible: PageManifestEntry[],
+  primaryHub: string[],
+): GraphLinkDatum[] {
+  const tagSets = eligible.map(entry => new Set(topicKeywords(entry.tags)));
+  const degree = new Map<string, number>();
   const seen = new Set<string>();
-  for (let i = 0; i < eligible.length; i++) {
-    const left = tagSets[i]!;
-    if (left.size < OVERLAP_MIN_SHARED) continue;
-    let rarest: string | null = null;
-    let rareCount = Infinity;
-    for (const tag of left) {
-      const count = freq.get(tag) ?? 0;
-      if (count < rareCount) {
-        rarest = tag;
-        rareCount = count;
-      }
-    }
-    if (!rarest) continue;
-    for (const j of byTag.get(rarest) ?? []) {
-      if (j <= i) continue;
-      const right = tagSets[j]!;
-      if (right.size < OVERLAP_MIN_SHARED) continue;
+  const overlaps: GraphLinkDatum[] = [];
+
+  const addEdge = (i: number, j: number, weight: number) => {
+    const leftId = `leaf:${eligible[i]!.id}`;
+    const rightId = `leaf:${eligible[j]!.id}`;
+    const key = pairKey(leftId, rightId);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    degree.set(leftId, (degree.get(leftId) ?? 0) + 1);
+    degree.set(rightId, (degree.get(rightId) ?? 0) + 1);
+    overlaps.push({
+      source: leftId,
+      target: rightId,
+      kind: "overlap",
+      weight: Math.max(1, weight),
+      color: "rgba(160, 160, 160, 0.7)",
+    });
+    return true;
+  };
+
+  const rankedFor = (i: number) => {
+    const ranked: Array<{ j: number; score: number; shared: number }> = [];
+    for (let j = 0; j < eligible.length; j++) {
+      if (j === i) continue;
       let shared = 0;
-      for (const tag of left) {
-        if (right.has(tag)) shared++;
+      for (const tag of tagSets[i]!) {
+        if (tagSets[j]!.has(tag)) shared += 1;
       }
-      if (shared < OVERLAP_MIN_SHARED) continue;
-      const key = `${i}|${j}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      overlaps.push({
-        source: `leaf:${eligible[i]!.id}`,
-        target: `leaf:${eligible[j]!.id}`,
-        kind: "overlap",
-        weight: shared,
-        color: "rgba(160, 160, 160, 0.55)",
+      ranked.push({
+        j,
+        shared,
+        score: overlapScore(tagSets[i]!, tagSets[j]!, primaryHub[i] ?? "", primaryHub[j] ?? ""),
       });
     }
+    ranked.sort((a, b) => b.score - a.score || a.j - b.j);
+    return ranked;
+  };
+
+  for (let i = 0; i < eligible.length; i++) {
+    const leftId = `leaf:${eligible[i]!.id}`;
+    for (const candidate of rankedFor(i)) {
+      if ((degree.get(leftId) ?? 0) >= OVERLAP_PER_NOTE) break;
+      if (overlaps.length >= OVERLAP_MAX_EDGES) return overlaps;
+      addEdge(i, candidate.j, candidate.shared);
+    }
   }
-  overlaps.sort((a, b) => b.weight - a.weight);
-  return overlaps.slice(0, OVERLAP_MAX_EDGES);
+
+  for (let i = 0; i < eligible.length; i++) {
+    const leftId = `leaf:${eligible[i]!.id}`;
+    if ((degree.get(leftId) ?? 0) >= 2) continue;
+    for (const candidate of rankedFor(i)) {
+      if ((degree.get(leftId) ?? 0) >= 2) break;
+      if (overlaps.length >= OVERLAP_MAX_EDGES) return overlaps;
+      addEdge(i, candidate.j, candidate.shared);
+    }
+  }
+
+  return overlaps;
+}
+
+function buildHubs(counts: Map<string, number>): GraphNodeDatum[] {
+  const ordered = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return ordered.map(([label, count]) => {
+    const palette = colorForHub(label);
+    return {
+      id: `major:${label}`,
+      kind: "major" as const,
+      label,
+      count,
+      color: palette.fill,
+      soft: palette.soft,
+      ink: palette.ink,
+      r: hubRadius(count),
+    };
+  });
 }
 
 export function buildShowAllGraph(
   entries: PageManifestEntry[],
-  base: ArchiveGraphModel = buildArchiveGraph(entries),
+  grouping: ShowAllGrouping = "tags",
 ): ArchiveGraphModel {
-  const hubNodes: GraphNodeDatum[] = base.nodes.map(node => ({
-    ...node,
-    r:
-      node.kind === "major"
-        ? Math.max(10, node.r * 0.45)
-        : Math.max(7, node.r * 0.7),
-  }));
-  placeHubs(hubNodes);
+  const eligible = filterShowAllEntries(entries, grouping);
+  const counts = new Map<string, number>();
+  const labelsByEntry = eligible.map(entry => hubLabelsFor(entry, grouping));
+  for (const labels of labelsByEntry) {
+    for (const label of new Set(labels)) {
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+  }
 
+  const hubNodes = buildHubs(counts);
+  placeHubs(hubNodes);
   const hubByLabel = new Map(hubNodes.map(node => [node.label, node]));
   const nodes: GraphNodeDatum[] = [...hubNodes];
-  const links: GraphLinkDatum[] = [...base.links];
+  const links: GraphLinkDatum[] = [];
+  const primaryHub: string[] = [];
 
-  const eligible = entries.filter(entry => topicKeywords(entry.tags).length > 0);
   const byHub = new Map<string, { hub?: GraphNodeDatum; entries: PageManifestEntry[] }>();
-  for (const entry of eligible) {
-    const keywords = [...new Set(topicKeywords(entry.tags))];
-    const primaryHub = hubByLabel.get(keywords[0]);
-    const hubKey = primaryHub?.id ?? "none";
-    const group = byHub.get(hubKey) ?? { hub: primaryHub, entries: [] };
+  eligible.forEach((entry, index) => {
+    const labels = labelsByEntry[index] ?? [];
+    const hub = hubByLabel.get(labels[0] ?? "");
+    primaryHub[index] = hub?.label ?? labels[0] ?? "";
+    const hubKey = hub?.id ?? "none";
+    const group = byHub.get(hubKey) ?? { hub, entries: [] };
     group.entries.push(entry);
     byHub.set(hubKey, group);
-  }
+  });
 
   for (const group of byHub.values()) {
     group.entries.forEach((entry, index) => {
       const origin = group.hub ?? LAYOUT_CENTRE;
       const seed = organicSeed(entry.id, index, group.entries.length);
+      const x = (origin.x ?? LAYOUT_CENTRE.x) + seed.x;
+      const y = (origin.y ?? LAYOUT_CENTRE.y) + seed.y;
       nodes.push({
         id: `leaf:${entry.id}`,
         kind: "leaf",
         label: entry.title,
         count: 1,
         pageId: entry.id,
-        parentKeyword: topicKeywords(entry.tags)[0],
+        parentKeyword: group.hub?.label,
         color: group.hub?.color ?? "#888888",
         soft: group.hub?.soft ?? "rgba(136, 136, 136, 0.7)",
         ink: group.hub?.ink ?? "#444444",
         r: 5,
-        x: (origin.x ?? LAYOUT_CENTRE.x) + seed.x,
-        y: (origin.y ?? LAYOUT_CENTRE.y) + seed.y,
+        x,
+        y,
+        homeX: origin.x ?? LAYOUT_CENTRE.x,
+        homeY: origin.y ?? LAYOUT_CENTRE.y,
       });
       if (group.hub) {
         links.push({
@@ -182,13 +233,18 @@ export function buildShowAllGraph(
     });
   }
 
-  links.push(...overlapLinks(eligible));
+  const overlaps = overlapLinks(eligible, primaryHub);
+  for (const link of overlaps) {
+    const source = typeof link.source === "string" ? nodes.find(node => node.id === link.source) : link.source;
+    if (source) link.color = source.soft;
+  }
+  links.push(...overlaps);
 
   return {
     nodes,
     links,
-    majorCount: base.majorCount,
-    minorCount: base.minorCount,
-    leaves: base.leaves,
+    majorCount: hubNodes.length,
+    minorCount: 0,
+    leaves: new Map(),
   };
 }

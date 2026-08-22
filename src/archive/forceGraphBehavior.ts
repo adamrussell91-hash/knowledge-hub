@@ -1,11 +1,12 @@
 import { isFocusLink, isFocusNode, isSearchHot, selectionCluster } from "./graphFocus";
-import type { GraphLinkDatum, GraphLinkKind, GraphNodeDatum } from "./keywordGraph";
+import type { ArchiveGraphModel, GraphLinkDatum, GraphLinkKind, GraphNodeDatum } from "./keywordGraph";
 import { showAllClusterRadius } from "./showAllGraph";
 
 export type ForceGraphVariant = "constellation" | "showAll";
 
-export const OVERLAP_LINK_ALPHA = 0.14;
-export const SHOW_ALL_SETTLE_TICKS = 160;
+export const OVERLAP_LINK_ALPHA = 0.45;
+export const SHOW_ALL_SPOKE_ALPHA = 0.15;
+export const SHOW_ALL_SETTLE_TICKS = 180;
 
 export type GraphNotePayload = { pageId: string; title: string; excerpt: string };
 
@@ -24,11 +25,19 @@ export function canvasRadius(worldR: number, k: number, minPx: number) {
   return Math.max(worldR, minPx / Math.max(k, 0.001));
 }
 
-export type GraphMount = (() => void) & { setSearch: (query: string) => void };
+export type GraphMount = (() => void) & {
+  setSearch: (query: string) => void;
+  setModel: (model: ArchiveGraphModel) => void;
+};
 
-export function attachGraphSearch(teardown: () => void, setSearch: (query: string) => void): GraphMount {
+export function attachGraphSearch(
+  teardown: () => void,
+  setSearch: (query: string) => void,
+  setModel: (model: ArchiveGraphModel) => void = () => {},
+): GraphMount {
   const stop = teardown as GraphMount;
   stop.setSearch = setSearch;
+  stop.setModel = setModel;
   return stop;
 }
 
@@ -45,33 +54,33 @@ export function showAllLinkDistance(linkOrKind: GraphLinkKind | GraphLinkDatum) 
     if (hub) return showAllClusterRadius(hub.count) * 0.5;
   }
   if (kind === "spoke") return 220;
-  if (kind === "overlap") return 900;
-  if (kind === "orbit") return 420;
-  return 1200;
+  if (kind === "overlap") return 64;
+  if (kind === "orbit") return 200;
+  return 700;
 }
 
 export function showAllLinkStrength(kind: GraphLinkKind) {
-  if (kind === "spoke") return 0.16;
-  if (kind === "overlap") return 0.006;
-  if (kind === "orbit") return 0.025;
-  return 0.002;
+  if (kind === "spoke") return 0.02;
+  if (kind === "overlap") return 0.35;
+  if (kind === "orbit") return 0.02;
+  return 0.01;
 }
 
 export function showAllNodeCharge(node: GraphNodeDatum) {
-  if (node.kind === "major") return -1800;
-  if (node.kind === "minor") return -120;
-  return -20;
+  if (node.kind === "major") return -900;
+  if (node.kind === "minor") return -300;
+  return -140;
 }
 
 export function showAllCollisionRadius(node: GraphNodeDatum) {
-  if (node.kind === "major") return Math.max(80, node.r + 50);
-  if (node.kind === "minor") return Math.max(35, node.r + 25);
-  return Math.max(16, node.r + 10);
+  if (node.kind === "major") return Math.max(22, node.r + 12);
+  if (node.kind === "minor") return Math.max(18, node.r + 10);
+  return Math.max(14, node.r + 8);
 }
 
 export function showAllTargetStrength(node: GraphNodeDatum) {
-  if (node.kind === "major") return 0;
-  if (node.kind === "minor") return 0.08;
+  if (node.kind === "major") return 0.018;
+  if (node.kind === "minor") return 0.02;
   return 0.012;
 }
 
@@ -80,8 +89,8 @@ export function shouldLockShowAll(tickCount: number) {
 }
 
 export function showAllLinkShouldDraw(kind: GraphLinkKind, viewK: number, leafOnScreen: boolean) {
-  if (kind === "spoke") return viewK >= 0.12 && leafOnScreen;
-  if (kind === "overlap") return viewK >= 0.09;
+  if (kind === "spoke") return viewK >= 0.18 && leafOnScreen;
+  if (kind === "overlap") return true;
   return true;
 }
 
