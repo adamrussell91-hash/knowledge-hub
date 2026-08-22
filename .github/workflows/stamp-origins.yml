@@ -1,0 +1,52 @@
+name: Stamp origin pills
+
+on:
+  workflow_dispatch:
+    inputs:
+      page_id:
+        description: "Optional single page ID to stamp"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  stamp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Checkout data repo
+        uses: actions/checkout@v4
+        with:
+          repository: adamrussell91-hash/knowledge-hub-data
+          token: ${{ secrets.DATA_REPO_TOKEN }}
+          path: data-repo
+          fetch-depth: 0
+
+      - name: Stamp origin pills
+        run: |
+          if [ -n "${{ inputs.page_id }}" ]; then
+            npx tsx scripts/stamp-origins.ts --data-dir data-repo --execute --id "${{ inputs.page_id }}"
+          else
+            npx tsx scripts/stamp-origins.ts --data-dir data-repo --execute
+          fi
+
+      - name: Commit stamped origins
+        working-directory: data-repo
+        run: |
+          git config user.name "knowledge-hub-stamp"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pages manifest.json
+          git diff --cached --quiet && echo "No origin stamp changes" && exit 0
+          git commit -m "Stamp notebook, book, and PD origin pills from Notion snapshot."
+          bash ../scripts/push-data-repo.sh
