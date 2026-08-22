@@ -9,11 +9,13 @@ import {
   listPages,
   login,
   logout,
+  runCoach,
   savePage,
   searchPages,
   signAttachment,
   tidyPage,
   uploadSignedFile,
+  type CoachMessage,
 } from "./api/client";
 import { isPageHash, pageHashForId, pageIdFromHash } from "./routing/pageHash";
 import { runCapture } from "./api/captureClient";
@@ -25,7 +27,7 @@ import {
 } from "./capture";
 import type { ResearchFinding } from "./research/schema";
 import { escapeHtml, showToast } from "./lib/dom";
-import { hubUtilitiesHtml } from "./lib/hubChrome";
+import { hubUtilitiesHtml, titleRowHtml } from "./lib/hubChrome";
 import { renderMarkdown } from "./lib/markdown";
 import { archiveEmptyHtml } from "./archive/emptyList";
 import { goHome } from "./archive/goHome";
@@ -38,7 +40,7 @@ import { buildSolarModel, type SolarModel } from "./archive/solarModel";
 import { UNIVERSE_BUILD, mountSolarView, resolveSearchHits } from "./archive/solarView";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
-import { enterChatRail, leaveChatRail, renderChatRail } from "./chat/rail";
+import { enterWikiRail, leaveWikiRail, renderWikiRail } from "./wiki/rail";
 import { connectedLinksHtml } from "./wiki/connectedHtml";
 import { applyTopicTags, normalizeTopicTags, toggleTopicTag } from "./tidy/applyTags";
 import { TOPIC_VOCABULARY } from "./tidy/vocabulary";
@@ -48,10 +50,16 @@ type View =
   | "graph"
   | "page"
   | "compose"
-  | "chat"
+  | "coach"
   | "podcast"
-  | "quiz";
+  | "quiz"
+  | "wiki";
 type GraphMode = "constellation" | "showAll" | "universe";
+
+type CoachTurn = CoachMessage & {
+  findings?: ResearchFinding[];
+  archiveFailed?: boolean;
+};
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const ROW_HEIGHT = 68;
@@ -77,6 +85,13 @@ function getSolarModel() {
   solarModelCache = { source: entries, model };
   return model;
 }
+
+let coachThesis = "";
+let coachDraft = "";
+let coachInput = "";
+let coachBusy = false;
+let coachError = "";
+let coachTurns: CoachTurn[] = [];
 
 type ComposeState = {
   id: string;
@@ -130,9 +145,10 @@ function composeFromPage(page: Page): ComposeState {
 const icons = {
   archive: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4z"/><path d="M9 7V5h6v2"/><path d="M8 12h8"/></svg>`,
   graph: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.2"/><circle cx="12" cy="6" r="2.2"/><circle cx="18" cy="14" r="2.2"/><path d="M8 11l3-3M13.5 8l3 4"/></svg>`,
-  chat: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h11v8H5z"/><path d="M8 14v3l3-3h5"/></svg>`,
+  coach: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h10v14H5z"/><path d="M8 9h4M8 13h4"/><path d="M17 8l4 4-6 6h-4v-4z"/></svg>`,
   podcast: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="3"/><path d="M8 10a4 4 0 0 0 8 0"/><path d="M6 10a6 6 0 0 0 12 0"/><path d="M12 13v6M9 19h6"/></svg>`,
   quiz: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v16H8z"/><path d="M11 8h2M11 12h2M11 16h1"/></svg>`,
+  wiki: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v12H5z"/><path d="M8 10h8M8 14h5"/></svg>`,
 };
 
 function kindBadge(attachment: Attachment) {
@@ -154,12 +170,12 @@ function pageHeader(eyebrow: string, title: string, actionsInner = "") {
   const utilities = hubUtilitiesHtml();
   const actions =
     actionsInner || utilities
-      ? `<div class="page-header__actions">${actionsInner}${utilities}<img class="hub-mark" src="icons/knowledge.svg" alt="" width="32" height="32"></div>`
+      ? `<div class="page-header__actions">${actionsInner}${utilities}</div>`
       : "";
   return `<header class="topbar page-header">
       <div class="page-header__copy">
         <p class="eyebrow page-header__eyebrow">${eyebrow}</p>
-        <h1 class="page-header__title">${title}</h1>
+        ${titleRowHtml(title)}
       </div>
       ${actions}
     </header>`;
@@ -198,7 +214,7 @@ function renderAttachments(page: Page) {
 function leaveSpecialRails() {
   if (view === "podcast") leavePodcastRail();
   if (view === "quiz") leaveQuizRail();
-  if (view === "chat") leaveChatRail();
+  if (view === "wiki") leaveWikiRail();
 }
 
 function clearPageHash() {
@@ -231,9 +247,10 @@ function shell(main: string) {
       <nav class="rail__nav hub-rail__nav">
         <button class="rail__btn hub-rail__link ${view === "list" && !keywordFilter ? "is-current" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
         <button class="rail__btn hub-rail__link ${view === "graph" ? "is-current" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
-        <button class="rail__btn hub-rail__link ${view === "chat" ? "is-current" : ""}" data-nav="chat" type="button">${icons.chat}<span>Chat</span></button>
+        <button class="rail__btn hub-rail__link ${view === "coach" ? "is-current" : ""}" data-nav="coach" type="button">${icons.coach}<span>Coach</span></button>
         <button class="rail__btn hub-rail__link ${view === "podcast" ? "is-current" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
         <button class="rail__btn hub-rail__link ${view === "quiz" ? "is-current" : ""}" data-nav="quiz" type="button">${icons.quiz}<span>Quiz</span></button>
+        <button class="rail__btn hub-rail__link ${view === "wiki" ? "is-current" : ""}" data-nav="wiki" type="button">${icons.wiki}<span>Wiki</span></button>
       </nav>
     </aside>
     <main class="canvas">${main}</main>
@@ -246,9 +263,10 @@ function shell(main: string) {
       const next = button.dataset.nav!;
       const special: Record<string, View> = {
         graph: "graph",
-        chat: "chat",
+        coach: "coach",
         podcast: "podcast",
         quiz: "quiz",
+        wiki: "wiki",
       };
       if (special[next]) {
         leaveSpecialRails();
@@ -257,7 +275,7 @@ function shell(main: string) {
         clearPageHash();
         if (next === "podcast") enterPodcastRail();
         if (next === "quiz") enterQuizRail();
-        if (next === "chat") enterChatRail();
+        if (next === "wiki") enterWikiRail();
         render();
         return;
       }
@@ -564,6 +582,104 @@ function findingCards(findings: ResearchFinding[]): string {
     .join("");
 }
 
+function renderCoach() {
+  shell(`
+    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · coach needs the Netlify API (session + Anthropic). The browser never talks to the research kernel.</p>` : ""}
+    ${pageHeader("Professor Clementine Haig", "University office")}
+    <section class="coach">
+      <form class="coach__form glass-panel">
+        <label for="coach-thesis">Working thesis</label>
+        <input id="coach-thesis" value="${escapeHtml(coachThesis)}" placeholder="The claim, in one sentence" />
+        <label for="coach-draft">Draft</label>
+        <textarea id="coach-draft" rows="8" placeholder="Paste a section…">${escapeHtml(coachDraft)}</textarea>
+        <label for="coach-input">Message</label>
+        <textarea id="coach-input" rows="4" placeholder="Ask her about the argument…">${escapeHtml(coachInput)}</textarea>
+        <div class="alchemist__actions">
+          <button type="submit" ${coachBusy ? "disabled" : ""}>${coachBusy ? "Reading…" : "Send"}</button>
+          ${coachThesis ? `<p class="alchemist__mode">Thesis in play</p>` : `<p class="alchemist__mode">Optional thesis — she will still start with the argument</p>`}
+        </div>
+        ${coachError ? `<p class="alchemist__error">${escapeHtml(coachError)}</p>` : ""}
+      </form>
+      <div class="coach__thread" aria-live="polite">
+        ${
+          coachTurns.length
+            ? coachTurns
+                .map(
+                  turn => `<article class="coach-msg coach-msg--${turn.role} glass-panel">
+                    <p class="coach-msg__who">${turn.role === "user" ? "You" : "Clementine"}</p>
+                    <p class="coach-msg__body">${escapeHtml(turn.content)}</p>
+                    ${
+                      turn.archiveFailed
+                        ? `<p class="alchemist__error">Archive pull failed this turn — she continued with what she had.</p>`
+                        : ""
+                    }
+                    ${turn.findings?.length ? `<div class="coach-msg__citations">${findingCards(turn.findings)}</div>` : ""}
+                  </article>`,
+                )
+                .join("")
+            : `<p class="empty">She is waiting. Put a claim or a messy paragraph on the table.</p>`
+        }
+      </div>
+    </section>
+  `);
+
+  const form = app.querySelector("form")!;
+  const thesis = app.querySelector<HTMLInputElement>("#coach-thesis")!;
+  const draft = app.querySelector<HTMLTextAreaElement>("#coach-draft")!;
+  const input = app.querySelector<HTMLTextAreaElement>("#coach-input")!;
+
+  thesis.oninput = () => {
+    coachThesis = thesis.value;
+  };
+  draft.oninput = () => {
+    coachDraft = draft.value;
+  };
+  input.oninput = () => {
+    coachInput = input.value;
+  };
+
+  form.onsubmit = async event => {
+    event.preventDefault();
+    coachThesis = thesis.value.trim();
+    coachDraft = draft.value;
+    coachInput = input.value.trim();
+    if (!coachInput) return;
+    const history: CoachTurn[] = [...coachTurns, { role: "user", content: coachInput }];
+    coachTurns = history;
+    const outgoing = coachInput;
+    coachInput = "";
+    coachBusy = true;
+    coachError = "";
+    render();
+    try {
+      const result = await runCoach({
+        messages: history.map(({ role, content }) => ({ role, content })),
+        workingThesis: coachThesis || undefined,
+        draft: coachDraft || undefined,
+      });
+      coachTurns = [
+        ...history,
+        {
+          role: "assistant",
+          content: result.reply,
+          findings: result.research?.findings,
+          archiveFailed: result.archiveFailed,
+        },
+      ];
+    } catch (error) {
+      coachInput = outgoing;
+      coachError = error instanceof Error ? error.message : "Coach failed";
+    } finally {
+      coachBusy = false;
+      render();
+    }
+  };
+
+  app.querySelectorAll<HTMLButtonElement>("[data-open-page]").forEach(button => {
+    button.onclick = () => void openPage(button.dataset.openPage!);
+  });
+}
+
 function renderPage(page: Page) {
   const topics = topicKeywords(page.tags);
   const chips = topics
@@ -577,11 +693,10 @@ function renderPage(page: Page) {
         <button class="reader__back" data-back type="button">← Archive</button>
         <button class="btn" data-edit type="button">Edit</button>
         <button class="btn btn--ghost reader__tidy" data-tidy type="button" ${tidyBusy ? "disabled" : ""}>${tidyBusy ? "Cleaning up…" : "Clean up"}</button>
-        <button class="btn btn--ghost" data-open-chat type="button">Chat</button>
         ${hubUtilitiesHtml()}
       </div>
       <p class="eyebrow">${topics[0] ? escapeHtml(topics[0]) : "Note"}</p>
-      <h1 class="reader__title">${escapeHtml(page.title)}</h1>
+      ${titleRowHtml(escapeHtml(page.title), "reader__title")}
       <div class="reader__meta">${chips}</div>
       <div class="reader__body">${renderMarkdown(page.body)}</div>
       ${connectedLinksHtml(page, entries)}
@@ -597,14 +712,6 @@ function renderPage(page: Page) {
   app.querySelector<HTMLButtonElement>("[data-edit]")!.onclick = () => {
     compose = composeFromPage(page);
     view = "compose";
-    render();
-  };
-  app.querySelector<HTMLButtonElement>("[data-open-chat]")!.onclick = () => {
-    leaveSpecialRails();
-    view = "chat";
-    enterChatRail({ noteContext: { pageId: page.id, title: page.title } });
-    activePage = null;
-    clearPageHash();
     render();
   };
   app.querySelector<HTMLButtonElement>("[data-tidy]")!.onclick = async () => {
@@ -846,21 +953,7 @@ function render() {
   if (view === "compose" && compose) return renderCompose(compose);
   if (view === "page" && activePage) return renderPage(activePage);
   if (view === "graph") return renderGraph();
-  if (view === "chat") {
-    return renderChatRail({
-      app,
-      shell,
-      render,
-      onOpenPage: pageId => void openPage(pageId),
-      onSavedPage: async saved => {
-        entries = await listPages();
-        await refreshVisible();
-        await openPage(saved.id);
-      },
-      pageHeader,
-      findingCards,
-    });
-  }
+  if (view === "coach") return renderCoach();
   if (view === "podcast") {
     return renderPodcastRail({
       app,
@@ -878,6 +971,14 @@ function render() {
       shell,
       render,
       onOpenPage: id => void openPage(id),
+    });
+  }
+  if (view === "wiki") {
+    return renderWikiRail({
+      app,
+      shell,
+      render,
+      onOpenPage: pageId => void openPage(pageId),
     });
   }
   return renderList();

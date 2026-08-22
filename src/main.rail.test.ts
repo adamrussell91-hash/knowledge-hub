@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const main = readFileSync(join(dir, "main.ts"), "utf8");
+const chrome = readFileSync(join(dir, "lib/hubChrome.ts"), "utf8");
 const css = readFileSync(join(dir, "style.css"), "utf8");
 
 describe("Knowledge Hub rail", () => {
@@ -16,14 +17,6 @@ describe("Knowledge Hub rail", () => {
 
   it("still renders coach archive citations after the Alchemist rail is gone", () => {
     expect(main).toContain("function findingCards");
-  });
-
-  it("replaces Coach and Wiki with Chat", () => {
-    expect(main).toContain('data-nav="chat"');
-    expect(main).toContain("<span>Chat</span>");
-    expect(main).not.toContain('data-nav="wiki"');
-    expect(main).not.toContain('data-nav="coach"');
-    expect(main).toContain("data-open-chat");
   });
 
   it("offers a quiet Clean up control beside Edit in the reader", () => {
@@ -46,6 +39,17 @@ describe("Knowledge Hub rail", () => {
     expect(main).toContain('class="hub-rail__brand" data-home');
     expect(main).toContain('href="#"');
     expect(main).toContain("function goToHome");
+  });
+
+  it("places the hub tile on the left, level with the page title", () => {
+    expect(main).toContain("titleRowHtml(");
+    expect(main).not.toMatch(/hub-utilities[\s\S]*hub-mark/);
+    expect(chrome).toContain('class="page-header__title-row"');
+    expect(chrome).toContain("HUB_MARK_HTML");
+    expect(chrome).toContain('class="hub-mark"');
+    expect(chrome).toMatch(/title-row">\$\{HUB_MARK_HTML\}<h1/);
+    expect(css).toContain(".page-header__title-row");
+    expect(css).toMatch(/\.page-header__title-row\s*\{[^}]*align-items:\s*center/);
   });
 });
 
