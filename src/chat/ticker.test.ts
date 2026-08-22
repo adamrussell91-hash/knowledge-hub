@@ -23,6 +23,23 @@ describe("chatTick", () => {
     ).toBe("Round 2/5 — 6 notes, 1 follow-up");
   });
 
+  it("only calls a pull failed when the archive request itself failed", () => {
+    expect(
+      chatTick({ phase: "failed", hatLabel: "Scoping", scope: "wide", depth: "single" }),
+    ).toBe("Archive pull failed — writing with what she has");
+    expect(
+      chatTick({
+        phase: "round",
+        hatLabel: "Scoping",
+        scope: "wide",
+        depth: "single",
+        round: 1,
+        maxRounds: 1,
+        noteCount: 0,
+      }),
+    ).toBe("Round 1/1 — 0 notes, 0 follow-ups");
+  });
+
   it("says when she starts writing from the notes she has", () => {
     expect(
       chatTick({

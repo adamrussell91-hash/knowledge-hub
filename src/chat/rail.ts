@@ -212,7 +212,7 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
       },
       phase => {
         if (phase.status === "compose") {
-          pushTick(phase.research?.findings?.length ? "round" : "failed", phase.research);
+          pushTick(phase.archiveFailed ? "failed" : "round", phase.research);
         }
         if (phase.status === "writing") pushTick("writing", phase.research);
         if (phase.status === "researching" && phase.research) pushTick("round", phase.research);

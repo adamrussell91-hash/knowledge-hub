@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handler } from "./clementine-chat";
+import { resetLiveArchiveCache } from "./_lib/liveArchive";
 import { signSession } from "./_lib/session";
 
 const secret = "session-secret";
@@ -32,6 +33,9 @@ describe("clementine-chat handler", () => {
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.RESEARCH_KERNEL_SHARED_SECRET;
     delete process.env.RESEARCH_KERNEL_URL;
+    delete process.env.GITHUB_DATA_REPO;
+    delete process.env.GITHUB_DATA_REPO_TOKEN;
+    resetLiveArchiveCache();
     vi.unstubAllGlobals();
   });
 
@@ -62,6 +66,72 @@ describe("clementine-chat handler", () => {
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body ?? "{}")).toMatchObject({ status: "compose" });
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
+  });
+
+  it("falls back to the live archive when the kernel returns nothing", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes("quick_research")) {
+        return {
+          ok: true,
+          json: async () => ({
+            query: "stoicism",
+            round: 1,
+            status: "done",
+            findings: [],
+            gaps: [],
+            followUpQueries: [],
+          }),
+        };
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const response = await handler(
+      event({
+        body: JSON.stringify({
+          hat: "scoping",
+          messages: [{ role: "user", content: "what do I have on stoicism" }],
+        }),
+      }) as never,
+      {} as never,
+    );
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.body ?? "{}") as {
+      status?: string;
+      archiveFailed?: boolean;
+      research?: { findings?: { pageId?: string }[] };
+    };
+    expect(payload).toMatchObject({ status: "compose" });
+    expect(payload.archiveFailed).toBeFalsy();
+    expect(payload.research?.findings?.[0]?.pageId).toBe("page_stoicism");
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
+  });
+
+  it("still searches the live archive when the kernel secret is missing", async () => {
+    delete process.env.RESEARCH_KERNEL_SHARED_SECRET;
+    const fetchImpl = vi.fn(async (url: string) => {
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const response = await handler(
+      event({
+        body: JSON.stringify({
+          hat: "scoping",
+          messages: [{ role: "user", content: "what do I have on stoicism" }],
+        }),
+      }) as never,
+      {} as never,
+    );
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.body ?? "{}") as {
+      status?: string;
+      archiveFailed?: boolean;
+      research?: { findings?: { pageId?: string; title?: string }[] };
+    };
+    expect(payload.status).toBe("compose");
+    expect(payload.archiveFailed).toBeFalsy();
+    expect(payload.research?.findings?.[0]?.title).toMatch(/stoicism/i);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("starts a deep session without calling Anthropic", async () => {

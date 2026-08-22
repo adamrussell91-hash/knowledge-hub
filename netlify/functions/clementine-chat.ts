@@ -5,6 +5,7 @@ import { loadPromptFile } from "../../src/clementine/loadFromDisk";
 import { runChatTurn, type ChatMessage } from "../../src/chat/chatTurn";
 import { isChatHatId, type ChatDepth, type ChatScope } from "../../src/chat/hats";
 import { ResearchResultSchema } from "../../src/research/schema";
+import { pullLiveArchive } from "./_lib/liveArchive";
 
 const DEFAULT_KERNEL_URL = "https://knowledge-hub-research.adamrussell91.workers.dev";
 
@@ -115,6 +116,7 @@ export const handler: Handler = async event => {
       priorResearch: body.priorResearch,
       archiveFailed: body.archiveFailed,
       kernel: kernelSecret ? { url: kernelUrl, secret: kernelSecret, fetchImpl: fetch } : undefined,
+      archivePull: pullLiveArchive,
       complete: (system, messages) => completeWithAnthropic(system, messages, apiKey),
     });
     return { statusCode: 200, headers: cors(), body: JSON.stringify(result) };
