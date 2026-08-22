@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchSession, getPage, listPages, login, runChat, runCoach, savePage, signAttachment, tidyEndpoint, tidyPage } from "./client";
+import { ChatWriteDroppedError, fetchSession, getPage, listPages, login, runChat, runCoach, savePage, signAttachment, tidyEndpoint, tidyPage } from "./client";
 import { API_BASE } from "./config";
 
 describe("api client", () => {
@@ -90,26 +90,22 @@ describe("api client", () => {
     expect(JSON.stringify(init.headers)).not.toMatch(/x-research-kernel-secret/i);
   });
 
-  it("reports search then write phases while a compose turn is in flight", async () => {
+  it("reports search then write phases when the Worker clock takes the reply", async () => {
     const research = { findings: [{ pageId: "p1" }], gaps: [] };
     const phases: string[] = [];
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ status: "compose", research }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ status: "done", reply: "Three clusters.", research }),
-        }),
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: "writing", writeSessionId: "w-1", research }),
+      }),
     );
-    await runChat({ hat: "scoping", messages: [{ role: "user", content: "Gagne" }] }, phase => {
-      phases.push(phase.status);
-    });
-    expect(phases).toEqual(["searching", "compose", "writing"]);
+    await expect(
+      runChat({ hat: "scoping", messages: [{ role: "user", content: "Gagne" }] }, phase => {
+        phases.push(phase.status);
+      }),
+    ).resolves.toMatchObject({ status: "writing", writeSessionId: "w-1" });
+    expect(phases).toEqual(["searching", "writing"]);
   });
 
   it("follows a compose status with a second chat post so archive and Claude stay on separate requests", async () => {
@@ -147,6 +143,54 @@ describe("api client", () => {
         messages: [{ role: "user", content: "Gagne" }],
       }),
     ).rejects.toThrow(/timed out/i);
+  });
+
+  it("retries the write once when Safari drops it after archive findings land", async () => {
+    const research = { findings: [{ pageId: "p1", title: "SDT" }], gaps: [] };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ status: "compose", research, archiveFailed: false }),
+        })
+        .mockRejectedValueOnce(new TypeError("Load failed"))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ status: "done", reply: "Three clusters.", research }),
+        }),
+    );
+    await expect(
+      runChat({
+        hat: "scoping",
+        messages: [{ role: "user", content: "self determination theory" }],
+      }),
+    ).resolves.toMatchObject({ status: "done", reply: "Three clusters." });
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps the archive notes when the write drops twice", async () => {
+    const research = { findings: [{ pageId: "p1", title: "SDT" }], gaps: [] };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ status: "compose", research, archiveFailed: false }),
+        })
+        .mockRejectedValue(new TypeError("Load failed")),
+    );
+    let dropped: unknown;
+    await runChat({
+      hat: "scoping",
+      messages: [{ role: "user", content: "self determination theory" }],
+    }).catch(error => {
+      dropped = error;
+    });
+    expect(dropped).toBeInstanceOf(ChatWriteDroppedError);
+    expect((dropped as ChatWriteDroppedError).research?.findings[0]?.pageId).toBe("p1");
   });
 
   it("posts page saves with credentials", async () => {

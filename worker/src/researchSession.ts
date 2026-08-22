@@ -35,7 +35,10 @@ export class ResearchSession {
         maxRounds?: number;
         negation?: boolean;
       };
-      let state = initialSession({
+      // Kick off only. Round 1 used to run inline so the HTTP caller got
+      // findings immediately — that made Netlify the clock. Every round,
+      // including the first, runs on the alarm so a sitting can last minutes.
+      const state = initialSession({
         query: body.query,
         documentContext: body.documentContext,
         now: Date.now(),
@@ -44,14 +47,11 @@ export class ResearchSession {
         maxRounds: body.maxRounds,
         negation: body.negation,
       });
-      state = await runDeepRoundKernel(state, this.env);
       await this.saveState(state);
-      if (state.status === "running") {
-        await this.ctx.storage.setAlarm(Date.now() + ALARM_DELAY_MS);
-      }
+      await this.ctx.storage.setAlarm(Date.now() + ALARM_DELAY_MS);
       return Response.json({
         sessionId: body.sessionId,
-        status: state.status === "cancelled" ? "running" : state.status,
+        status: "running",
         result: sessionToResult(state),
       });
     }

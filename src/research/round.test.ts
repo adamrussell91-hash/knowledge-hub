@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCancel, initialSession, runRound } from "./round";
+import { applyCancel, DEFAULT_MAX_MS, initialSession, runRound } from "./round";
 import type { ResearchFinding } from "./schema";
 
 function finding(pageId: string): ResearchFinding {
@@ -14,6 +14,10 @@ function finding(pageId: string): ResearchFinding {
 }
 
 describe("runRound", () => {
+  it("gives a deep sitting minutes on the Worker clock, not a request budget", () => {
+    expect(DEFAULT_MAX_MS).toBe(10 * 60 * 1000);
+  });
+
   it("retrieves the original query once and synthesizes once on round 1", async () => {
     const retrieved: string[] = [];
     const next = await runRound(initialSession({ query: "original" }), {

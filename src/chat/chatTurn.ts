@@ -1,10 +1,13 @@
 import { assembleClementinePrompt } from "../clementine/assemble";
 import { topicQuery } from "../research/topicQuery";
 import { ResearchResultSchema, type ResearchResult } from "../research/schema";
+import { compactArchiveNote } from "./archiveNote";
 import { coverageFromResearch, type CoverageRead } from "./coverage";
 import { resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
+import type { ChatMessage } from "./messages";
+import type { ChatWriteState } from "./writeHttp";
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type { ChatMessage } from "./messages";
 
 export type ChatKernel = {
   url: string;
@@ -13,6 +16,17 @@ export type ChatKernel = {
 };
 
 export type ArchivePull = (input: { query: string; k: number; tags?: string[] }) => Promise<ResearchResult>;
+
+export type ChatWriteClock = {
+  start: (input: {
+    system: string;
+    messages: ChatMessage[];
+    maxTokens?: number;
+    research?: ResearchResult;
+    archiveFailed?: boolean;
+  }) => Promise<ChatWriteState>;
+  poll: (writeSessionId: string) => Promise<ChatWriteState | null>;
+};
 
 export type ChatTurnInput = {
   voice: string;
@@ -26,21 +40,25 @@ export type ChatTurnInput = {
   noteContext?: { pageId: string; title: string };
   searchOutside?: boolean;
   researchSessionId?: string;
+  writeSessionId?: string;
   compose?: boolean;
   priorResearch?: ResearchResult;
   archiveFailed?: boolean;
   kernel?: ChatKernel;
   archivePull?: ArchivePull;
-  complete: (system: string, messages: ChatMessage[]) => Promise<string>;
+  write?: ChatWriteClock;
+  complete?: (system: string, messages: ChatMessage[]) => Promise<string>;
 };
 
 export const KERNEL_BUDGET_MS = 20_000;
 export const QUICK_KERNEL_BUDGET_MS = 8_000;
+export const START_KERNEL_BUDGET_MS = 8_000;
 const ARCHIVE_FAILED_NOTE =
   "The archive pull failed. Say so in character and continue with what you have. Do not empty the conversation.";
 
 export type ChatTurnResult =
   | { status: "researching"; researchSessionId: string; research?: ResearchResult }
+  | { status: "writing"; writeSessionId: string; research?: ResearchResult; archiveFailed?: boolean; coverage?: CoverageRead }
   | { status: "compose"; research?: ResearchResult; archiveFailed?: boolean; coverage?: CoverageRead }
   | { status: "external-unavailable"; reason: string }
   | {
@@ -149,17 +167,7 @@ async function resolveArchive(input: ChatTurnInput): Promise<ArchivePack> {
 }
 
 function archiveNote(research: ResearchResult): ArchivePack {
-  if (!research.findings.length) {
-    const gaps = research.gaps.length ? research.gaps.join("; ") : "none named";
-    return {
-      research,
-      note: `The archive did not give you anything usable. Name the gaps (${gaps}). Do not say "no results found."`,
-    };
-  }
-  return {
-    research,
-    note: `Archive findings (cite these; never invent pages):\n${JSON.stringify(research.findings, null, 2)}`,
-  };
+  return { research, note: compactArchiveNote(research) };
 }
 
 function composeFrom(archive: ArchivePack): ChatTurnResult {
@@ -177,6 +185,7 @@ async function startDeep(input: ChatTurnInput): Promise<ChatTurnResult> {
       const response = await kernelFetch(input.kernel, "/deep_research/start", {
         method: "POST",
         body: JSON.stringify(searchBody(input)),
+        signal: AbortSignal.timeout(START_KERNEL_BUDGET_MS),
       });
       if (response.ok) {
         const payload = (await response.json()) as { sessionId?: string; result?: ResearchResult };
@@ -189,7 +198,9 @@ async function startDeep(input: ChatTurnInput): Promise<ChatTurnResult> {
       /* live archive below */
     }
   }
-  return composeFrom(await resolveArchive({ ...input, kernel: undefined }));
+  const archive = await resolveArchive({ ...input, kernel: undefined });
+  if (input.write) return finishArchive(input, archive);
+  return composeFrom(archive);
 }
 
 async function pollDeep(input: ChatTurnInput): Promise<ArchivePack & { researching?: string }> {
@@ -212,24 +223,55 @@ async function pollDeep(input: ChatTurnInput): Promise<ArchivePack & { researchi
   }
 }
 
-async function completeTurn(input: ChatTurnInput, archive: ArchivePack): Promise<ChatTurnResult> {
+function assembledSystem(input: ChatTurnInput, archive: ArchivePack) {
   const plan = resolveChatPlan(input.hat, { scope: input.scope, depth: input.depth });
   const query = lastUserQuery(input.messages);
   const coverage = archive.research ? coverageFromResearch(archive.research) : undefined;
-  const system = assembleClementinePrompt({
-    voice: input.voice,
-    job: input.universityJob,
-    surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}\n${archive.note}`,
-    payload: [
-      input.workingThesis?.trim() ? `Working thesis:\n${input.workingThesis.trim()}` : "",
-      input.draft?.trim() ? `Draft excerpt:\n${input.draft.trim()}` : "",
-      input.noteContext ? `Using open note: ${input.noteContext.title} (${input.noteContext.pageId})` : "",
-      query ? `Latest question:\n${query}` : "",
-      coverage ? `Coverage: ${coverage.distinctSources} distinct sources, ${coverage.gapCount} gaps, ${coverage.thin ? "thin" : "enough"}.` : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n"),
-  });
+  return {
+    coverage,
+    system: assembleClementinePrompt({
+      voice: input.voice,
+      job: input.universityJob,
+      surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}\n${archive.note}`,
+      payload: [
+        input.workingThesis?.trim() ? `Working thesis:\n${input.workingThesis.trim()}` : "",
+        input.draft?.trim() ? `Draft excerpt:\n${input.draft.trim()}` : "",
+        input.noteContext ? `Using open note: ${input.noteContext.title} (${input.noteContext.pageId})` : "",
+        query ? `Latest question:\n${query}` : "",
+        coverage ? `Coverage: ${coverage.distinctSources} distinct sources, ${coverage.gapCount} gaps, ${coverage.thin ? "thin" : "enough"}.` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    }),
+  };
+}
+
+function writeMaxTokens(input: ChatTurnInput) {
+  const plan = resolveChatPlan(input.hat, { scope: input.scope, depth: input.depth });
+  return plan.kernel === "deep" ? 2000 : 1200;
+}
+
+async function startWrite(input: ChatTurnInput, archive: ArchivePack): Promise<ChatTurnResult> {
+  const { system, coverage } = assembledSystem(input, archive);
+  if (input.write) {
+    const started = await input.write.start({
+      system,
+      messages: input.messages,
+      maxTokens: writeMaxTokens(input),
+      research: archive.research,
+      archiveFailed: archive.archiveFailed,
+    });
+    return {
+      status: "writing",
+      writeSessionId: started.writeSessionId,
+      research: archive.research ?? started.research,
+      archiveFailed: archive.archiveFailed,
+      coverage,
+    };
+  }
+  if (!input.complete) {
+    throw new Error("Chat write clock is not configured");
+  }
   const reply = await input.complete(system, input.messages);
   return {
     status: "done",
@@ -239,6 +281,45 @@ async function completeTurn(input: ChatTurnInput, archive: ArchivePack): Promise
     coverage,
     canSearchOutside: input.hat === "internalExternal" && Boolean(coverage?.thin),
   };
+}
+
+async function pollWrite(input: ChatTurnInput): Promise<ChatTurnResult> {
+  if (!input.write || !input.writeSessionId) {
+    return { status: "external-unavailable", reason: "Chat write clock is not configured" };
+  }
+  const state = await input.write.poll(input.writeSessionId);
+  if (!state) return { status: "external-unavailable", reason: "Unknown write session" };
+  if (state.status === "writing") {
+    return {
+      status: "writing",
+      writeSessionId: state.writeSessionId,
+      research: state.research,
+      archiveFailed: state.archiveFailed,
+      coverage: state.research ? coverageFromResearch(state.research) : undefined,
+    };
+  }
+  if (state.status === "error" || !state.reply) {
+    return {
+      status: "done",
+      reply: "The Worker write failed. The archive notes from this sitting are still attached.",
+      research: state.research,
+      archiveFailed: state.archiveFailed,
+      coverage: state.research ? coverageFromResearch(state.research) : undefined,
+    };
+  }
+  const coverage = state.research ? coverageFromResearch(state.research) : undefined;
+  return {
+    status: "done",
+    reply: state.reply,
+    research: state.research,
+    archiveFailed: state.archiveFailed,
+    coverage,
+    canSearchOutside: input.hat === "internalExternal" && Boolean(coverage?.thin),
+  };
+}
+
+async function finishArchive(input: ChatTurnInput, archive: ArchivePack): Promise<ChatTurnResult> {
+  return startWrite(input, archive);
 }
 
 export async function runChatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
@@ -254,9 +335,12 @@ export async function runChatTurn(input: ChatTurnInput): Promise<ChatTurnResult>
       reason: "External search is not connected. Brave is not on the research kernel yet. Archive citations stay archive-only.",
     };
   }
+  if (input.writeSessionId) {
+    return pollWrite(input);
+  }
   if (input.compose) {
     if (input.priorResearch?.findings.length) {
-      return completeTurn(input, {
+      return finishArchive(input, {
         ...archiveNote(input.priorResearch),
         archiveFailed: input.archiveFailed,
         note: input.archiveFailed ? ARCHIVE_FAILED_NOTE : archiveNote(input.priorResearch).note,
@@ -264,12 +348,12 @@ export async function runChatTurn(input: ChatTurnInput): Promise<ChatTurnResult>
     }
     if (input.priorResearch && !input.archiveFailed) {
       const recovered = await pullLive(input);
-      if (recovered?.findings.length) return completeTurn(input, archiveNote(recovered));
-      return completeTurn(input, archiveNote(input.priorResearch));
+      if (recovered?.findings.length) return finishArchive(input, archiveNote(recovered));
+      return finishArchive(input, archiveNote(input.priorResearch));
     }
     const recovered = await pullLive(input);
-    if (recovered?.findings.length) return completeTurn(input, archiveNote(recovered));
-    return completeTurn(input, recovered ? archiveNote(recovered) : failedArchive());
+    if (recovered?.findings.length) return finishArchive(input, archiveNote(recovered));
+    return finishArchive(input, recovered ? archiveNote(recovered) : failedArchive());
   }
   const plan = resolveChatPlan(input.hat, { scope: input.scope, depth: input.depth });
   if (input.researchSessionId) {
@@ -277,10 +361,12 @@ export async function runChatTurn(input: ChatTurnInput): Promise<ChatTurnResult>
     if (archive.researching) {
       return { status: "researching", researchSessionId: archive.researching, research: archive.research };
     }
-    return completeTurn(input, archive);
+    return finishArchive(input, archive);
   }
   if (plan.kernel === "deep") {
     return startDeep(input);
   }
-  return composeFrom(await resolveArchive(input));
+  const archive = await resolveArchive(input);
+  if (input.write) return finishArchive(input, archive);
+  return composeFrom(archive);
 }

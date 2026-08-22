@@ -1,4 +1,4 @@
-import { runChat, savePage, tidyPage, USE_LOCAL_DATA } from "../api/client";
+import { ChatWriteDroppedError, runChat, savePage, tidyPage, USE_LOCAL_DATA } from "../api/client";
 import { newHubPageId } from "../domain/page";
 import type { Page } from "../domain/page";
 import { escapeHtml, showToast } from "../lib/dom";
@@ -39,6 +39,7 @@ let input = "";
 let turns: ChatTurn[] = [];
 let noteContext: { pageId: string; title: string } | undefined;
 let researchSessionId = "";
+let writeSessionId = "";
 let busy = false;
 let error = "";
 let ticks: string[] = [];
@@ -49,7 +50,7 @@ function persist() {
   try {
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ hat, scope, depth, showDials, thesis, draft, input, turns, noteContext, researchSessionId }),
+      JSON.stringify({ hat, scope, depth, showDials, thesis, draft, input, turns, noteContext, researchSessionId, writeSessionId }),
     );
   } catch {
     /* private mode / SSR */
@@ -71,6 +72,7 @@ function restore() {
       turns: ChatTurn[];
       noteContext: { pageId: string; title: string };
       researchSessionId: string;
+      writeSessionId: string;
     }>;
     if (saved.hat && isChatHatId(saved.hat)) hat = saved.hat;
     scope = saved.scope;
@@ -82,6 +84,7 @@ function restore() {
     turns = saved.turns ?? [];
     noteContext = saved.noteContext;
     researchSessionId = saved.researchSessionId ?? "";
+    writeSessionId = saved.writeSessionId ?? "";
   } catch {
     /* keep defaults */
   }
@@ -93,6 +96,7 @@ function resetSitting() {
   input = "";
   turns = [];
   researchSessionId = "";
+  writeSessionId = "";
   error = "";
   ticks = [];
   persist();
@@ -110,7 +114,7 @@ export function leaveChatRail() {
     clearTimeout(pollTimer);
     pollTimer = null;
   }
-  if (!busy && !researchSessionId) {
+  if (!busy && !researchSessionId && !writeSessionId) {
     resetSitting();
     noteContext = undefined;
   }
@@ -152,7 +156,15 @@ function pushTick(
 function applyResult(history: ChatTurn[], result: ChatTurnResult) {
   if (result.status === "researching") {
     researchSessionId = result.researchSessionId;
+    writeSessionId = "";
     if (result.research) pushTick("round", result.research);
+    return;
+  }
+  if (result.status === "writing") {
+    writeSessionId = result.writeSessionId;
+    researchSessionId = "";
+    if (result.research) pushTick("round", result.research);
+    pushTick("writing", result.research);
     return;
   }
   if (result.status === "compose") {
@@ -164,6 +176,7 @@ function applyResult(history: ChatTurn[], result: ChatTurnResult) {
     return;
   }
   researchSessionId = "";
+  writeSessionId = "";
   turns = [
     ...history,
     {
@@ -180,18 +193,18 @@ function applyResult(history: ChatTurn[], result: ChatTurnResult) {
 async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}) {
   if (busy) return;
   const outgoing = extras.searchOutside ? "Search outside" : input.trim();
-  if (!outgoing && !researchSessionId) return;
+  if (!outgoing && !researchSessionId && !writeSessionId) return;
   const history: ChatTurn[] =
-    extras.searchOutside || researchSessionId
+    extras.searchOutside || researchSessionId || writeSessionId
       ? turns
       : [...turns, { role: "user", content: outgoing }];
-  if (!extras.searchOutside && !researchSessionId) {
+  if (!extras.searchOutside && !researchSessionId && !writeSessionId) {
     turns = history;
     input = "";
   }
   busy = true;
   error = "";
-  if (!researchSessionId && !extras.searchOutside) {
+  if (!researchSessionId && !writeSessionId && !extras.searchOutside) {
     ticks = [];
     pushTick("searching");
   }
@@ -209,6 +222,7 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
         noteContext,
         searchOutside: extras.searchOutside,
         researchSessionId: researchSessionId || undefined,
+        writeSessionId: writeSessionId || undefined,
       },
       phase => {
         if (phase.status === "compose") {
@@ -222,13 +236,25 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
     );
     applyResult(history, result);
   } catch (caught) {
-    if (!researchSessionId && !extras.searchOutside) input = outgoing;
-    error = caught instanceof Error ? caught.message : "Chat failed";
+    if (caught instanceof ChatWriteDroppedError && caught.research?.findings?.length) {
+      turns = [
+        ...history,
+        {
+          role: "assistant",
+          content: caught.message,
+          findings: caught.research.findings,
+        },
+      ];
+      error = caught.message;
+    } else {
+      if (!researchSessionId && !extras.searchOutside) input = outgoing;
+      error = caught instanceof Error ? caught.message : "Chat failed";
+    }
   } finally {
     busy = false;
     persist();
     host.render();
-    if (researchSessionId) {
+    if (researchSessionId || writeSessionId) {
       pollTimer = setTimeout(() => void send(host), 2000);
     }
   }
@@ -264,7 +290,7 @@ async function saveBrief(host: ChatRailHost) {
 
 export function renderChatRail(host: ChatRailHost) {
   restore();
-  if (researchSessionId && !pollTimer) pollTimer = setTimeout(() => void send(host), 400);
+  if ((researchSessionId || writeSessionId) && !pollTimer) pollTimer = setTimeout(() => void send(host), 400);
   const current = hatById(hat);
   const last = lastAssistant();
   const canSave = Boolean(last && briefIsSavable(last.content));
@@ -312,7 +338,7 @@ export function renderChatRail(host: ChatRailHost) {
         <label for="chat-input">Message</label>
         <textarea id="chat-input" rows="4" placeholder="Ask about the archive…">${escapeHtml(input)}</textarea>
         <div class="alchemist__actions">
-          <button type="submit" ${busy || researchSessionId ? "disabled" : ""}>${busy || researchSessionId ? "Still working…" : "Send"}</button>
+          <button type="submit" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${busy || researchSessionId || writeSessionId ? "Still working…" : "Send"}</button>
           ${canSave ? `<button type="button" data-save-brief ${saveBusy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>` : ""}
         </div>
         ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
@@ -336,7 +362,7 @@ export function renderChatRail(host: ChatRailHost) {
                     ${turn.coverageThin ? `<p class="alchemist__mode">Coverage is thin.</p>` : ""}
                     ${
                       turn.canSearchOutside
-                        ? `<button type="button" data-search-outside ${busy || researchSessionId ? "disabled" : ""}>Search outside</button>`
+                        ? `<button type="button" data-search-outside ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>Search outside</button>`
                         : ""
                     }
                     ${turn.findings?.length ? `<div class="coach-msg__citations">${host.findingCards(turn.findings)}</div>` : ""}

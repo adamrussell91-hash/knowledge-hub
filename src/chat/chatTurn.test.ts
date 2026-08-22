@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runChatTurn } from "./chatTurn";
+import { runChatTurn, START_KERNEL_BUDGET_MS } from "./chatTurn";
 
 const voice = readFileSync(join(process.cwd(), "prompts/clementine-voice.md"), "utf8");
 const universityJob = readFileSync(join(process.cwd(), "prompts/clementine-university.md"), "utf8");
@@ -76,6 +76,9 @@ describe("runChatTurn", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(system).toContain("Scoping");
     expect(system).toContain("Wide sweep");
+    expect(system).toContain("Stoicism notes");
+    expect(system).toContain("p1");
+    expect(system).not.toContain("Links the thesis to the archive.");
     expect(result.status).toBe("done");
     if (result.status !== "done") return;
     expect(result.reply).toContain("Three clusters");
@@ -83,9 +86,10 @@ describe("runChatTurn", () => {
   });
 
   it("starts a deep Worker session and does not call Claude yet", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
     const fetchImpl = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ sessionId: "sess-1", status: "running", result: researchResult({ status: "running", findings: [] }) }),
+      json: async () => ({ sessionId: "sess-1", status: "running", result: researchResult({ status: "running", round: 0, findings: [] }) }),
     });
     const complete = vi.fn();
     const result = await runChatTurn({
@@ -103,6 +107,7 @@ describe("runChatTurn", () => {
       maxRounds: 5,
       negation: false,
     });
+    expect(timeout).toHaveBeenCalledWith(START_KERNEL_BUDGET_MS);
     expect(complete).not.toHaveBeenCalled();
     expect(result).toMatchObject({ status: "researching", researchSessionId: "sess-1" });
   });
@@ -198,6 +203,55 @@ describe("runChatTurn", () => {
     if (result.status !== "done") return;
     expect(result.archiveFailed).toBeFalsy();
     expect(result.research?.findings[0]?.pageId).toBe("page_attr");
+  });
+
+  it("starts a Worker write after the archive pull and does not call Claude on Netlify", async () => {
+    const complete = vi.fn();
+    const write = {
+      start: vi.fn(async () => ({ writeSessionId: "w-1", status: "writing" as const })),
+      poll: vi.fn(),
+    };
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "scoping",
+      messages: [{ role: "user", content: "self determination theory" }],
+      archivePull: async () =>
+        researchResult({
+          findings: Array.from({ length: 3 }, (_, index) => ({ ...finding, pageId: `p${index + 1}` })),
+        }),
+      write,
+      complete,
+    });
+    expect(complete).not.toHaveBeenCalled();
+    expect(write.start).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ status: "writing", writeSessionId: "w-1" });
+  });
+
+  it("polls a Worker write until the reply is ready", async () => {
+    const complete = vi.fn();
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "scoping",
+      messages: [{ role: "user", content: "self determination theory" }],
+      writeSessionId: "w-1",
+      write: {
+        start: async () => ({ writeSessionId: "w-1", status: "writing" }),
+        poll: async () => ({
+          writeSessionId: "w-1",
+          status: "done",
+          reply: "Three clusters from the stack.",
+          research: researchResult({ findings: [finding, { ...finding, pageId: "p2" }, { ...finding, pageId: "p3" }] }),
+        }),
+      },
+      complete,
+    });
+    expect(complete).not.toHaveBeenCalled();
+    expect(result.status).toBe("done");
+    if (result.status !== "done") return;
+    expect(result.reply).toContain("Three clusters");
+    expect(result.research?.findings).toHaveLength(3);
   });
 
   it("does not invent a web search when Search outside is clicked", async () => {

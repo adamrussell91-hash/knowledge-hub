@@ -110,19 +110,21 @@ export type ChatRequest = {
   noteContext?: { pageId: string; title: string };
   searchOutside?: boolean;
   researchSessionId?: string;
+  writeSessionId?: string;
   compose?: boolean;
   priorResearch?: ResearchResult;
   archiveFailed?: boolean;
 };
 
 type ChatResponse = {
-  status: "done" | "researching" | "compose" | "external-unavailable";
+  status: "done" | "researching" | "writing" | "compose" | "external-unavailable";
   reply?: string;
   research?: ResearchResult;
   archiveFailed?: boolean;
   coverage?: { distinctSources: number; gapCount: number; thin: boolean };
   canSearchOutside?: boolean;
   researchSessionId?: string;
+  writeSessionId?: string;
   reason?: string;
 };
 
@@ -140,6 +142,52 @@ async function postChat(input: ChatRequest) {
   });
 }
 
+export class ChatWriteDroppedError extends Error {
+  readonly research?: ResearchResult;
+  constructor(research?: ResearchResult) {
+    super("The archive came back. The written reply dropped — send the same question again.");
+    this.name = "ChatWriteDroppedError";
+    this.research = research;
+  }
+}
+
+function isDroppedRequest(error: unknown) {
+  if (error instanceof TypeError) return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /load failed|failed to fetch|networkerror|chat turn failed|the internet connection appears to be offline/i.test(message);
+}
+
+function timeoutError() {
+  return new Error("Chat timed out. Send the same message again.");
+}
+
+async function writeFromResearch(
+  input: ChatRequest,
+  research: ResearchResult | undefined,
+  archiveFailed: boolean | undefined,
+  onPhase?: (phase: ChatPhase) => void,
+) {
+  onPhase?.({ status: "compose", research, archiveFailed });
+  onPhase?.({ status: "writing", research, archiveFailed });
+  const body: ChatRequest = {
+    ...input,
+    compose: true,
+    priorResearch: research,
+    archiveFailed,
+  };
+  try {
+    return await postChat(body);
+  } catch (error) {
+    if (!isDroppedRequest(error)) throw error;
+    try {
+      return await postChat(body);
+    } catch (retryError) {
+      if (isDroppedRequest(retryError)) throw new ChatWriteDroppedError(research);
+      throw retryError;
+    }
+  }
+}
+
 export async function runChat(input: ChatRequest, onPhase?: (phase: ChatPhase) => void) {
   if (USE_LOCAL_DATA) {
     throw new Error("Chat needs the live API (npx netlify dev).");
@@ -147,24 +195,20 @@ export async function runChat(input: ChatRequest, onPhase?: (phase: ChatPhase) =
   try {
     onPhase?.({ status: "searching" });
     const result = await postChat(input);
-    if (result.status === "compose") {
-      onPhase?.({ status: "compose", research: result.research, archiveFailed: result.archiveFailed });
+    if (result.status === "writing") {
       onPhase?.({ status: "writing", research: result.research, archiveFailed: result.archiveFailed });
-      return postChat({
-        ...input,
-        compose: true,
-        priorResearch: result.research,
-        archiveFailed: result.archiveFailed,
-      });
+      return result;
+    }
+    if (result.status === "compose") {
+      return writeFromResearch(input, result.research, result.archiveFailed, onPhase);
     }
     if (result.status === "researching") {
       onPhase?.({ status: "researching", research: result.research });
     }
     return result;
   } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error("Chat timed out. Send the same message again.");
-    }
+    if (error instanceof ChatWriteDroppedError) throw error;
+    if (isDroppedRequest(error)) throw timeoutError();
     throw error;
   }
 }
