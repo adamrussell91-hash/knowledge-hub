@@ -169,6 +169,37 @@ async function main(args = process.argv.slice(2)) {
     for (const page of changed) {
       await writeFile(path.join(pageDir, `${page.id}.json`), JSON.stringify(page, null, 2) + "\n");
     }
+    const manifestIds = new Set(manifest.flatMap(entry => [entry.id, ...(entry.path ? [entry.path] : [])]));
+    const notebookPages = projected.filter(page => page.origins?.some(origin => origin.kind === "notebook"));
+    const notebookHits = notebookPages.filter(page => manifestKeys(page).some(key => manifestIds.has(key)));
+    console.log(
+      JSON.stringify(
+        {
+          manifestCount: manifest.length,
+          manifestKeys: manifest[0] ? Object.keys(manifest[0]) : [],
+          sampleManifest: manifest.slice(0, 3).map(entry => ({
+            id: entry.id,
+            path: entry.path,
+            originKinds: entry.origins?.map(origin => origin.kind) ?? [],
+          })),
+          samplePages: projected.slice(0, 3).map((page, index) => ({
+            fileId: fileIds[index],
+            id: page.id,
+            source: page.source_notion_id,
+            originKinds: page.origins?.map(origin => origin.kind) ?? [],
+            keys: manifestKeys(page, fileIds[index]),
+          })),
+          notebookPages: notebookPages.length,
+          notebookHits: notebookHits.length,
+          notebookMiss: notebookPages
+            .filter(page => !manifestKeys(page).some(key => manifestIds.has(key)))
+            .slice(0, 3)
+            .map(page => ({ id: page.id, source: page.source_notion_id, keys: manifestKeys(page) })),
+        },
+        null,
+        2,
+      ),
+    );
     const nextManifest = syncManifestOrigins(manifest, projected, fileIds);
     listWith = originKindCounts(nextManifest);
     await writeFile(manifestPath, `${JSON.stringify(nextManifest)}\n`);
