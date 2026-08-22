@@ -1,47 +1,32 @@
-# Hub marks — locked
+# Hub marks — favicon only
 
-Every hub uses **one** instrument from `icons/`. Wave arcs, cardinal gaps, High Sea core. No colour outside the closed palette. Do not redraw a logo.
+The blue/orange tiles in `icons/` are the **browser-tab favicon**. They are not page chrome.
 
-Read this before adding a favicon, a sign-in mark, or a header glyph.
-
-## Files
-
-| Hub | Tile (website) | Glyph (dark / transparent) |
-|-----|----------------|----------------------------|
-| Life | `icons/life-hub.svg` | `icons/life-hub-glyph.svg` |
-| Knowledge | `icons/knowledge.svg` | `icons/knowledge-glyph.svg` |
-| Teaching | `icons/teaching.svg` | `icons/teaching-glyph.svg` |
-| Tasks | `icons/tasks.svg` | `icons/tasks-glyph.svg` |
-| Careers | `icons/careers.svg` | `icons/careers-glyph.svg` |
-| Central Control | `icons/central-control.svg` | `icons/central-control-glyph.svg` |
-
-**Tile** = Depth→Marine rounded square + mark. This **is** the website icon.
-
-**Glyph** = the same mark without the square (for a dark field). Do not put it on the rail wordmark.
+Do **not** render `.hub-mark`, `.sign-in__mark`, or any other copy of that tile on the sign-in card, page header, rail, or canvas. Agents kept putting it in the wrong place. It is gone.
 
 ## Where it goes
 
-| Place | File | Markup | Size |
-|-------|------|--------|------|
-| Browser tab / home screen | Tile | `<link rel="icon" href="…/icons/<hub>.svg" type="image/svg+xml">` | browser |
-| Sign-in card | Tile | `<img class="sign-in__mark" src="…/icons/<hub>.svg" alt="" width="56" height="56">` | `3.5rem` |
-| Signed-in canvas, **top-right** | Tile | `<img class="hub-mark" …>` last child of `.page-header__actions` (after `.hub-utilities`) | `2rem` |
+| Place | Markup |
+|-------|--------|
+| Browser tab / home screen | `<link rel="icon" href="…/icons/<hub>.svg" type="image/svg+xml">` |
+| Signed-in canvas | **Nowhere.** Title is text. Refresh / sign out stay `.hub-icon-btn`. |
+| Sign-in card | **Nowhere.** Haze + brand + title + field. |
+| Left rail | **Nowhere.** Brand is text. Destination icons (Dashboard, Classes, …) stay. |
 
-`alt=""` — the brand text / page title already names the hub.
+## Files (favicon)
 
-## Sign-in
+| Hub | Tile |
+|-----|------|
+| Life | `icons/life-hub.svg` |
+| Knowledge | `icons/knowledge.svg` |
+| Teaching | `icons/teaching.svg` |
+| Tasks | `icons/tasks.svg` |
 
-Mark + brand eyebrow + title `Sign in` + passphrase + submit. Enter on the field must submit (form `submit`, not a click-only button).
-
-**No supporting line.** No purpose copy, privacy notes, taglines, or “private dashboard” sentences on the gate. That writing does not belong there.
-
-## Not on the rail
-
-The left rail brand stays a text `<a class="hub-rail__brand">` to home. The hub tile/glyph is **not** a rail logo. See `RAIL.md`.
+Glyphs (`*-glyph.svg`) are unused now. Do not put them on the rail wordmark.
 
 ## Do not
 
+- Add `<img class="hub-mark">` or `<img class="sign-in__mark">`
+- Wrap the `h1` in `.page-header__title-row` just to park a tile
 - Invent a seventh mark or recolour arcs
-- Use the glyph as the favicon or login mark on the light wash
-- Place the tile on the rail
-- Add descriptive copy under the login mark
+- Put the tile next to the title, after utilities, on the rail, or on the gate

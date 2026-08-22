@@ -198,7 +198,7 @@ function pageHeader(eyebrow: string, title: string, actionsInner = "") {
   const utilities = hubUtilitiesHtml();
   const actions =
     actionsInner || utilities
-      ? `<div class="page-header__actions">${actionsInner}${utilities}<img class="hub-mark" src="icons/knowledge.svg" alt="" width="32" height="32"></div>`
+      ? `<div class="page-header__actions">${actionsInner}${utilities}</div>`
       : "";
   return `<header class="topbar page-header">
       <div class="page-header__copy">
@@ -796,8 +796,8 @@ function renderPage(page: Page) {
     ${pageHeader(
       topics[0] ? escapeHtml(topics[0]) : "Note",
       escapeHtml(page.title),
-      `<button class="reader__back" data-back type="button">← Archive</button>
-        <button class="btn" data-edit type="button">Edit</button>
+      `<button class="btn btn--ghost reader__back" data-back type="button">← Archive</button>
+        <button class="btn btn--ghost" data-edit type="button">Edit</button>
         <button class="btn btn--ghost reader__tidy" data-tidy type="button" ${tidyBusy ? "disabled" : ""}>${tidyBusy ? "Cleaning up…" : "Clean up"}</button>
         <button class="btn btn--ghost" data-open-chat type="button">Chat</button>`,
     )}
@@ -877,7 +877,7 @@ function renderCompose(state: ComposeState) {
       ${pageHeader(
         composeLabel,
         composeLabel,
-        `<button class="reader__back" data-compose-cancel type="button">← Cancel</button>`,
+        `<button class="btn btn--ghost reader__back" data-compose-cancel type="button">← Cancel</button>`,
       )}
       ${USE_LOCAL_DATA ? `<p class="local-banner">Saving and capture need the live API (npx netlify dev).</p>` : ""}
       <div class="compose__field">
