@@ -139,6 +139,18 @@
   min-width: 0;
 }
 
+.page-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.page-header__title-row .hub-mark {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+}
+
 .page-header__actions {
   flex-shrink: 0;
 }
@@ -572,64 +584,6 @@
   gap: var(--space-5);
   grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
   align-items: start;
-}
-
-.chat__picker-label,
-.chat__dials-toggle {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.chat__dials-toggle,
-.chat__text-btn {
-  border: 0;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  font: inherit;
-  color: var(--wave);
-  text-align: left;
-}
-
-.chat .graph-modes {
-  margin-bottom: var(--space-2);
-}
-
-.chat__dials {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.chat__dials select {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-  font: inherit;
-  background: rgba(255, 255, 255, 0.8);
-  color: var(--ink);
-}
-
-.chat__ticker {
-  display: grid;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.chat__ticker li {
-  margin: 0;
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.chat__ticker li:last-child {
-  color: var(--ink);
-  font-weight: var(--weight-semibold);
 }
 
 .coach__form {
