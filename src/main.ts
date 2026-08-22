@@ -49,6 +49,7 @@ import { mountForceGraph } from "./archive/forceGraph";
 import { buildShowAllGraph } from "./archive/showAllGraph";
 import { buildSolarModel, type SolarModel } from "./archive/solarModel";
 import { UNIVERSE_BUILD, mountSolarView, resolveSearchHits } from "./archive/solarView";
+import { bindUniverseKey, universeKeyHtml } from "./archive/universeKey";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
 import { enterChatRail, leaveChatRail, renderChatRail } from "./chat/rail";
@@ -92,6 +93,7 @@ let graphTeardown: (() => void) | null = null;
 let graphMode: GraphMode = "constellation";
 let graphSearch = "";
 let orbitSpeed = 0.5;
+let universeKeyOpen = false;
 let solarModelCache: { source: PageManifestEntry[]; model: SolarModel } | null = null;
 
 function getSolarModel() {
@@ -578,6 +580,7 @@ function renderGraph() {
         <p class="graph-toolbar__meta">${meta}${searchHint}</p>
       </div>
       <div class="graph-stage"></div>
+      ${graphMode === "universe" ? universeKeyHtml(universeKeyOpen) : ""}
     </div>
   `);
 
@@ -603,6 +606,11 @@ function renderGraph() {
   };
 
   const stage = app.querySelector<HTMLElement>(".graph-stage")!;
+  if (graphMode === "universe") {
+    bindUniverseKey(app, open => {
+      universeKeyOpen = open;
+    });
+  }
   const preview = mountGraphPreview(stage, { onOpen: pageId => void openPage(pageId) });
   const onNoteSelect = (note: { pageId: string; title: string; excerpt: string } | null) => {
     if (!note) {
