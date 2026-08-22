@@ -49,7 +49,9 @@ describe("auth cookie scope", () => {
       headers: { "content-type": "application/x-www-form-urlencoded" },
     } as never, {} as never);
     expect(result.statusCode).toBe(303);
-    expect(result.headers?.Location).toBe("https://knowledge-hub.adam-russell.com/?signin=invalid");
+    expect(result.headers?.Location).toBe(
+      "/login.html?signin=invalid&return_to=https%3A%2F%2Fknowledge-hub.adam-russell.com%2F",
+    );
     expect(result.headers?.["Set-Cookie"]).toBeUndefined();
   });
 

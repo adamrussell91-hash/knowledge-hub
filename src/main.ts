@@ -16,7 +16,7 @@ import {
   uploadSignedFile,
 } from "./api/client";
 import { API_BASE } from "./api/config";
-import { loginFormAction, takeSignInQuery } from "./api/loginGate";
+import { loginPageUrl, takeSignInQuery } from "./api/loginGate";
 import { isPageHash, pageHashForId, pageIdFromHash } from "./routing/pageHash";
 import { runCapture } from "./api/captureClient";
 import {
@@ -983,12 +983,16 @@ function bindSignInEnter(form: HTMLFormElement) {
 }
 
 function renderLogin(message?: string) {
-  const action = loginFormAction(API_BASE, USE_LOCAL_DATA);
-  const returnTo = action
-    ? `<input type="hidden" name="return_to" value="${escapeHtml(location.href)}" />`
-    : "";
+  const remoteGate = loginPageUrl(API_BASE, USE_LOCAL_DATA);
+  if (remoteGate) {
+    const next = new URL(remoteGate);
+    next.searchParams.set("return_to", location.href);
+    if (message === "Invalid passphrase") next.searchParams.set("signin", "invalid");
+    location.replace(next.href);
+    return;
+  }
   app.innerHTML = `<div class="sign-in">
-    <form class="sign-in__card" method="post" action="${escapeHtml(action ?? "#")}" novalidate>
+    <form class="sign-in__card" method="post" action="#" novalidate>
       <div class="sign-in__haze" aria-hidden="true">
         <span class="sign-in__haze-mist"></span>
         <span class="sign-in__bubble"></span>
@@ -1009,7 +1013,6 @@ function renderLogin(message?: string) {
         <label class="sign-in__label" for="sign-in-passphrase">Passphrase</label>
         <input class="sign-in__input" id="sign-in-passphrase" name="passphrase" type="password" required autocomplete="current-password" enterkeyhint="go" />
       </div>
-      ${returnTo}
       <p class="sign-in__error" role="alert" hidden></p>
       <button class="btn btn--primary sign-in__submit" type="submit">Sign in</button>
     </form>
@@ -1018,43 +1021,18 @@ function renderLogin(message?: string) {
   const form = app.querySelector<HTMLFormElement>("form.sign-in__card")!;
   bindSignInEnter(form);
   form.addEventListener("submit", async event => {
-    const passphrase = form.querySelector<HTMLInputElement>("#sign-in-passphrase")!.value;
-    // iOS password fill often leaves input.value empty; let the browser POST the real field.
-    if (action && !passphrase) return;
     event.preventDefault();
     showSignInError();
-    const button = form.querySelector<HTMLButtonElement>(".sign-in__submit");
-    const restore = () => {
-      if (!button) return;
-      button.disabled = false;
-      button.textContent = "Sign in";
-    };
-    if (button) {
-      button.disabled = true;
-      button.textContent = "Signing in…";
-    }
+    const passphrase = form.querySelector<HTMLInputElement>("#sign-in-passphrase")!.value;
     try {
       const ok = await login(passphrase);
       if (!ok) {
         showSignInError("Invalid passphrase");
-        restore();
-        return;
-      }
-      try {
-        await listPages();
-      } catch {
-        if (action) {
-          form.submit();
-          return;
-        }
-        showSignInError("Unable to sign in. Please try again.");
-        restore();
         return;
       }
       await boot({ failedLoginMessage: "Unable to sign in. Please try again." });
     } catch {
       showSignInError("Unable to sign in. Please try again.");
-      restore();
     }
   });
 }

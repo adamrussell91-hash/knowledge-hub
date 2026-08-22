@@ -5,6 +5,7 @@ import {
   parseLoginBody,
   readBody,
   safeReturnTo,
+  loginPageFailurePath,
   sessionCookie,
   withSignInQuery,
 } from "./authLogin";
@@ -56,7 +57,10 @@ describe("sign-in redirects", () => {
   it("sets the shared parent-domain session cookie", () => {
     expect(sessionCookie("token")).toContain("kh_session=token");
     expect(sessionCookie("token")).toContain("Domain=.adam-russell.com");
-    expect(sessionCookie("token")).toContain("SameSite=None");
+    expect(sessionCookie("token")).toContain("SameSite=Lax");
+    expect(loginPageFailurePath("https://knowledge-hub.adam-russell.com/")).toBe(
+      "/login.html?signin=invalid&return_to=https%3A%2F%2Fknowledge-hub.adam-russell.com%2F",
+    );
   });
 
   it("decodes a Netlify base64 body", () => {
