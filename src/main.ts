@@ -15,8 +15,7 @@ import {
   tidyPage,
   uploadSignedFile,
 } from "./api/client";
-import { API_BASE } from "./api/config";
-import { loginPageUrl, takeSignInQuery } from "./api/loginGate";
+import { takeSignInQuery } from "./api/loginGate";
 import { isPageHash, pageHashForId, pageIdFromHash } from "./routing/pageHash";
 import { runCapture } from "./api/captureClient";
 import {
@@ -983,14 +982,6 @@ function bindSignInEnter(form: HTMLFormElement) {
 }
 
 function renderLogin(message?: string) {
-  const remoteGate = loginPageUrl(API_BASE, USE_LOCAL_DATA);
-  if (remoteGate) {
-    const next = new URL(remoteGate);
-    next.searchParams.set("return_to", location.href);
-    if (message === "Invalid passphrase") next.searchParams.set("signin", "invalid");
-    location.replace(next.href);
-    return;
-  }
   app.innerHTML = `<div class="sign-in">
     <form class="sign-in__card" method="post" action="#" novalidate>
       <div class="sign-in__haze" aria-hidden="true">
@@ -1019,13 +1010,15 @@ function renderLogin(message?: string) {
   </div>`;
   showSignInError(message);
   const form = app.querySelector<HTMLFormElement>("form.sign-in__card")!;
+  const input = form.querySelector<HTMLInputElement>("#sign-in-passphrase");
   bindSignInEnter(form);
   form.addEventListener("submit", async event => {
     event.preventDefault();
     showSignInError();
-    const passphrase = form.querySelector<HTMLInputElement>("#sign-in-passphrase")!.value;
+    const button = form.querySelector<HTMLButtonElement>(".sign-in__submit");
+    if (button) button.disabled = true;
     try {
-      const ok = await login(passphrase);
+      const ok = await login(input?.value ?? "");
       if (!ok) {
         showSignInError("Invalid passphrase");
         return;
@@ -1033,8 +1026,12 @@ function renderLogin(message?: string) {
       await boot({ failedLoginMessage: "Unable to sign in. Please try again." });
     } catch {
       showSignInError("Unable to sign in. Please try again.");
+    } finally {
+      if (button) button.disabled = false;
+      input?.focus();
     }
   });
+  input?.focus();
 }
 
 async function boot(options?: { failedLoginMessage?: string }) {
