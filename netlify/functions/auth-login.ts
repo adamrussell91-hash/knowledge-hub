@@ -4,11 +4,11 @@ import {
   DEFAULT_HUB,
   cleanReturnTo,
   headerValue,
+  loginPageFailurePath,
   parseLoginBody,
   readBody,
   safeReturnTo,
   sessionCookie,
-  withSignInQuery,
 } from "./_lib/authLogin";
 import { cors, preflight } from "./_lib/cors";
 import { signSession } from "./_lib/session";
@@ -30,7 +30,7 @@ export const handler: Handler = async event => {
     if (redirectTo) {
       return {
         statusCode: 303,
-        headers: { ...cors(event.headers.origin), Location: withSignInQuery(redirectTo, "invalid") },
+        headers: { ...cors(event.headers.origin), Location: loginPageFailurePath(redirectTo) },
         body: "",
       };
     }

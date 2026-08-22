@@ -123,3 +123,13 @@
   from = "/api/quiz"
   to = "/.netlify/functions/quiz-get"
   status = 200
+
+[[redirects]]
+  from = "/login"
+  to = "/login.html"
+  status = 200
+
+[[headers]]
+  for = "/login.html"
+  [headers.values]
+    Cache-Control = "no-store"

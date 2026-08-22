@@ -3,6 +3,11 @@ export function loginFormAction(apiBase: string, useLocalData: boolean): string 
   return `${apiBase.replace(/\/$/, "")}/auth-login`;
 }
 
+export function loginPageUrl(apiBase: string, useLocalData: boolean): string | null {
+  if (useLocalData || !/^https?:\/\//.test(apiBase)) return null;
+  return `${new URL(apiBase).origin}/login.html`;
+}
+
 export function signInErrorMessage(code: string | null): string | null {
   if (code === "invalid") return "Invalid passphrase";
   if (code === "error") return "Unable to sign in. Please try again.";

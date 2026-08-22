@@ -3,7 +3,12 @@ import { KNOWN_ORIGINS } from "./cors";
 export const DEFAULT_HUB = "https://knowledge-hub.adam-russell.com/";
 
 export const SESSION_COOKIE =
-  "Domain=.adam-russell.com; HttpOnly; Secure; SameSite=None; Path=/";
+  "Domain=.adam-russell.com; HttpOnly; Secure; SameSite=Lax; Path=/";
+
+export function loginPageFailurePath(returnTo: string): string {
+  const params = new URLSearchParams({ signin: "invalid", return_to: returnTo });
+  return `/login.html?${params}`;
+}
 
 export function sessionCookie(token: string): string {
   return `kh_session=${token}; ${SESSION_COOKIE}; Max-Age=2592000`;
