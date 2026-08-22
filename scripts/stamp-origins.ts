@@ -56,31 +56,57 @@ export function originKindCounts(pages: { origins?: Page["origins"] }[]) {
   return counts;
 }
 
-export function manifestKeys(page: Page) {
-  const keys = [page.id];
-  if (page.source_notion_id) keys.push(page.source_notion_id);
-  const hex = extractNotionHex(page.id) ?? extractNotionHex(page.source_notion_id);
-  if (hex) keys.push(hex, `page_notion_${hex}`);
-  return [...new Set(keys)];
+export function notionIdKeys(value?: string) {
+  const keys = new Set<string>();
+  if (!value) return [];
+  keys.add(value);
+  const hex = extractNotionHex(value);
+  if (hex) {
+    keys.add(hex);
+    keys.add(`page_notion_${hex}`);
+    keys.add(`${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`);
+  }
+  return [...keys];
 }
 
+export function manifestKeys(page: Page, fileId?: string) {
+  return [
+    ...new Set([
+      ...notionIdKeys(page.id),
+      ...notionIdKeys(page.source_notion_id),
+      ...notionIdKeys(page.source_notion_url),
+      ...(fileId ? notionIdKeys(fileId) : []),
+    ]),
+  ];
+}
+
+type ManifestRow = PageManifestEntry & { path?: string };
+
 /** Copy origins from page files onto every matching list row, even when the page itself did not change. */
-export function syncManifestOrigins(manifest: PageManifestEntry[], pages: Page[]): PageManifestEntry[] {
-  const byId = new Map(manifest.map(entry => [entry.id, { ...entry }]));
-  for (const page of pages) {
-    for (const key of manifestKeys(page)) {
-      const current = byId.get(key);
-      if (!current) continue;
-      const next: PageManifestEntry = {
-        ...current,
-        ...(page.origins?.length ? { origins: page.origins } : {}),
-        ...(page.source_notion_id ? { source_notion_id: page.source_notion_id } : {}),
-      };
-      if (!page.origins?.length) delete next.origins;
-      byId.set(key, next);
-    }
-  }
-  return [...byId.values()];
+export function syncManifestOrigins(
+  manifest: ManifestRow[],
+  pages: Page[],
+  fileIds: string[] = [],
+): PageManifestEntry[] {
+  const pagesByKey = new Map<string, Page>();
+  pages.forEach((page, index) => {
+    for (const key of manifestKeys(page, fileIds[index])) pagesByKey.set(key, page);
+  });
+  return manifest.map(entry => {
+    const pathId = entry.path?.replace(/^.*\//, "").replace(/\.json$/i, "");
+    const page =
+      pagesByKey.get(entry.id) ??
+      (pathId ? pagesByKey.get(pathId) : undefined) ??
+      notionIdKeys(entry.id)
+        .map(key => pagesByKey.get(key))
+        .find(Boolean);
+    if (!page) return { ...entry };
+    return {
+      ...entry,
+      ...(page.origins?.length ? { origins: page.origins } : {}),
+      ...(page.source_notion_id ? { source_notion_id: page.source_notion_id } : {}),
+    };
+  });
 }
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
@@ -121,9 +147,11 @@ async function main(args = process.argv.slice(2)) {
     : (await readdir(pageDir)).filter(file => file.endsWith(".json")).map(file => file.replace(/\.json$/, ""));
   const limited = parsed.count ? ids.slice(0, parsed.count) : ids;
   const pages: Page[] = [];
+  const fileIds: string[] = [];
   for (const id of limited) {
     try {
       pages.push(PageSchema.parse(JSON.parse(await readFile(path.join(pageDir, `${id}.json`), "utf8"))));
+      fileIds.push(id);
     } catch {
       console.error(`skip invalid page ${id}`);
     }
@@ -141,7 +169,7 @@ async function main(args = process.argv.slice(2)) {
     for (const page of changed) {
       await writeFile(path.join(pageDir, `${page.id}.json`), JSON.stringify(page, null, 2) + "\n");
     }
-    const nextManifest = syncManifestOrigins(manifest, projected);
+    const nextManifest = syncManifestOrigins(manifest, projected, fileIds);
     listWith = originKindCounts(nextManifest);
     await writeFile(manifestPath, `${JSON.stringify(nextManifest)}\n`);
   }

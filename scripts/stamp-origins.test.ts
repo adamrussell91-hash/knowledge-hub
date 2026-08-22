@@ -102,6 +102,27 @@ describe("stamp origins", () => {
     ).toEqual([{ kind: "notebook", label: "Boy's Education" }]);
   });
 
+  it("matches a list row whose id is a dashed Notion UUID", () => {
+    const ready = page({
+      id: "page_notion_00c518fb7b884781a60f702ec3185eb3",
+      origins: [{ kind: "notebook", label: "Boy's Education" }],
+    });
+    expect(
+      syncManifestOrigins(
+        [
+          {
+            id: "00c518fb-7b88-4781-a60f-702ec3185eb3",
+            title: ready.title,
+            area: ready.area,
+            tags: ready.tags,
+            excerpt: "Lecture.",
+          },
+        ],
+        [ready],
+      )[0]?.origins,
+    ).toEqual([{ kind: "notebook", label: "Boy's Education" }]);
+  });
+
   it("leaves a page unchanged when origins are already complete", () => {
     expect(
       applyStampedOrigins(
