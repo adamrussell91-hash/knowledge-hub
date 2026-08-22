@@ -50,9 +50,19 @@ function selectPages(pages: Page[], state: TidyState, count: number, random: () 
 }
 
 function upsertManifestEntry(manifest: PageManifestEntry[], page: Page): PageManifestEntry[] {
-  const entry: PageManifestEntry = { id: page.id, title: page.title, area: page.area, tags: page.tags, excerpt: excerptFromTidyBody(page.body), created_at: page.created_at };
+  const entry: PageManifestEntry = {
+    id: page.id,
+    title: page.title,
+    area: page.area,
+    tags: page.tags,
+    excerpt: excerptFromTidyBody(page.body),
+    created_at: page.created_at,
+    ...(page.origins?.length ? { origins: page.origins } : {}),
+  };
   const existing = manifest.findIndex(item => item.id === page.id);
-  return existing < 0 ? [...manifest, entry] : manifest.map((item, index) => index === existing ? { ...item, title: entry.title, tags: entry.tags, excerpt: entry.excerpt } : item);
+  return existing < 0
+    ? [...manifest, entry]
+    : manifest.map((item, index) => (index === existing ? { ...item, title: entry.title, tags: entry.tags, excerpt: entry.excerpt, origins: entry.origins } : item));
 }
 
 export async function runTidy(io: TidyIO) {

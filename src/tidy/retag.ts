@@ -72,9 +72,19 @@ export function buildRetagPrompt(input: { title: string; excerpt: string; tags: 
 
 function upsertManifestTags(manifest: PageManifestEntry[], page: Page): PageManifestEntry[] {
   const excerpt = excerptFromTidyBody(page.body);
-  const entry: PageManifestEntry = { id: page.id, title: page.title, area: page.area, tags: page.tags, excerpt, created_at: page.created_at };
+  const entry: PageManifestEntry = {
+    id: page.id,
+    title: page.title,
+    area: page.area,
+    tags: page.tags,
+    excerpt,
+    created_at: page.created_at,
+    ...(page.origins?.length ? { origins: page.origins } : {}),
+  };
   const existing = manifest.findIndex(item => item.id === page.id);
-  return existing < 0 ? [...manifest, entry] : manifest.map((item, index) => (index === existing ? { ...item, tags: entry.tags } : item));
+  return existing < 0
+    ? [...manifest, entry]
+    : manifest.map((item, index) => (index === existing ? { ...item, tags: entry.tags, origins: entry.origins ?? item.origins } : item));
 }
 
 async function proposeWithRetry(io: RetagIO, input: { title: string; excerpt: string; tags: string[] }) {

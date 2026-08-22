@@ -18,13 +18,24 @@ async function putManifest(page: Page, fns: ContentFns) {
   await fns.putContent("manifest.json", JSON.stringify(merged), current?.sha, `Upsert ${page.id}`);
 }
 
+function previousPage(text: string | undefined): Page | null {
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as Page;
+  } catch {
+    return null;
+  }
+}
+
 export async function savePageRecord(page: Page, fns: ContentFns): Promise<Page> {
   const path = `pages/${page.id}.json`;
   const existing = await fns.getContent(path);
+  const previous = previousPage(existing?.text);
   const stored: Page = {
     ...page,
-    created_at: existing ? (JSON.parse(existing.text) as Page).created_at : page.created_at,
+    created_at: previous?.created_at ?? page.created_at,
     updated_at: new Date().toISOString(),
+    ...(page.origins === undefined && previous?.origins?.length ? { origins: previous.origins } : {}),
   };
   await fns.putContent(path, JSON.stringify(stored), existing?.sha, `Save ${page.id}`);
   try {

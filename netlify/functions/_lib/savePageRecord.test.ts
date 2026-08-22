@@ -37,6 +37,19 @@ describe("savePageRecord", () => {
     expect(manifest[0]?.origins).toEqual([{ kind: "unit", label: "EDST5805" }]);
   });
 
+  it("keeps origins already on GitHub when the client omits them", async () => {
+    const existing = { ...page, origins: [{ kind: "degree" as const, label: "MEd" }, { kind: "unit" as const, label: "EDST5805" }] };
+    const { origins: _omit, ...withoutOrigins } = page;
+    const getContent = vi
+      .fn()
+      .mockResolvedValueOnce({ sha: "page1", text: JSON.stringify(existing) })
+      .mockResolvedValueOnce({ sha: "man1", text: "[]" });
+    const putContent = vi.fn().mockResolvedValue(undefined);
+    await savePageRecord(withoutOrigins as Page, { getContent, putContent });
+    const written = JSON.parse(putContent.mock.calls[0]?.[1] as string) as Page;
+    expect(written.origins).toEqual(existing.origins);
+  });
+
   it("retries the manifest once on 409 then succeeds", async () => {
     const getContent = vi
       .fn()
