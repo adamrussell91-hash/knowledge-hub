@@ -27,6 +27,7 @@ export function researchManifestFromPages(pages: Page[]) {
     tags: page.tags,
     excerpt: page.body.replace(/^#.*$/gm, "").replace(/\s+/g, " ").trim().slice(0, 157),
     path: `pages/${page.id}.json`,
+    ...(page.origins?.length ? { origins: page.origins } : {}),
   }));
 }
 

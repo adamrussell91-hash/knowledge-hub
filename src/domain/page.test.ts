@@ -28,6 +28,26 @@ describe("PageSchema", () => {
     expect(PageSchema.parse(validPage).connected).toEqual([]);
   });
 
+  it("keeps origin pills when present and allows old pages without them", () => {
+    expect(PageSchema.parse(validPage).origins).toBeUndefined();
+    expect(
+      PageSchema.parse({
+        ...validPage,
+        origins: [
+          { kind: "degree", label: "MEd" },
+          { kind: "unit", label: "EDST5805" },
+        ],
+      }).origins,
+    ).toEqual([
+      { kind: "degree", label: "MEd" },
+      { kind: "unit", label: "EDST5805" },
+    ]);
+  });
+
+  it("rejects an unknown origin kind", () => {
+    expect(() => PageSchema.parse({ ...validPage, origins: [{ kind: "lecture", label: "Week 1" }] })).toThrow();
+  });
+
   it("keeps provided connected page ids", () => {
     expect(PageSchema.parse({ ...validPage, connected: ["page_b"] }).connected).toEqual(["page_b"]);
   });

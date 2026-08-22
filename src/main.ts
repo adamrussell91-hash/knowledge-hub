@@ -1,6 +1,6 @@
 import "./tokens.css";
 import "./style.css";
-import type { Attachment, Page, PageManifestEntry } from "./domain/page";
+import type { Attachment, Origin, Page, PageManifestEntry } from "./domain/page";
 import { newHubPageId } from "./domain/page";
 import {
   USE_LOCAL_DATA,
@@ -40,6 +40,8 @@ import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
 import { enterChatRail, leaveChatRail, renderChatRail } from "./chat/rail";
 import { connectedLinksHtml } from "./wiki/connectedHtml";
+import { addOrigin, isOriginKind, pageOrigins, removeOrigin } from "./origin/normalize";
+import { originComposeFieldHtml, originPillsHtml, parseOriginRemoveValue } from "./origin/pills";
 import { applyTopicTags, normalizeTopicTags, toggleTopicTag } from "./tidy/applyTags";
 import { TOPIC_VOCABULARY } from "./tidy/vocabulary";
 
@@ -83,6 +85,7 @@ type ComposeState = {
   title: string;
   area: "notes" | "university";
   tags: string[];
+  origins: Origin[];
   body: string;
   existing: Attachment[];
   pending: File[];
@@ -101,6 +104,7 @@ function blankCompose(): ComposeState {
     title: "",
     area: "notes",
     tags: [],
+    origins: [],
     body: "",
     existing: [],
     pending: [],
@@ -117,6 +121,7 @@ function composeFromPage(page: Page): ComposeState {
     title: page.title,
     area: page.area,
     tags: [...page.tags],
+    origins: [...pageOrigins(page)],
     body: page.body,
     existing: [...page.attachments],
     pending: [],
@@ -582,6 +587,7 @@ function renderPage(page: Page) {
       </div>
       <p class="eyebrow">${topics[0] ? escapeHtml(topics[0]) : "Note"}</p>
       <h1 class="reader__title">${escapeHtml(page.title)}</h1>
+      ${originPillsHtml(pageOrigins(page))}
       <div class="reader__meta">${chips}</div>
       <div class="reader__body">${renderMarkdown(page.body)}</div>
       ${connectedLinksHtml(page, entries)}
@@ -675,6 +681,7 @@ function renderCompose(state: ComposeState) {
           }).join("")}
         </div>
       </div>
+      ${originComposeFieldHtml(state.origins)}
       <div class="compose__field compose__field--body">
         <label for="compose-body">Body (markdown)</label>
         <textarea id="compose-body">${escapeHtml(state.body)}</textarea>
@@ -761,6 +768,32 @@ function renderCompose(state: ComposeState) {
       render();
     };
   });
+  const addOriginFromFields = () => {
+    if (!compose) return;
+    syncFields();
+    const kind = app.querySelector<HTMLSelectElement>("#compose-origin-kind")?.value ?? "";
+    const label = app.querySelector<HTMLInputElement>("#compose-origin-label")?.value ?? "";
+    if (!isOriginKind(kind) || !label.trim()) return;
+    compose.origins = addOrigin(compose.origins, { kind, label });
+    render();
+  };
+  app.querySelector<HTMLButtonElement>("[data-origin-add]")?.addEventListener("click", addOriginFromFields);
+  app.querySelector<HTMLInputElement>("#compose-origin-label")?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addOriginFromFields();
+    }
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-origin-remove]").forEach(button => {
+    button.onclick = () => {
+      if (!compose) return;
+      syncFields();
+      const target = parseOriginRemoveValue(button.dataset.originRemove ?? "");
+      if (!target) return;
+      compose.origins = removeOrigin(compose.origins, target);
+      render();
+    };
+  });
   app.querySelector<HTMLButtonElement>("[data-compose-save]")!.onclick = () => void saveCompose();
   bindCaptureControls(app, {
     syncFields,
@@ -816,6 +849,7 @@ async function saveCompose() {
       title: snapshot.title.trim(),
       area: snapshot.area,
       tags: applyTopicTags(snapshot.tags, snapshot.tags),
+      origins: snapshot.origins,
       body: snapshot.body,
       connected: activePage?.connected ?? [],
       attachments: [...snapshot.existing, ...uploaded],

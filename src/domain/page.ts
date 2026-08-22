@@ -15,12 +15,23 @@ export type Attachment = z.infer<typeof AttachmentSchema>;
 export const PageAreaSchema = z.enum(["university", "notes"]);
 export type PageArea = z.infer<typeof PageAreaSchema>;
 
+export const ORIGIN_KINDS = ["degree", "unit", "notebook", "book", "pd"] as const;
+export const OriginKindSchema = z.enum(ORIGIN_KINDS);
+export type OriginKind = z.infer<typeof OriginKindSchema>;
+
+export const OriginSchema = z.object({
+  kind: OriginKindSchema,
+  label: z.string().min(1),
+});
+export type Origin = z.infer<typeof OriginSchema>;
+
 export const PageManifestEntrySchema = z.object({
   id: z.string(),
   title: z.string(),
   area: PageAreaSchema,
   tags: z.array(z.string()),
   excerpt: z.string(),
+  origins: z.array(OriginSchema).optional(),
   created_at: z.string().datetime().optional(),
 });
 export type PageManifestEntry = z.infer<typeof PageManifestEntrySchema>;
@@ -31,6 +42,7 @@ export const PageSchema = z
     title: z.string().min(1),
     area: PageAreaSchema,
     tags: z.array(z.string()),
+    origins: z.array(OriginSchema).optional(),
     body: z.string(),
     connected: z.array(z.string()).default([]),
     attachments: z.array(AttachmentSchema),

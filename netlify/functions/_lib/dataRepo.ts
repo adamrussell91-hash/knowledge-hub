@@ -11,6 +11,7 @@ export function toManifestEntry(page: Page): PageManifestEntry {
     tags: page.tags,
     excerpt: plain.slice(0, 157) + (plain.length > 157 ? "..." : ""),
     created_at: page.created_at,
+    ...(page.origins?.length ? { origins: page.origins } : {}),
   };
 }
 export function githubNetworkError(error: unknown) { const cause = error instanceof Error && "cause" in error ? String(error.cause) : String(error); return new Error(`GitHub network error: ${cause}`); }

@@ -8,6 +8,7 @@ const page: Page = {
   title: "New note",
   area: "notes",
   tags: [],
+  origins: [{ kind: "unit", label: "EDST5805" }],
   body: "Hello",
   connected: [],
   attachments: [],
@@ -28,8 +29,12 @@ describe("savePageRecord", () => {
     expect(saved.id).toBe(page.id);
     expect(putContent.mock.calls[0]?.[0]).toBe("pages/page_hub_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json");
     expect(putContent.mock.calls[1]?.[0]).toBe("manifest.json");
-    const manifest = JSON.parse(putContent.mock.calls[1]?.[1] as string) as { id: string }[];
+    const manifest = JSON.parse(putContent.mock.calls[1]?.[1] as string) as {
+      id: string;
+      origins?: { kind: string; label: string }[];
+    }[];
     expect(manifest[0]?.id).toBe(page.id);
+    expect(manifest[0]?.origins).toEqual([{ kind: "unit", label: "EDST5805" }]);
   });
 
   it("retries the manifest once on 409 then succeeds", async () => {

@@ -10,12 +10,14 @@ describe("normalizeManifestRow", () => {
         area: "notes",
         tags: ["psychology"],
         excerpt: "Summary",
+        origins: [{ kind: "unit", label: "EDST5805" }],
         path: "pages/p.json",
         created_at: "2024-06-01T00:00:00.000Z",
       }),
     ).toMatchObject({
       id: "p",
       created_at: "2024-06-01T00:00:00.000Z",
+      origins: [{ kind: "unit", label: "EDST5805" }],
     });
   });
 

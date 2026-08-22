@@ -20,6 +20,7 @@ export function normalizeManifestRow(entry: Record<string, unknown>) {
     area: entry.area,
     tags: entry.tags ?? [],
     excerpt: entry.excerpt ?? "",
+    ...(Array.isArray(entry.origins) ? { origins: entry.origins } : {}),
     ...(typeof entry.created_at === "string" ? { created_at: entry.created_at } : {}),
   };
 }
@@ -49,6 +50,15 @@ export async function localSearchPages(query: string): Promise<PageManifestEntry
   const entries = await localListPages();
   if (!needle) return entries;
   return entries.filter(entry =>
-    [entry.title, entry.excerpt, entry.area, ...entry.tags].join(" ").toLowerCase().includes(needle),
+    [
+      entry.title,
+      entry.excerpt,
+      entry.area,
+      ...entry.tags,
+      ...(entry.origins ?? []).flatMap(origin => [origin.kind, origin.label]),
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(needle),
   );
 }
