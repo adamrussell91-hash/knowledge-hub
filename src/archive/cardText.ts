@@ -1,3 +1,5 @@
+import { stripMarkdownForExcerpt } from "../lib/plainExcerpt";
+
 function fold(value: string) {
   return value
     .trim()
@@ -10,7 +12,7 @@ function fold(value: string) {
 /** Hide excerpts that are the title again, or just a longer/shorter cut of it. */
 export function cardSupportingText(title: string, excerpt: string) {
   const heading = title.trim();
-  const supporting = excerpt.trim();
+  const supporting = stripMarkdownForExcerpt(excerpt).slice(0, 300);
   if (!supporting) return "";
   const titleFold = fold(heading);
   const excerptFold = fold(supporting);

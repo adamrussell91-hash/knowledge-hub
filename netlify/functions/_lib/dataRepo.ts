@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PageManifestEntrySchema, type Page, type PageManifestEntry } from "../../../src/domain/page";
+import { stripMarkdownForExcerpt } from "../../../src/lib/plainExcerpt";
 import { resolvedOrigins } from "../../../src/origin/notesPlace";
 import { getContent } from "./githubWrite";
 export function toManifestEntry(page: Page): PageManifestEntry {
-  const plain = page.body.replace(/^#.*$/gm, "").replace(/\s+/g, " ").trim();
+  const plain = stripMarkdownForExcerpt(page.body);
   return {
     id: page.id,
     title: page.title,

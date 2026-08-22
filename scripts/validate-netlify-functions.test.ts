@@ -71,7 +71,7 @@ describe("Stamp origins workflow", () => {
     expect(workflow).toContain("scripts/stamp-origins.ts");
     expect(workflow).toContain("branches: [main]");
     expect(workflow).toContain("--execute");
-    expect(workflow).not.toContain("--from-notion");
+    expect(workflow).toContain("--from-notion");
     expect(workflow).toContain("Stamp notebook, book, and PD origin pills from Notion snapshot.");
   });
 });

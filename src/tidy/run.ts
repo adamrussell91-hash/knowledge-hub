@@ -1,4 +1,5 @@
 import type { Page, PageManifestEntry } from "../domain/page";
+import { plainExcerpt } from "../lib/plainExcerpt";
 import { topicTagsEqual } from "./applyTags";
 import { isMessy, shouldSkipTidy } from "./messy";
 import { applyTidyProposal, normalizeTidyBody } from "./propose";
@@ -36,8 +37,8 @@ export function normalizeTidyState(value: unknown): TidyState {
 }
 
 /** Worker-safe excerpt generation; tidy core deliberately has no script or Node imports. */
-export function excerptFromTidyBody(body: string) {
-  return body.replace(/^#.*$/gm, "").replace(/\s+/g, " ").trim().slice(0, 300);
+export function excerptFromTidyBody(body: string, maxLen = 300) {
+  return plainExcerpt(body, maxLen);
 }
 
 function selectPages(pages: Page[], state: TidyState, count: number, random: () => number) {
