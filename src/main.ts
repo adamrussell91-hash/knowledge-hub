@@ -15,6 +15,8 @@ import {
   tidyPage,
   uploadSignedFile,
 } from "./api/client";
+import { API_BASE } from "./api/config";
+import { loginFormAction, takeSignInQuery } from "./api/loginGate";
 import { isPageHash, pageHashForId, pageIdFromHash } from "./routing/pageHash";
 import { runCapture } from "./api/captureClient";
 import {
@@ -955,9 +957,38 @@ function render() {
   return renderList();
 }
 
-function renderLogin() {
+function showSignInError(message?: string) {
+  const error = app.querySelector<HTMLParagraphElement>(".sign-in__error");
+  if (!error) return;
+  if (!message) {
+    error.hidden = true;
+    error.textContent = "";
+    return;
+  }
+  error.hidden = false;
+  error.textContent = message;
+}
+
+function bindSignInEnter(form: HTMLFormElement) {
+  const input = form.querySelector<HTMLInputElement>("#sign-in-passphrase");
+  input?.addEventListener("keydown", event => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+      return;
+    }
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  });
+}
+
+function renderLogin(message?: string) {
+  const action = loginFormAction(API_BASE, USE_LOCAL_DATA);
+  const returnTo = action
+    ? `<input type="hidden" name="return_to" value="${escapeHtml(location.href)}" />`
+    : "";
   app.innerHTML = `<div class="sign-in">
-    <form class="sign-in__card" method="post" action="#" novalidate>
+    <form class="sign-in__card" method="post" action="${escapeHtml(action ?? "#")}" novalidate>
       <div class="sign-in__haze" aria-hidden="true">
         <span class="sign-in__haze-mist"></span>
         <span class="sign-in__bubble"></span>
@@ -972,37 +1003,48 @@ function renderLogin() {
         <span class="sign-in__sparkle"></span>
         <span class="sign-in__sparkle"></span>
       </div>
+      <img class="sign-in__mark" src="icons/knowledge.svg" alt="" width="56" height="56">
       <p class="sign-in__brand">Knowledge Hub</p>
       <h1 class="sign-in__title">Sign in</h1>
       <div class="sign-in__field">
         <label class="sign-in__label" for="sign-in-passphrase">Passphrase</label>
         <input class="sign-in__input" id="sign-in-passphrase" name="passphrase" type="password" required autocomplete="current-password" enterkeyhint="go" />
       </div>
+      ${returnTo}
       <p class="sign-in__error" role="alert" hidden></p>
       <button class="btn btn--primary sign-in__submit" type="submit">Sign in</button>
     </form>
   </div>`;
-  app.querySelector("form")!.onsubmit = async event => {
+  showSignInError(message);
+  const form = app.querySelector<HTMLFormElement>("form.sign-in__card")!;
+  bindSignInEnter(form);
+  if (action) {
+    form.addEventListener("submit", () => {
+      const button = form.querySelector<HTMLButtonElement>(".sign-in__submit");
+      if (!button) return;
+      button.disabled = true;
+      button.textContent = "Signing in…";
+    });
+    return;
+  }
+  form.addEventListener("submit", async event => {
     event.preventDefault();
-    const error = app.querySelector<HTMLParagraphElement>(".sign-in__error")!;
-    error.hidden = true;
-    const passphrase = app.querySelector<HTMLInputElement>("#sign-in-passphrase")!.value;
+    showSignInError();
+    const passphrase = form.querySelector<HTMLInputElement>("#sign-in-passphrase")!.value;
     try {
       const ok = await login(passphrase);
       if (!ok) {
-        error.hidden = false;
-        error.textContent = "Invalid passphrase";
+        showSignInError("Invalid passphrase");
         return;
       }
-      await boot();
+      await boot({ failedLoginMessage: "Unable to sign in. Please try again." });
     } catch {
-      error.hidden = false;
-      error.textContent = "Unable to sign in. Please try again.";
+      showSignInError("Unable to sign in. Please try again.");
     }
-  };
+  });
 }
 
-async function boot() {
+async function boot(options?: { failedLoginMessage?: string }) {
   try {
     entries = await listPages();
     await refreshVisible();
@@ -1026,7 +1068,13 @@ async function boot() {
       app.innerHTML = `<div class="sign-in"><div class="sign-in__card"><h1 class="sign-in__title">Local data missing</h1><p class="sign-in__supporting">Run the migrator first, then restart <code>npm run dev</code>.</p></div></div>`;
       return;
     }
-    renderLogin();
+    if (options?.failedLoginMessage) {
+      renderLogin(options.failedLoginMessage);
+      return;
+    }
+    const bounced = takeSignInQuery(location.href);
+    if (bounced.message) history.replaceState(null, "", bounced.nextUrl);
+    renderLogin(bounced.message ?? undefined);
   }
 }
 

@@ -1,6 +1,6 @@
 import type { HandlerEvent, HandlerResponse } from "@netlify/functions";
 
-const KNOWN_ORIGINS = new Set([
+export const KNOWN_ORIGINS = new Set([
   "https://knowledge-hub.adam-russell.com",
   "https://adamrussell91-hash.github.io",
 ]);
