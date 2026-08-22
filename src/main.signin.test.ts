@@ -13,6 +13,7 @@ describe("Knowledge Hub sign-in gate", () => {
     expect(main).toContain("loginFormAction");
     expect(main).toContain('name="return_to"');
     expect(main).toContain("requestSubmit");
+    expect(main).toContain("form.submit()");
     expect(main).not.toContain("form.onsubmit");
   });
 

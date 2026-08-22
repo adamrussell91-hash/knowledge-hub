@@ -1018,28 +1018,44 @@ function renderLogin(message?: string) {
   showSignInError(message);
   const form = app.querySelector<HTMLFormElement>("form.sign-in__card")!;
   bindSignInEnter(form);
-  if (action) {
-    form.addEventListener("submit", () => {
-      const button = form.querySelector<HTMLButtonElement>(".sign-in__submit");
-      if (!button) return;
-      button.disabled = true;
-      button.textContent = "Signing in…";
-    });
-    return;
-  }
   form.addEventListener("submit", async event => {
+    const passphrase = form.querySelector<HTMLInputElement>("#sign-in-passphrase")!.value;
+    // iOS password fill often leaves input.value empty; let the browser POST the real field.
+    if (action && !passphrase) return;
     event.preventDefault();
     showSignInError();
-    const passphrase = form.querySelector<HTMLInputElement>("#sign-in-passphrase")!.value;
+    const button = form.querySelector<HTMLButtonElement>(".sign-in__submit");
+    const restore = () => {
+      if (!button) return;
+      button.disabled = false;
+      button.textContent = "Sign in";
+    };
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Signing in…";
+    }
     try {
       const ok = await login(passphrase);
       if (!ok) {
         showSignInError("Invalid passphrase");
+        restore();
+        return;
+      }
+      try {
+        await listPages();
+      } catch {
+        if (action) {
+          form.submit();
+          return;
+        }
+        showSignInError("Unable to sign in. Please try again.");
+        restore();
         return;
       }
       await boot({ failedLoginMessage: "Unable to sign in. Please try again." });
     } catch {
       showSignInError("Unable to sign in. Please try again.");
+      restore();
     }
   });
 }
