@@ -49,10 +49,9 @@ export const UNIVERSE_KEY_ITEMS: readonly UniverseKeyItem[] = [
 ];
 
 export const UNIVERSE_KEY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <ellipse cx="12" cy="12" rx="8.5" ry="3.35" transform="rotate(-30 12 12)"/>
-  <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/>
-  <circle cx="19.2" cy="8.7" r="1.4" fill="currentColor" stroke="none"/>
-  <circle cx="5.2" cy="15.5" r="0.7" fill="currentColor" stroke="none"/>
+  <ellipse cx="12" cy="12" rx="8.2" ry="3.15" transform="rotate(-32 12 12)"/>
+  <circle cx="12" cy="12" r="2.15" fill="currentColor" stroke="none"/>
+  <circle cx="18.55" cy="8.45" r="1.55" fill="currentColor" stroke="none"/>
 </svg>`;
 
 function itemRow(item: UniverseKeyItem) {
