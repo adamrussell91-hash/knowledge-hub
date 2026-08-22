@@ -4,9 +4,114 @@ import { showAllClusterRadius } from "./showAllGraph";
 
 export type ForceGraphVariant = "constellation" | "showAll";
 
-export const OVERLAP_LINK_ALPHA = 0.45;
+export type ShowAllTuning = {
+  leafCharge: number;
+  overlapLinkStrength: number;
+  overlapLinkAlpha: number;
+  lineWidthScale: number;
+};
+
+export const SHOW_ALL_TUNING_DEFAULTS: ShowAllTuning = {
+  leafCharge: -140,
+  overlapLinkStrength: 0.35,
+  overlapLinkAlpha: 0.45,
+  lineWidthScale: 1,
+};
+
+export const showAllTuning: ShowAllTuning = { ...SHOW_ALL_TUNING_DEFAULTS };
+
+export type ShowAllTuningControl = {
+  key: keyof ShowAllTuning;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  restarts: boolean;
+  toSlider?: (value: number) => number;
+  fromSlider?: (value: number) => number;
+  format: (value: number) => string;
+};
+
+export const SHOW_ALL_TUNING_CONTROLS: readonly ShowAllTuningControl[] = [
+  {
+    key: "leafCharge",
+    label: "Repulsion",
+    min: 20,
+    max: 400,
+    step: 10,
+    restarts: true,
+    toSlider: value => Math.abs(value),
+    fromSlider: value => -value,
+    format: value => String(Math.round(Math.abs(value))),
+  },
+  {
+    key: "overlapLinkStrength",
+    label: "Pull",
+    min: 0.02,
+    max: 0.8,
+    step: 0.01,
+    restarts: true,
+    format: value => value.toFixed(2),
+  },
+  {
+    key: "overlapLinkAlpha",
+    label: "Opacity",
+    min: 0.05,
+    max: 1,
+    step: 0.01,
+    restarts: false,
+    format: value => value.toFixed(2),
+  },
+  {
+    key: "lineWidthScale",
+    label: "Width",
+    min: 0.25,
+    max: 3,
+    step: 0.05,
+    restarts: false,
+    format: value => value.toFixed(2),
+  },
+];
+
 export const SHOW_ALL_SPOKE_ALPHA = 0.15;
 export const SHOW_ALL_SETTLE_TICKS = 180;
+export const SHOW_ALL_RETUNE_MS = 90;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function resetShowAllTuning() {
+  Object.assign(showAllTuning, SHOW_ALL_TUNING_DEFAULTS);
+  return showAllTuning;
+}
+
+export function applyShowAllTuning(partial: Partial<ShowAllTuning>) {
+  if (partial.leafCharge != null) showAllTuning.leafCharge = clamp(partial.leafCharge, -400, -20);
+  if (partial.overlapLinkStrength != null) {
+    showAllTuning.overlapLinkStrength = clamp(partial.overlapLinkStrength, 0.02, 0.8);
+  }
+  if (partial.overlapLinkAlpha != null) showAllTuning.overlapLinkAlpha = clamp(partial.overlapLinkAlpha, 0.05, 1);
+  if (partial.lineWidthScale != null) showAllTuning.lineWidthScale = clamp(partial.lineWidthScale, 0.25, 3);
+  return showAllTuning;
+}
+
+export function showAllTuningRestarts(partial: Partial<ShowAllTuning>) {
+  return partial.leafCharge != null || partial.overlapLinkStrength != null;
+}
+
+export function overlapLinkAlpha() {
+  return showAllTuning.overlapLinkAlpha;
+}
+
+export function sliderValueForTuning(control: ShowAllTuningControl) {
+  const value = showAllTuning[control.key];
+  return control.toSlider ? control.toSlider(value) : value;
+}
+
+export function tuningFromSlider(control: ShowAllTuningControl, sliderValue: number) {
+  return control.fromSlider ? control.fromSlider(sliderValue) : sliderValue;
+}
 
 export type GraphNotePayload = { pageId: string; title: string; excerpt: string };
 
@@ -28,16 +133,19 @@ export function canvasRadius(worldR: number, k: number, minPx: number) {
 export type GraphMount = (() => void) & {
   setSearch: (query: string) => void;
   setModel: (model: ArchiveGraphModel) => void;
+  setTuning: (partial: Partial<ShowAllTuning>) => void;
 };
 
 export function attachGraphSearch(
   teardown: () => void,
   setSearch: (query: string) => void,
   setModel: (model: ArchiveGraphModel) => void = () => {},
+  setTuning: (partial: Partial<ShowAllTuning>) => void = () => {},
 ): GraphMount {
   const stop = teardown as GraphMount;
   stop.setSearch = setSearch;
   stop.setModel = setModel;
+  stop.setTuning = setTuning;
   return stop;
 }
 
@@ -61,7 +169,7 @@ export function showAllLinkDistance(linkOrKind: GraphLinkKind | GraphLinkDatum) 
 
 export function showAllLinkStrength(kind: GraphLinkKind) {
   if (kind === "spoke") return 0.02;
-  if (kind === "overlap") return 0.35;
+  if (kind === "overlap") return showAllTuning.overlapLinkStrength;
   if (kind === "orbit") return 0.02;
   return 0.01;
 }
@@ -69,7 +177,7 @@ export function showAllLinkStrength(kind: GraphLinkKind) {
 export function showAllNodeCharge(node: GraphNodeDatum) {
   if (node.kind === "major") return -900;
   if (node.kind === "minor") return -300;
-  return -140;
+  return showAllTuning.leafCharge;
 }
 
 export function showAllCollisionRadius(node: GraphNodeDatum) {

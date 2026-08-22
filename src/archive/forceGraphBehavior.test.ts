@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
 import {
-  OVERLAP_LINK_ALPHA,
   SHOW_ALL_SETTLE_TICKS,
+  SHOW_ALL_TUNING_CONTROLS,
+  SHOW_ALL_TUNING_DEFAULTS,
+  applyShowAllTuning,
   fitViewToNodes,
   initialForceView,
   isGraphSearching,
@@ -10,6 +12,8 @@ import {
   nodeDrawState,
   canvasRadius,
   nodeHoverTip,
+  overlapLinkAlpha,
+  resetShowAllTuning,
   resolveBackgroundClick,
   resolveEnterKey,
   resolveNodeClick,
@@ -17,8 +21,13 @@ import {
   showAllCollisionRadius,
   showAllLinkDistance,
   showAllLinkStrength,
+  showAllNodeCharge,
+  showAllTuning,
+  showAllTuningRestarts,
   shouldLockShowAll,
   simulationNodes,
+  sliderValueForTuning,
+  tuningFromSlider,
 } from "./forceGraphBehavior";
 
 function node(partial: Partial<GraphNodeDatum> & Pick<GraphNodeDatum, "id" | "kind" | "label">): GraphNodeDatum {
@@ -180,8 +189,8 @@ describe("force graph chrome", () => {
   });
 
   it("keeps overlap links visible as the network edges", () => {
-    expect(OVERLAP_LINK_ALPHA).toBeGreaterThanOrEqual(0.4);
-    expect(OVERLAP_LINK_ALPHA).toBeLessThanOrEqual(0.55);
+    expect(overlapLinkAlpha()).toBeGreaterThanOrEqual(0.4);
+    expect(overlapLinkAlpha()).toBeLessThanOrEqual(0.55);
   });
 
   it("keeps zoomed-out Show All notes larger than a pixel", () => {
@@ -226,5 +235,46 @@ describe("show all draw budget", () => {
     expect(showAllLinkShouldDraw("spoke", 0.18, true)).toBe(true);
     expect(showAllLinkShouldDraw("overlap", 0.02, true)).toBe(true);
     expect(showAllLinkShouldDraw("backbone", 0.01, false)).toBe(true);
+  });
+});
+
+describe("show all tuning sliders", () => {
+  afterEach(() => {
+    resetShowAllTuning();
+  });
+
+  it("starts from the spec defaults and exposes four live controls", () => {
+    expect(showAllTuning).toEqual(SHOW_ALL_TUNING_DEFAULTS);
+    expect(SHOW_ALL_TUNING_CONTROLS.map(item => item.key)).toEqual([
+      "leafCharge",
+      "overlapLinkStrength",
+      "overlapLinkAlpha",
+      "lineWidthScale",
+    ]);
+  });
+
+  it("reads charge, pull, and opacity from the live tuning object", () => {
+    applyShowAllTuning({ leafCharge: -240, overlapLinkStrength: 0.5, overlapLinkAlpha: 0.7 });
+    expect(showAllNodeCharge(leaf)).toBe(-240);
+    expect(showAllLinkStrength("overlap")).toBe(0.5);
+    expect(overlapLinkAlpha()).toBe(0.7);
+    expect(showAllNodeCharge(major)).toBe(-900);
+  });
+
+  it("restarts the simulation only for repulsion and pull", () => {
+    expect(showAllTuningRestarts({ leafCharge: -200 })).toBe(true);
+    expect(showAllTuningRestarts({ overlapLinkStrength: 0.4 })).toBe(true);
+    expect(showAllTuningRestarts({ overlapLinkAlpha: 0.8 })).toBe(false);
+    expect(showAllTuningRestarts({ lineWidthScale: 2 })).toBe(false);
+  });
+
+  it("maps repulsion through a positive slider without leaving the safe range", () => {
+    const repulsion = SHOW_ALL_TUNING_CONTROLS[0]!;
+    expect(sliderValueForTuning(repulsion)).toBe(140);
+    expect(tuningFromSlider(repulsion, 300)).toBe(-300);
+    applyShowAllTuning({ leafCharge: -999, overlapLinkAlpha: 4, lineWidthScale: 0 });
+    expect(showAllTuning.leafCharge).toBe(-400);
+    expect(showAllTuning.overlapLinkAlpha).toBe(1);
+    expect(showAllTuning.lineWidthScale).toBe(0.25);
   });
 });

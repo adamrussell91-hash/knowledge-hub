@@ -8,26 +8,31 @@ import {
   type Simulation,
 } from "d3-force";
 import {
-  OVERLAP_LINK_ALPHA,
+  SHOW_ALL_RETUNE_MS,
   SHOW_ALL_SPOKE_ALPHA,
+  applyShowAllTuning,
   attachGraphSearch,
   canvasRadius,
   initialForceView,
   linkDrawState,
   nodeDrawState,
   nodeHoverTip,
+  overlapLinkAlpha,
   resolveBackgroundClick,
   resolveEnterKey,
   resolveNodeClick,
   showAllLinkShouldDraw,
+  showAllTuning,
+  showAllTuningRestarts,
   shouldLockShowAll,
   simulationNodes,
   type ForceGraphVariant,
   type GraphMount,
+  type ShowAllTuning,
 } from "./forceGraphBehavior";
 import type { ArchiveGraphModel, GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
 import { applyShowAllFade, mergeShowAllModels, SHOW_ALL_FADE_MS } from "./showAllTransition";
-import { createShowAllSimulation, lockShowAllNodes } from "./showAllSimulation";
+import { createShowAllSimulation, lockShowAllNodes, unlockShowAllNodes } from "./showAllSimulation";
 
 export type { ForceGraphVariant };
 
@@ -106,6 +111,7 @@ export function mountForceGraph(
   let fadeStarted = 0;
   let fading = simNodes.some(node => (node.opacity ?? 1) < 1 || node.departing);
   let settleTicks = 0;
+  let retuneTimer = 0;
   let simulation: Simulation<GraphNodeDatum, GraphLinkDatum> = createSimulation();
 
   function refreshLookups() {
@@ -140,12 +146,12 @@ export function mountForceGraph(
     refreshLookups();
   }
 
-  function createSimulation() {
+  function createSimulation(alpha = fading ? 0.42 : 0.86) {
     const nodesForSim = simulationNodes(options.variant, simNodes);
     if (options.variant === "showAll") {
       settleTicks = 0;
       const sim = createShowAllSimulation(nodesForSim, simLinks)
-        .alpha(fading ? 0.42 : 0.86)
+        .alpha(alpha)
         .on("tick", () => {
           settleTicks += 1;
           stepShowAllFade();
@@ -220,9 +226,22 @@ export function mountForceGraph(
     return sim;
   }
 
-  function restartSimulation() {
+  function restartSimulation(alpha?: number) {
     simulation.stop();
-    simulation = createSimulation();
+    simulation = createSimulation(alpha);
+  }
+
+  function setTuning(partial: Partial<ShowAllTuning>) {
+    applyShowAllTuning(partial);
+    scheduleDraw();
+    if (options.variant !== "showAll" || !showAllTuningRestarts(partial)) return;
+    window.clearTimeout(retuneTimer);
+    retuneTimer = window.setTimeout(() => {
+      unlockShowAllNodes(simNodes);
+      fading = false;
+      fadeStarted = 0;
+      restartSimulation(0.46);
+    }, SHOW_ALL_RETUNE_MS);
   }
 
   function setModel(next: ArchiveGraphModel) {
@@ -386,11 +405,12 @@ export function mountForceGraph(
         curve(ctx, source.x, source.y, target.x, target.y);
       }
 
+      const widthScale = showAll ? showAllTuning.lineWidthScale : 1;
       if (link.kind === "spoke") {
         ctx.setLineDash([4 / view.k, 5 / view.k]);
         ctx.strokeStyle = active ? "#e07a2f" : link.color;
         ctx.globalAlpha = (dim ? 0.05 : active ? 0.75 : showAll ? SHOW_ALL_SPOKE_ALPHA : 0.4) * fade;
-        ctx.lineWidth = 1.1 / view.k;
+        ctx.lineWidth = (1.1 * widthScale) / view.k;
       } else if (link.kind === "orbit") {
         ctx.setLineDash([3 / view.k, 6 / view.k]);
         ctx.strokeStyle = active ? "#e07a2f" : link.color;
@@ -399,16 +419,16 @@ export function mountForceGraph(
       } else {
         ctx.setLineDash([]);
         const thick =
-          showAll && link.kind === "overlap"
+          (showAll && link.kind === "overlap"
             ? 1.1 + (link.weight / maxWeight) * 2.2
-            : 1 + (link.weight / maxWeight) * 4.5;
+            : 1 + (link.weight / maxWeight) * 4.5) * widthScale;
         if (active) {
           ctx.strokeStyle = "#e07a2f";
           ctx.globalAlpha = 0.9 * fade;
           ctx.lineWidth = (thick + 1.4) / view.k;
         } else {
           ctx.strokeStyle = link.color;
-          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" ? OVERLAP_LINK_ALPHA : 0.2) * fade;
+          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" ? overlapLinkAlpha() : 0.2) * fade;
           ctx.lineWidth = thick / view.k;
         }
       }
@@ -688,6 +708,7 @@ export function mountForceGraph(
   return attachGraphSearch(
     () => {
       window.removeEventListener("keydown", onKeyDown);
+      window.clearTimeout(retuneTimer);
       simulation.stop();
       if (drawRaf) cancelAnimationFrame(drawRaf);
       host.innerHTML = "";
@@ -697,5 +718,6 @@ export function mountForceGraph(
       scheduleDraw();
     },
     setModel,
+    setTuning,
   );
 }

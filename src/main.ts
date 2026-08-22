@@ -46,7 +46,14 @@ import { searchCluster } from "./archive/graphFocus";
 import { mountGraphPreview } from "./archive/graphPreview";
 import { buildArchiveGraph, topicKeywords, vocabularyPresent } from "./archive/keywordGraph";
 import { mountForceGraph } from "./archive/forceGraph";
-import type { GraphMount } from "./archive/forceGraphBehavior";
+import {
+  SHOW_ALL_TUNING_CONTROLS,
+  applyShowAllTuning,
+  showAllTuning,
+  sliderValueForTuning,
+  tuningFromSlider,
+  type GraphMount,
+} from "./archive/forceGraphBehavior";
 import { buildShowAllGraph } from "./archive/showAllGraph";
 import {
   SHOW_ALL_GROUPINGS,
@@ -532,6 +539,20 @@ function orbitSpeedLabel(speed: number) {
   return speed === 0 ? "Paused" : `${speed.toFixed(2)}×`;
 }
 
+function showAllTuningHtml() {
+  return `<div class="graph-tuning" role="group" aria-label="Show All tuning">
+    ${SHOW_ALL_TUNING_CONTROLS.map(control => {
+      const value = showAllTuning[control.key];
+      const slider = sliderValueForTuning(control);
+      return `<label class="graph-speed">
+        <span class="graph-speed__label">${escapeHtml(control.label)}</span>
+        <input type="range" min="${control.min}" max="${control.max}" step="${control.step}" value="${slider}" data-show-all-tune="${control.key}" aria-label="${escapeHtml(control.label)}" />
+        <output class="graph-speed__value" data-show-all-tune-value="${control.key}">${escapeHtml(control.format(value))}</output>
+      </label>`;
+    }).join("")}
+  </div>`;
+}
+
 function showAllModel() {
   return buildShowAllGraph(entries, showAllGrouping);
 }
@@ -604,6 +625,7 @@ function renderGraph() {
             : ""
         }
         <input class="graph-search" type="search" placeholder="Search keywords and notes" value="${escapeHtml(graphSearch)}" />
+        ${graphMode === "showAll" ? showAllTuningHtml() : ""}
         ${
           graphMode === "universe"
             ? `<label class="graph-speed">
@@ -650,6 +672,18 @@ function renderGraph() {
     graphMount?.setSearch(graphSearch);
     writeGraphChrome();
   };
+
+  app.querySelectorAll<HTMLInputElement>("[data-show-all-tune]").forEach(input => {
+    input.oninput = () => {
+      const control = SHOW_ALL_TUNING_CONTROLS.find(item => item.key === input.dataset.showAllTune);
+      if (!control) return;
+      const next = { [control.key]: tuningFromSlider(control, Number(input.value)) };
+      applyShowAllTuning(next);
+      const readout = app.querySelector<HTMLOutputElement>(`[data-show-all-tune-value="${control.key}"]`);
+      if (readout) readout.textContent = control.format(showAllTuning[control.key]);
+      graphMount?.setTuning(next);
+    };
+  });
 
   const stage = app.querySelector<HTMLElement>(".graph-stage")!;
   if (graphMode === "universe") {
