@@ -29,7 +29,8 @@ describe("universeKeyHtml", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(toggle.getAttribute("aria-label")).toBe("Universe key");
     expect(toggle.querySelector("svg")).toBeTruthy();
-    expect(toggle.querySelectorAll("circle").length).toBe(4);
+    expect(toggle.querySelector("ellipse")).toBeTruthy();
+    expect(toggle.querySelectorAll("circle").length).toBe(3);
     for (const item of UNIVERSE_KEY_ITEMS) {
       expect(key.textContent).toContain(item.title);
       expect(key.textContent).toContain(item.meaning);
