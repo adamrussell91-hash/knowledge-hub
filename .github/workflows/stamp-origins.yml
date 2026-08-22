@@ -40,11 +40,15 @@ jobs:
           fetch-depth: 0
 
       - name: Stamp origin pills
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
         run: |
+          extra=()
+          if [ -n "$NOTION_TOKEN" ]; then extra+=(--from-notion); fi
           if [ -n "${{ inputs.page_id }}" ]; then
-            npx tsx scripts/stamp-origins.ts --data-dir data-repo --execute --id "${{ inputs.page_id }}"
+            npx tsx scripts/stamp-origins.ts --data-dir data-repo --execute --id "${{ inputs.page_id }}" "${extra[@]}"
           else
-            npx tsx scripts/stamp-origins.ts --data-dir data-repo --execute
+            npx tsx scripts/stamp-origins.ts --data-dir data-repo --execute "${extra[@]}"
           fi
 
       - name: Commit stamped origins

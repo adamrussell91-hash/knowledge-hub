@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Page } from "../src/domain/page";
-import { applyStampedOrigins, originKindCounts, parseStampArgs, stampOrigins, syncManifestOrigins } from "./stamp-origins";
+import {
+  applyStampedOrigins,
+  extraOriginEntries,
+  originKindCounts,
+  parseStampArgs,
+  stampOrigins,
+  syncManifestOrigins,
+} from "./stamp-origins";
 
 const page = (overrides: Partial<Page> = {}): Page => ({
   id: "page_notion_abc",
@@ -100,6 +107,20 @@ describe("stamp origins", () => {
         [ready],
       )[0]?.origins,
     ).toEqual([{ kind: "notebook", label: "Boy's Education" }]);
+  });
+
+  it("appends notebook pages that exist as files but never reached the list", () => {
+    const ready = page({
+      id: "page_notion_00c518fb7b884781a60f702ec3185eb3",
+      origins: [{ kind: "notebook", label: "Boy's Education" }],
+    });
+    const extra = extraOriginEntries(
+      [{ id: "page_notion_live", title: "Live", area: "notes", tags: ["Note"], excerpt: "On the list." }],
+      [ready],
+    );
+    expect(extra).toHaveLength(1);
+    expect(extra[0]?.id).toBe(ready.id);
+    expect(extra[0]?.origins).toEqual([{ kind: "notebook", label: "Boy's Education" }]);
   });
 
   it("matches a list row whose id is a dashed Notion UUID", () => {

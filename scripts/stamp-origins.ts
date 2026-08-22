@@ -6,6 +6,7 @@ import { stampPageOrigins } from "../src/origin/fromPlace";
 import { originKey, pageOrigins } from "../src/origin/normalize";
 import { extractNotionHex } from "../src/origin/notesPlace";
 import { originsFromNotionPage } from "../src/origin/notion";
+import { excerptFromTidyBody } from "../src/tidy/run";
 import { loadDotEnv } from "./loadLocalPages";
 
 export type StampArgs = {
@@ -109,6 +110,28 @@ export function syncManifestOrigins(
   });
 }
 
+const LIST_ORIGIN_KINDS = new Set<OriginKind>(["notebook", "book", "pd"]);
+
+/** Page files recovered from Notion that never made it onto the live list. */
+export function extraOriginEntries(manifest: ManifestRow[], pages: Page[]): ManifestRow[] {
+  const listed = new Set(manifest.map(entry => entry.id));
+  return pages
+    .filter(
+      page => !listed.has(page.id) && page.origins?.some(origin => LIST_ORIGIN_KINDS.has(origin.kind)),
+    )
+    .map(page => ({
+      id: page.id,
+      title: page.title,
+      area: page.area,
+      tags: page.tags,
+      excerpt: excerptFromTidyBody(page.body),
+      ...(page.origins?.length ? { origins: page.origins } : {}),
+      ...(page.source_notion_id ? { source_notion_id: page.source_notion_id } : {}),
+      ...(page.created_at ? { created_at: page.created_at } : {}),
+      path: `pages/${page.id}.json`,
+    }));
+}
+
 async function readJson<T>(file: string, fallback: T): Promise<T> {
   try {
     return JSON.parse(await readFile(file, "utf8")) as T;
@@ -169,39 +192,13 @@ async function main(args = process.argv.slice(2)) {
     for (const page of changed) {
       await writeFile(path.join(pageDir, `${page.id}.json`), JSON.stringify(page, null, 2) + "\n");
     }
-    const manifestIds = new Set(manifest.flatMap(entry => [entry.id, ...(entry.path ? [entry.path] : [])]));
-    const notebookPages = projected.filter(page => page.origins?.some(origin => origin.kind === "notebook"));
-    const notebookHits = notebookPages.filter(page => manifestKeys(page).some(key => manifestIds.has(key)));
-    console.log(
-      JSON.stringify(
-        {
-          manifestCount: manifest.length,
-          manifestKeys: manifest[0] ? Object.keys(manifest[0]) : [],
-          sampleManifest: manifest.slice(0, 3).map(entry => ({
-            id: entry.id,
-            path: entry.path,
-            originKinds: entry.origins?.map(origin => origin.kind) ?? [],
-          })),
-          samplePages: projected.slice(0, 3).map((page, index) => ({
-            fileId: fileIds[index],
-            id: page.id,
-            source: page.source_notion_id,
-            originKinds: page.origins?.map(origin => origin.kind) ?? [],
-            keys: manifestKeys(page, fileIds[index]),
-          })),
-          notebookPages: notebookPages.length,
-          notebookHits: notebookHits.length,
-          notebookMiss: notebookPages
-            .filter(page => !manifestKeys(page).some(key => manifestIds.has(key)))
-            .slice(0, 3)
-            .map(page => ({ id: page.id, source: page.source_notion_id, keys: manifestKeys(page) })),
-        },
-        null,
-        2,
-      ),
-    );
-    const nextManifest = syncManifestOrigins(manifest, projected, fileIds);
+    const synced = syncManifestOrigins(manifest, projected, fileIds);
+    const extra = extraOriginEntries(synced, projected);
+    const nextManifest = [...synced, ...extra];
     listWith = originKindCounts(nextManifest);
+    console.log(
+      JSON.stringify({ appended: extra.length, listSize: nextManifest.length }, null, 2),
+    );
     await writeFile(manifestPath, `${JSON.stringify(nextManifest)}\n`);
   }
   console.log(
