@@ -21,19 +21,22 @@ import {
 } from "../../src/podcast/schema";
 import { handleCaptureRequest } from "../../src/capture/http";
 import { liveExtract } from "../../src/capture/live";
+import { handleChatWriteRequest } from "../../src/chat/writeHttp";
 import { handleResearchRequest } from "../../src/research/http";
 import { runQuickKernel } from "../../src/research/kernel";
 import { tidy as tidyPrompt } from "../../src/clementine/pack";
 import { handleTidyRequest, KNOWLEDGE_HUB_ORIGIN } from "../../src/tidy/http";
 import { tidyPageOnGitHub } from "../../src/tidy/githubIo";
+import { ChatWrite } from "./chatWrite";
 import { PodcastSession } from "./podcastSession";
 import { ResearchSession, type ResearchEnv } from "./researchSession";
 
-export { PodcastSession, ResearchSession };
+export { ChatWrite, PodcastSession, ResearchSession };
 
 type WorkerEnv = ResearchEnv &
   PodcastKernelEnv & {
     PODCAST_SESSION: DurableObjectNamespace;
+    CHAT_WRITE: DurableObjectNamespace;
     SESSION_SECRET?: string;
     KNOWLEDGE_HUB_ORIGIN?: string;
   };
@@ -174,6 +177,32 @@ export default {
         listIndex: () => readPodcastIndex(env),
         interrupt: (id, body) => interruptEpisode(env, id, body),
         answer: (id, body) => answerEpisode(env, id, body),
+      });
+    }
+    if (pathname.includes("/chat/write")) {
+      return handleChatWriteRequest(request, {
+        secret: env.RESEARCH_KERNEL_SHARED_SECRET,
+        allowedOrigin: env.KNOWLEDGE_HUB_ORIGIN ?? env.TEACHING_HUB_ORIGIN ?? "*",
+        startWrite: async input => {
+          const writeSessionId = crypto.randomUUID();
+          const stub = env.CHAT_WRITE.get(env.CHAT_WRITE.idFromName(writeSessionId));
+          const response = await stub.fetch(
+            new Request("https://session/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ writeSessionId, ...input }),
+            }),
+          );
+          if (!response.ok) throw new Error(`Write start failed ${response.status}`);
+          return response.json();
+        },
+        getWrite: async writeSessionId => {
+          const stub = env.CHAT_WRITE.get(env.CHAT_WRITE.idFromName(writeSessionId));
+          const response = await stub.fetch(new Request("https://session/"));
+          if (response.status === 404) return null;
+          if (!response.ok) throw new Error(`Write get failed ${response.status}`);
+          return response.json();
+        },
       });
     }
     if (path.endsWith("/tidy")) {

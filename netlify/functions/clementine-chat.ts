@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { cors, preflight } from "./_lib/cors";
+import { cors, preflight, requestOrigin } from "./_lib/cors";
 import { requireSession } from "./_lib/requireSession";
 import { loadPromptFile } from "../../src/clementine/loadFromDisk";
 import { runChatTurn, type ChatMessage } from "../../src/chat/chatTurn";
@@ -21,6 +21,7 @@ function parseBody(raw: string | null) {
       noteContext?: unknown;
       searchOutside?: unknown;
       researchSessionId?: unknown;
+      writeSessionId?: unknown;
       compose?: unknown;
       priorResearch?: unknown;
       archiveFailed?: unknown;
@@ -52,6 +53,7 @@ function parseBody(raw: string | null) {
       noteContext: note,
       searchOutside: parsed.searchOutside === true,
       researchSessionId: typeof parsed.researchSessionId === "string" ? parsed.researchSessionId : undefined,
+      writeSessionId: typeof parsed.writeSessionId === "string" ? parsed.writeSessionId : undefined,
       compose: parsed.compose === true,
       priorResearch: ResearchResultSchema.safeParse(parsed.priorResearch).data,
       archiveFailed: parsed.archiveFailed === true,
@@ -61,45 +63,25 @@ function parseBody(raw: string | null) {
   }
 }
 
-async function completeWithAnthropic(system: string, messages: ChatMessage[], apiKey: string): Promise<string> {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2000,
-      system,
-      messages,
-    }),
-  });
-  if (!response.ok) throw new Error(`Anthropic error ${response.status}`);
-  const payload = (await response.json()) as { content?: { type: string; text?: string }[] };
-  return payload.content?.find(block => block.type === "text")?.text ?? "";
-}
-
 export const handler: Handler = async event => {
+  const origin = requestOrigin(event.headers);
   const pre = preflight(event);
   if (pre) return pre;
   const denied = requireSession(event);
   if (denied) return denied;
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: cors(), body: JSON.stringify({ error: "Method not allowed" }) };
+    return { statusCode: 405, headers: cors(origin), body: JSON.stringify({ error: "Method not allowed" }) };
   }
   const body = parseBody(event.body);
   if (!body) {
-    return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "hat and messages are required" }) };
+    return { statusCode: 400, headers: cors(origin), body: JSON.stringify({ error: "hat and messages are required" }) };
   }
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return { statusCode: 503, headers: cors(), body: JSON.stringify({ error: "Chat is unavailable" }) };
+  const kernelUrl = (process.env.RESEARCH_KERNEL_URL || DEFAULT_KERNEL_URL).replace(/\/+$/, "");
+  const kernelSecret = process.env.RESEARCH_KERNEL_SHARED_SECRET;
+  if (!kernelSecret) {
+    return { statusCode: 503, headers: cors(origin), body: JSON.stringify({ error: "Chat write clock is not configured" }) };
   }
   try {
-    const kernelUrl = process.env.RESEARCH_KERNEL_URL || DEFAULT_KERNEL_URL;
-    const kernelSecret = process.env.RESEARCH_KERNEL_SHARED_SECRET;
     const result = await runChatTurn({
       voice: loadPromptFile("clementine-voice.md"),
       universityJob: loadPromptFile("clementine-university.md"),
@@ -112,19 +94,43 @@ export const handler: Handler = async event => {
       noteContext: body.noteContext,
       searchOutside: body.searchOutside,
       researchSessionId: body.researchSessionId,
+      writeSessionId: body.writeSessionId,
       compose: body.compose,
       priorResearch: body.priorResearch,
       archiveFailed: body.archiveFailed,
-      kernel: kernelSecret ? { url: kernelUrl, secret: kernelSecret, fetchImpl: fetch } : undefined,
+      kernel: { url: kernelUrl, secret: kernelSecret, fetchImpl: fetch },
       archivePull: pullLiveArchive,
-      complete: (system, messages) => completeWithAnthropic(system, messages, apiKey),
+      write: {
+        start: async input => {
+          const response = await fetch(`${kernelUrl}/chat/write/start`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-research-kernel-secret": kernelSecret,
+            },
+            body: JSON.stringify(input),
+            signal: AbortSignal.timeout(8_000),
+          });
+          if (!response.ok) throw new Error(`Write start failed ${response.status}`);
+          return response.json();
+        },
+        poll: async writeSessionId => {
+          const response = await fetch(`${kernelUrl}/chat/write/${encodeURIComponent(writeSessionId)}`, {
+            headers: { "x-research-kernel-secret": kernelSecret },
+            signal: AbortSignal.timeout(8_000),
+          });
+          if (response.status === 404) return null;
+          if (!response.ok) throw new Error(`Write poll failed ${response.status}`);
+          return response.json();
+        },
+      },
     });
-    return { statusCode: 200, headers: cors(), body: JSON.stringify(result) };
+    return { statusCode: 200, headers: cors(origin), body: JSON.stringify(result) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.startsWith("Prompt file missing:")) {
-      return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: message }) };
+      return { statusCode: 500, headers: cors(origin), body: JSON.stringify({ error: message }) };
     }
-    return { statusCode: 502, headers: cors(), body: JSON.stringify({ error: "Chat turn failed" }) };
+    return { statusCode: 502, headers: cors(origin), body: JSON.stringify({ error: "Chat turn failed" }) };
   }
 };

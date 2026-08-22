@@ -44,7 +44,7 @@ describe("clementine-chat handler", () => {
     expect(response.statusCode).toBe(401);
   });
 
-  it("returns compose after a quick archive pull without calling Anthropic", async () => {
+  it("starts a Worker write after a quick archive pull without calling Anthropic on Netlify", async () => {
     const fetchImpl = vi.fn(async (url: string) => {
       if (String(url).includes("quick_research")) {
         return {
@@ -59,12 +59,15 @@ describe("clementine-chat handler", () => {
           }),
         };
       }
+      if (String(url).includes("/chat/write/start")) {
+        return { ok: true, json: async () => ({ writeSessionId: "w-9", status: "writing" }) };
+      }
       throw new Error(`unexpected ${url}`);
     });
     vi.stubGlobal("fetch", fetchImpl);
     const response = await handler(event() as never, {} as never);
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body ?? "{}")).toMatchObject({ status: "compose" });
+    expect(JSON.parse(response.body ?? "{}")).toMatchObject({ status: "writing", writeSessionId: "w-9" });
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
   });
 
@@ -83,6 +86,9 @@ describe("clementine-chat handler", () => {
           }),
         };
       }
+      if (String(url).includes("/chat/write/start")) {
+        return { ok: true, json: async () => ({ writeSessionId: "w-stoic", status: "writing" }) };
+      }
       throw new Error(`unexpected ${url}`);
     });
     vi.stubGlobal("fetch", fetchImpl);
@@ -98,21 +104,18 @@ describe("clementine-chat handler", () => {
     expect(response.statusCode).toBe(200);
     const payload = JSON.parse(response.body ?? "{}") as {
       status?: string;
+      writeSessionId?: string;
       archiveFailed?: boolean;
       research?: { findings?: { pageId?: string }[] };
     };
-    expect(payload).toMatchObject({ status: "compose" });
+    expect(payload).toMatchObject({ status: "writing", writeSessionId: "w-stoic" });
     expect(payload.archiveFailed).toBeFalsy();
     expect(payload.research?.findings?.[0]?.pageId).toBe("page_stoicism");
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
   });
 
-  it("still searches the live archive when the kernel secret is missing", async () => {
+  it("refuses to wait on Anthropic on Netlify when the Worker clock is missing", async () => {
     delete process.env.RESEARCH_KERNEL_SHARED_SECRET;
-    const fetchImpl = vi.fn(async (url: string) => {
-      throw new Error(`unexpected ${url}`);
-    });
-    vi.stubGlobal("fetch", fetchImpl);
     const response = await handler(
       event({
         body: JSON.stringify({
@@ -122,16 +125,8 @@ describe("clementine-chat handler", () => {
       }) as never,
       {} as never,
     );
-    expect(response.statusCode).toBe(200);
-    const payload = JSON.parse(response.body ?? "{}") as {
-      status?: string;
-      archiveFailed?: boolean;
-      research?: { findings?: { pageId?: string; title?: string }[] };
-    };
-    expect(payload.status).toBe("compose");
-    expect(payload.archiveFailed).toBeFalsy();
-    expect(payload.research?.findings?.[0]?.title).toMatch(/stoicism/i);
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body ?? "{}").error).toMatch(/write clock/i);
   });
 
   it("starts a deep session without calling Anthropic", async () => {
