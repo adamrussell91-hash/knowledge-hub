@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { originComposeFieldHtml, originPillsHtml, parseOriginRemoveValue } from "./pills";
 
 describe("origin pills", () => {
-  it("renders small kind + label pills and skips an empty row", () => {
+  it("renders kind + label pills and skips an empty row", () => {
     expect(originPillsHtml([])).toBe("");
     const html = originPillsHtml([{ kind: "unit", label: "EDST5805" }]);
     expect(html).toContain("origin-pill");
@@ -11,11 +11,19 @@ describe("origin pills", () => {
     expect(html).not.toContain("data-origin-remove");
   });
 
+  it("lets the reader open a pill for editing", () => {
+    const html = originPillsHtml([{ kind: "pd", label: "Research Conference 2026" }], { openEdit: true });
+    expect(html).toContain('data-edit-origins="pd:Research Conference 2026"');
+    expect(html).toContain("origin-pill__label");
+  });
+
   it("adds a remove control in compose", () => {
     const html = originComposeFieldHtml([{ kind: "pd", label: "HALT workshop" }]);
     expect(html).toContain("compose-origins-label");
     expect(html).toContain("data-origin-remove=\"pd:HALT workshop\"");
     expect(html).toContain("compose-origin-kind");
+    expect(html).toContain("Tap a pill to change it");
+    expect(html).toContain("data-origin-edit");
   });
 
   it("parses a remove value back into an origin", () => {

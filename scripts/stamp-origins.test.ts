@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Page } from "../src/domain/page";
-import { applyStampedOrigins, parseStampArgs, stampOrigins } from "./stamp-origins";
+import { applyStampedOrigins, originKindCounts, parseStampArgs, stampOrigins } from "./stamp-origins";
 
 const page = (overrides: Partial<Page> = {}): Page => ({
   id: "page_notion_abc",
@@ -41,6 +41,29 @@ describe("stamp origins", () => {
       { kind: "book", label: "Atomic Habits" },
       { kind: "notebook", label: "Cognitive Psychology" },
     ]);
+    expect(
+      applyStampedOrigins(
+        page({
+          id: "page_notion_163f794f84768001aebffe92627dc423",
+          tags: ["Note"],
+          body: "Lecture.",
+          source_notion_id: "page_notion_163f794f84768001aebffe92627dc423",
+        }),
+      )?.origins,
+    ).toEqual([
+      { kind: "book", label: "Atomic Habits" },
+      { kind: "notebook", label: "Cognitive Psychology" },
+    ]);
+  });
+
+  it("counts how many pages carry each origin kind", () => {
+    expect(
+      originKindCounts([
+        { origins: [{ kind: "notebook", label: "Literacy" }, { kind: "book", label: "Atomic Habits" }] },
+        { origins: [{ kind: "notebook", label: "Literacy" }] },
+        { origins: [{ kind: "unit", label: "EDST5805" }] },
+      ]),
+    ).toEqual({ degree: 0, unit: 1, notebook: 2, book: 1, pd: 0 });
   });
 
   it("stamps degree and unit from body and tags without Notion", () => {

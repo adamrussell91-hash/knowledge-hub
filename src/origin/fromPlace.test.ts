@@ -78,6 +78,9 @@ The lecture itself.`),
 
   it("dashes a stored Notion id for the API", () => {
     expect(notionIdFromSource("13ef794f84768078bbe7d30d66a8709c")).toBe("13ef794f-8476-8078-bbe7-d30d66a8709c");
+    expect(notionIdFromSource("page_notion_13ef794f84768078bbe7d30d66a8709c")).toBe(
+      "13ef794f-8476-8078-bbe7-d30d66a8709c",
+    );
     expect(notionIdFromSource("not-an-id")).toBeNull();
   });
 
@@ -94,6 +97,16 @@ The lecture itself.`),
         tags: ["Note"],
         body: "Lecture notes.",
         source_notion_id: "163f794f84768001aebffe92627dc423",
+      }),
+    ).toEqual([
+      { kind: "book", label: "Atomic Habits" },
+      { kind: "notebook", label: "Cognitive Psychology" },
+    ]);
+    expect(
+      stampPageOrigins({
+        id: "page_notion_163f794f84768001aebffe92627dc423",
+        tags: ["Note"],
+        body: "Lecture notes.",
       }),
     ).toEqual([
       { kind: "book", label: "Atomic Habits" },

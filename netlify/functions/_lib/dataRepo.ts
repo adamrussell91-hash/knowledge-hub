@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PageManifestEntrySchema, type Page, type PageManifestEntry } from "../../../src/domain/page";
+import { resolvedOrigins } from "../../../src/origin/notesPlace";
 import { getContent } from "./githubWrite";
 export function toManifestEntry(page: Page): PageManifestEntry {
   const plain = page.body.replace(/^#.*$/gm, "").replace(/\s+/g, " ").trim();
@@ -11,12 +12,18 @@ export function toManifestEntry(page: Page): PageManifestEntry {
     tags: page.tags,
     excerpt: plain.slice(0, 157) + (plain.length > 157 ? "..." : ""),
     created_at: page.created_at,
-    ...(page.origins?.length ? { origins: page.origins } : {}),
+    ...(resolvedOrigins(page).length ? { origins: resolvedOrigins(page) } : {}),
   };
 }
 export function githubNetworkError(error: unknown) { const cause = error instanceof Error && "cause" in error ? String(error.cause) : String(error); return new Error(`GitHub network error: ${cause}`); }
 export type ManifestFileEntry = PageManifestEntry & { path: string };
-export function parseManifest(input: unknown): ManifestFileEntry[] { return (input as { path: string }[]).map(item => ({ ...PageManifestEntrySchema.parse(item), path: item.path })); }
+export function parseManifest(input: unknown): ManifestFileEntry[] {
+  return (input as { path: string }[]).map(item => {
+    const parsed = PageManifestEntrySchema.parse(item);
+    const origins = resolvedOrigins(parsed);
+    return { ...parsed, ...(origins.length ? { origins } : {}), path: item.path };
+  });
+}
 export interface DataRepo { listManifest(): Promise<ManifestFileEntry[]>; listPages(): Promise<Page[]>; getPage(id: string): Promise<Page | null> }
 class FixtureRepo implements DataRepo { private cache?: Page[]; async listPages(): Promise<Page[]> { if (!this.cache) this.cache = JSON.parse(await readFile(path.join(process.cwd(), "fixtures/seed.json"), "utf8")) as Page[]; return this.cache; } async listManifest() { return (await this.listPages()).map(page => ({ ...toManifestEntry(page), path: `pages/${page.id}.json` })); } async getPage(id: string) { return (await this.listPages()).find(page => page.id === id) ?? null; } }
 class GitHubRepo implements DataRepo {

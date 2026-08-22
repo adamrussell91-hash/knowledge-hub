@@ -21,6 +21,18 @@ describe("normalizeManifestRow", () => {
     });
   });
 
+  it("recovers notebook pills from a page_notion id", () => {
+    expect(
+      normalizeManifestRow({
+        id: "page_notion_00c518fb7b884781a60f702ec3185eb3",
+        title: "Boys",
+        area: "notes",
+        tags: [],
+        excerpt: "Summary",
+      }).origins,
+    ).toEqual([{ kind: "notebook", label: "Boy's Education" }]);
+  });
+
   it("omits created_at when the staged row has none", () => {
     expect(
       normalizeManifestRow({

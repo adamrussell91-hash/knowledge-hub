@@ -12,6 +12,11 @@ describe("toManifestEntry", () => {
       { kind: "notebook", label: "Brown 2022" },
     ]);
   });
+  it("recovers notebook pills from a page_notion id", () => {
+    expect(
+      toManifestEntry({ ...page, id: "page_notion_00c518fb7b884781a60f702ec3185eb3" }).origins,
+    ).toEqual([{ kind: "notebook", label: "Boy's Education" }]);
+  });
 });
 describe("githubNetworkError", () => it("preserves the underlying network cause", () => expect(githubNetworkError(Object.assign(new TypeError("fetch failed"), { cause: new Error("connect ETIMEDOUT") })).message).toContain("connect ETIMEDOUT")));
 describe("parseManifest", () => it("accepts page metadata without fetching every body", () => expect(parseManifest([{ id: "p", title: "Title", area: "notes", tags: [], excerpt: "Summary", origins: [{ kind: "unit", label: "EDST5805" }], path: "pages/p.json" }])).toEqual([{ id: "p", title: "Title", area: "notes", tags: [], excerpt: "Summary", origins: [{ kind: "unit", label: "EDST5805" }], path: "pages/p.json" }])));

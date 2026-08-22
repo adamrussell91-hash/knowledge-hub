@@ -30,13 +30,22 @@ describe("Knowledge Hub rail", () => {
     expect(main).toContain('class="btn btn--ghost reader__tidy" data-tidy type="button"');
     expect(main).toContain("Clean up");
     expect(main).toContain("Cleaning up…");
+    expect(main).toContain("readerTopicPillsHtml");
+    expect(main).toContain("cardSupportingText");
     expect(main).not.toMatch(/hub-utilities[\s\S]*data-tidy/);
+    expect(main).not.toContain('class="chip"');
   });
 
   it("filters the archive by origin pills already on notes", () => {
     expect(main).toContain("originFilterHtml");
     expect(main).toContain("pageMatchesOriginFilter");
+    expect(main).toContain("topicTagPickerHtml");
     expect(css).toContain(".origin-filters");
+    expect(css).toContain(".tag-pill");
+    expect(css).toContain(".option-picker");
+    expect(css).not.toContain(".filter-chip");
+    expect(main).not.toContain("filter-chip");
+    expect(main).not.toContain("TOPIC_VOCABULARY.map");
   });
 
   it("has no University / Notes split in the rail, filters, or compose", () => {

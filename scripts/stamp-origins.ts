@@ -1,8 +1,10 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PageSchema, type Page, type PageManifestEntry } from "../src/domain/page";
+import type { OriginKind } from "../src/domain/page";
 import { stampPageOrigins } from "../src/origin/fromPlace";
 import { originKey, pageOrigins } from "../src/origin/normalize";
+import { extractNotionHex } from "../src/origin/notesPlace";
 import { originsFromNotionPage } from "../src/origin/notion";
 import { loadDotEnv } from "./loadLocalPages";
 
@@ -43,6 +45,23 @@ export function applyStampedOrigins(page: Page, extra: Page["origins"] = []) {
   const origins = stampPageOrigins(page, extra ?? []);
   if (!originsChanged(page, origins)) return null;
   return origins.length ? { ...page, origins } : { ...page, origins: undefined };
+}
+
+export function originKindCounts(pages: { origins?: Page["origins"] }[]) {
+  const counts: Record<OriginKind, number> = { degree: 0, unit: 0, notebook: 0, book: 0, pd: 0 };
+  for (const page of pages) {
+    const kinds = new Set(pageOrigins(page).map(origin => origin.kind));
+    for (const kind of kinds) counts[kind] += 1;
+  }
+  return counts;
+}
+
+function manifestKeys(page: Page) {
+  const keys = [page.id];
+  if (page.source_notion_id) keys.push(page.source_notion_id);
+  const hex = extractNotionHex(page.id) ?? extractNotionHex(page.source_notion_id);
+  if (hex) keys.push(hex, `page_notion_${hex}`);
+  return [...new Set(keys)];
 }
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
@@ -100,11 +119,14 @@ async function main(args = process.argv.slice(2)) {
     const byId = new Map(manifest.map(entry => [entry.id, entry]));
     for (const page of changed) {
       await writeFile(path.join(pageDir, `${page.id}.json`), JSON.stringify(page, null, 2) + "\n");
-      const current = byId.get(page.id);
-      if (current) byId.set(page.id, { ...current, origins: page.origins });
+      for (const key of manifestKeys(page)) {
+        const current = byId.get(key);
+        if (current) byId.set(key, { ...current, origins: page.origins });
+      }
     }
     await writeFile(path.join(dataDir, "manifest.json"), JSON.stringify([...byId.values()], null, 2) + "\n");
   }
+  const projected = pages.map(page => applyStampedOrigins(page) ?? page);
   console.log(
     JSON.stringify(
       {
@@ -112,6 +134,7 @@ async function main(args = process.argv.slice(2)) {
         scanned: pages.length,
         stamped: changed.length,
         fromNotion: Boolean(parsed.fromNotion),
+        pagesWith: originKindCounts(projected),
       },
       null,
       2,
