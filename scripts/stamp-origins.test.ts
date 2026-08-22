@@ -30,6 +30,7 @@ describe("stamp origins", () => {
 
   it("stamps degree and unit from body and tags without Notion", () => {
     expect(applyStampedOrigins(page())?.origins).toEqual([
+      { kind: "degree", label: "Master of Education (Gifted Education)" },
       { kind: "degree", label: "MEd" },
       { kind: "unit", label: "EDST5805" },
     ]);
@@ -40,6 +41,7 @@ describe("stamp origins", () => {
       applyStampedOrigins(
         page({
           origins: [
+            { kind: "degree", label: "Master of Education (Gifted Education)" },
             { kind: "degree", label: "MEd" },
             { kind: "unit", label: "EDST5805" },
           ],
@@ -64,6 +66,7 @@ describe("stamp origins", () => {
       fetchImpl,
     });
     expect(changed[0]?.origins).toEqual([
+      { kind: "degree", label: "Master of Education (Gifted Education)" },
       { kind: "degree", label: "MEd" },
       { kind: "notebook", label: "Brown 2022" },
       { kind: "unit", label: "EDST5805" },

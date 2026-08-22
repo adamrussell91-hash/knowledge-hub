@@ -3,11 +3,14 @@ import {
   inferOriginFromLabel,
   notionIdFromSource,
   notionPropertyLabels,
+  notionRelationIds,
   originsFromBody,
   originsFromNotionProperties,
   originsFromUnitTags,
   stampPageOrigins,
+  unitCodeFromLabel,
 } from "./fromPlace";
+import { applyUnitDegreeMap } from "./unitDegrees";
 
 describe("origins from existing place data", () => {
   it("lifts unit codes already sitting in tags", () => {
@@ -33,6 +36,20 @@ The lecture itself.`),
       { kind: "notebook", label: "Brown 2022" },
       { kind: "pd", label: "HALT workshop 2024" },
       { kind: "unit", label: "EDGL909" },
+      { kind: "unit", label: "EDST5805" },
+    ]);
+  });
+
+  it("maps the live Notes and University property names", () => {
+    expect(
+      originsFromNotionProperties({
+        Notebooks: { type: "select", select: { name: "Cognitive Psychology" } },
+        "Unit Number": { type: "select", select: { name: "EDST5805: Curriculum Differentiation and Assessment in Gifted Education" } },
+        "Book/Journal": { type: "relation", relation: [{ id: "15df794f-8476-80f7-ae79-f77b0001c400" }] },
+        Tags: { type: "multi_select", multi_select: [{ name: "Note" }] },
+      }),
+    ).toEqual([
+      { kind: "notebook", label: "Cognitive Psychology" },
       { kind: "unit", label: "EDST5805" },
     ]);
   });
@@ -64,6 +81,13 @@ The lecture itself.`),
     expect(notionIdFromSource("not-an-id")).toBeNull();
   });
 
+  it("keeps the unit code from a Unit Number select", () => {
+    expect(unitCodeFromLabel("EDST5805: Curriculum Differentiation and Assessment in Gifted Education")).toBe("EDST5805");
+    expect(notionRelationIds({ type: "relation", relation: [{ id: "15df794f-8476-80f7-ae79-f77b0001c400" }] })).toEqual([
+      "15df794f-8476-80f7-ae79-f77b0001c400",
+    ]);
+  });
+
   it("keeps pills already on the page and adds recovered ones", () => {
     expect(
       stampPageOrigins({
@@ -75,6 +99,25 @@ The lecture itself.`),
       { kind: "book", label: "Make It Stick" },
       { kind: "degree", label: "MEd" },
       { kind: "unit", label: "HIST2001" },
+    ]);
+  });
+
+  it("fills the degree from the unit’s Notion parent", () => {
+    expect(stampPageOrigins({ tags: ["EDST5805"], body: "Lecture notes." })).toEqual([
+      { kind: "degree", label: "Master of Education (Gifted Education)" },
+      { kind: "unit", label: "EDST5805" },
+    ]);
+    expect(
+      applyUnitDegreeMap(
+        [
+          { kind: "unit", label: "HNO6014" },
+          { kind: "notebook", label: "Wellbeing" },
+        ],
+      ),
+    ).toEqual([
+      { kind: "degree", label: "Graduate Certificate in Child and Adolescent Mental Health" },
+      { kind: "notebook", label: "Wellbeing" },
+      { kind: "unit", label: "HNO6014" },
     ]);
   });
 });

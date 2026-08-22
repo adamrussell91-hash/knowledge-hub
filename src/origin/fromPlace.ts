@@ -1,5 +1,6 @@
 import type { Origin, OriginKind } from "../domain/page";
 import { mergeOrigins, normalizeOriginLabel, normalizeOrigins } from "./normalize";
+import { applyUnitDegreeMap } from "./unitDegrees";
 
 const UNIT_CODE = /^[A-Z]{2,}\d/i;
 
@@ -10,17 +11,21 @@ const PROPERTY_KIND: Record<string, OriginKind> = {
   "course of study": "degree",
   unit: "unit",
   "unit code": "unit",
+  "unit number": "unit",
   "course code": "unit",
   course: "unit",
   notebook: "notebook",
+  notebooks: "notebook",
   journal: "notebook",
   "source notebook": "notebook",
   book: "book",
   "book title": "book",
+  "book/journal": "book",
   reading: "book",
   pd: "pd",
   "professional development": "pd",
   "pd session": "pd",
+  "professional development session": "pd",
   workshop: "pd",
   pl: "pd",
 };
@@ -32,9 +37,14 @@ function splitLabels(raw: string) {
     .filter(Boolean);
 }
 
+export function unitCodeFromLabel(label: string) {
+  const match = normalizeOriginLabel(label).match(/^([A-Za-z]{2,}\d[A-Za-z0-9]*)/);
+  return match ? match[1]!.toUpperCase() : normalizeOriginLabel(label);
+}
+
 export function originsFromUnitTags(tags: string[]): Origin[] {
   return normalizeOrigins(
-    tags.filter(tag => UNIT_CODE.test(tag.trim())).map(tag => ({ kind: "unit" as const, label: tag })),
+    tags.filter(tag => UNIT_CODE.test(tag.trim())).map(tag => ({ kind: "unit" as const, label: unitCodeFromLabel(tag) })),
   );
 }
 
@@ -88,16 +98,29 @@ export function notionPropertyLabels(value: unknown): string[] {
   return [];
 }
 
+export function notionRelationIds(value: unknown): string[] {
+  if (!value || typeof value !== "object") return [];
+  const rec = value as Record<string, unknown>;
+  if (rec.type !== "relation" || !Array.isArray(rec.relation)) return [];
+  return rec.relation
+    .map(item => (item && typeof item === "object" && "id" in item ? String((item as { id: unknown }).id) : ""))
+    .filter(Boolean);
+}
+
+function originLabel(kind: OriginKind, label: string) {
+  return kind === "unit" ? unitCodeFromLabel(label) : label;
+}
+
 export function originsFromNotionProperties(properties: Record<string, unknown>): Origin[] {
   const out: Origin[] = [];
   for (const [name, value] of Object.entries(properties)) {
     const kind = PROPERTY_KIND[name.trim().toLowerCase()];
     const labels = notionPropertyLabels(value);
     if (kind) {
-      for (const label of labels) out.push({ kind, label });
+      for (const label of labels) out.push({ kind, label: originLabel(kind, label) });
       continue;
     }
-    if (!/^(type|source|origin|place)$/i.test(name)) continue;
+    if (!/^(type|source|origin|place|uni type)$/i.test(name)) continue;
     for (const label of labels) {
       const inferred = inferOriginFromLabel(label);
       if (inferred) out.push(inferred);
@@ -110,7 +133,9 @@ export function stampPageOrigins(
   page: { tags: string[]; body: string; origins?: Origin[] },
   extra: Origin[] = [],
 ) {
-  return mergeOrigins(page.origins ?? [], originsFromUnitTags(page.tags), originsFromBody(page.body), extra);
+  return applyUnitDegreeMap(
+    mergeOrigins(page.origins ?? [], originsFromUnitTags(page.tags), originsFromBody(page.body), extra),
+  );
 }
 
 export function notionIdFromSource(sourceNotionId: string) {
