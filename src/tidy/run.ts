@@ -104,7 +104,7 @@ export async function runTidy(io: TidyIO) {
   const result = { selected: [] as string[], changed: [] as string[], skipped: [] as string[], errors: [] as string[] };
   const recordFailure = (id: string, reason: string) => {
     const previous = state.failures?.[id];
-    state.failures![id] = { attempts: (previous?.attempts ?? 0) + 1, lastFailedAt: now, reason };
+    state.failures![id] = { ...previous, attempts: (previous?.attempts ?? 0) + 1, lastFailedAt: now, reason };
   };
   for (const id of ids) {
     try {

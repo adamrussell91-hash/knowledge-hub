@@ -120,6 +120,42 @@ describe("runTidy", () => {
     expect(state).toMatchObject({ tidied: { bad: "2026-08-13T00:00:00.000Z" }, failures: {} });
   });
 
+  it("preserves a prior backfill marker when a later attempt also fails", async () => {
+    let state: unknown = {
+      tidied: {},
+      failures: {
+        bad: {
+          attempts: 1,
+          lastFailedAt: "2026-08-01T00:00:00.000Z",
+          reason: "pilot failed",
+          backfillAttemptedAt: "2026-08-01T00:00:00.000Z",
+        },
+      },
+    };
+    await runTidy({
+      scan: true,
+      count: 1,
+      readPage: async id => page(id, { body: "Messy\n\n\n\ntext" }),
+      listPageIds: async () => ["bad"],
+      readManifest: async () => [],
+      writeManifest: async () => {},
+      readState: async () => state,
+      writeState: async value => { state = value; },
+      propose: async () => { throw new Error("scheduled retry failed"); },
+      writePage: async () => {},
+      now: () => "2026-08-10T00:00:00.000Z",
+    });
+    expect(state).toMatchObject({
+      failures: {
+        bad: {
+          attempts: 2,
+          reason: "scheduled retry failed",
+          backfillAttemptedAt: "2026-08-01T00:00:00.000Z",
+        },
+      },
+    });
+  });
+
   it("sanitizes malformed tidy state before selecting pages", () => {
     expect(normalizeTidyState({
       lastRunAt: 3,
