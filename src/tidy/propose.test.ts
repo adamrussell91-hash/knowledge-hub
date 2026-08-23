@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildTidyPrompt, normalizeTidyBody, parseTidyProposal, proposeTidy, tidyQualityIssues } from "./propose";
 
 describe("parseTidyProposal", () => {
@@ -58,8 +58,40 @@ describe("parseTidyProposal", () => {
 
   it("throws on a non-OK model response and returns null for a malformed text response", async () => {
     const page = { id: "p", title: "Caesar", area: "notes" as const, tags: ["History"], body: "Text", connected: [], attachments: [], source: "hub" as const, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", schema_version: 1 as const };
-    await expect(proposeTidy({ page, prompt: "Controller", apiKey: "key", fetchImpl: async () => new Response("no", { status: 429 }) })).rejects.toThrow("Anthropic error 429");
+    await expect(proposeTidy({ page, prompt: "Controller", apiKey: "key", maxRetries: 0, fetchImpl: async () => new Response("no", { status: 429 }) })).rejects.toThrow("Anthropic error 429");
     await expect(proposeTidy({ page, prompt: "Controller", apiKey: "key", fetchImpl: async () => new Response(JSON.stringify({ content: [{ type: "text", text: "not json" }] })) })).resolves.toBeNull();
+  });
+
+  it("backs off exponentially on Anthropic 400 and 429 responses", async () => {
+    const page = { id: "p", title: "Caesar", area: "notes" as const, tags: ["History"], body: "Text", connected: [], attachments: [], source: "hub" as const, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", schema_version: 1 as const };
+    const sleep = vi.fn(async () => {});
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(new Response("bad request", { status: 400 }))
+      .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        content: [{ type: "text", text: '{"tags":["Philosophy Knowledge and Society"],"body":"Clean","title":null}' }],
+        usage: { input_tokens: 100, output_tokens: 20 },
+      })));
+
+    await expect(proposeTidy({ page, prompt: "Controller", apiKey: "key", fetchImpl, sleep })).resolves.toMatchObject({ body: "Clean" });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls).toEqual([[1000], [2000]]);
+  });
+
+  it("reports actual input and output token usage from a response", async () => {
+    const page = { id: "p", title: "Caesar", area: "notes" as const, tags: ["History"], body: "Text", connected: [], attachments: [], source: "hub" as const, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", schema_version: 1 as const };
+    const onUsage = vi.fn();
+    await proposeTidy({
+      page,
+      prompt: "Controller",
+      apiKey: "key",
+      onUsage,
+      fetchImpl: async () => new Response(JSON.stringify({
+        content: [{ type: "text", text: "not json" }],
+        usage: { input_tokens: 120, output_tokens: 35 },
+      })),
+    });
+    expect(onUsage).toHaveBeenCalledWith({ inputTokens: 120, outputTokens: 35 });
   });
 
   it("normalizes CRLF blank storms to normal markdown", () => {
