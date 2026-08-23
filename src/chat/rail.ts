@@ -5,7 +5,7 @@ import { escapeHtml, showToast } from "../lib/dom";
 import { renderMarkdown } from "../lib/markdown";
 import { CHAT_HATS, DEPTHS, SCOPES, hatById, isChatHatId, resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
 import { researchFromFindings, searchedNotesHtml, thinkingHistoryHtml } from "./sources";
-import { appendTick, chatTick } from "./ticker";
+import { CLEMENTINE_WAIT_LINES, appendTick, chatTick, pickClementineWaitLine } from "./ticker";
 import { briefIsSavable, briefToPage, type SavableFinding } from "./saveBrief";
 import type { ChatTurnResult } from "./chatTurn";
 
@@ -44,6 +44,7 @@ let writeSessionId = "";
 let busy = false;
 let error = "";
 let ticks: string[] = [];
+let waitLine = CLEMENTINE_WAIT_LINES[0]!;
 let thinkingOpen = false;
 const sourcesOpen = new Set<number>();
 let saveBusy = false;
@@ -53,7 +54,7 @@ function persist() {
   try {
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ hat, scope, depth, showDials, thesis, draft, input, turns, noteContext, researchSessionId, writeSessionId, ticks }),
+      JSON.stringify({ hat, scope, depth, showDials, thesis, draft, input, turns, noteContext, researchSessionId, writeSessionId, ticks, waitLine }),
     );
   } catch {
     /* private mode / SSR */
@@ -77,6 +78,7 @@ function restore() {
       researchSessionId: string;
       writeSessionId: string;
       ticks: string[];
+      waitLine: string;
     }>;
     if (saved.hat && isChatHatId(saved.hat)) hat = saved.hat;
     scope = saved.scope;
@@ -90,6 +92,7 @@ function restore() {
     researchSessionId = saved.researchSessionId ?? "";
     writeSessionId = saved.writeSessionId ?? "";
     ticks = Array.isArray(saved.ticks) ? saved.ticks.filter((line): line is string => typeof line === "string") : ticks;
+    waitLine = typeof saved.waitLine === "string" && saved.waitLine ? saved.waitLine : waitLine;
   } catch {
     /* keep defaults */
   }
@@ -104,6 +107,7 @@ function resetSitting() {
   writeSessionId = "";
   error = "";
   ticks = [];
+  waitLine = CLEMENTINE_WAIT_LINES[0]!;
   persist();
 }
 
@@ -143,6 +147,7 @@ function pushTick(
   research?: { findings?: unknown[]; followUpQueries?: string[]; round?: number },
 ) {
   const plan = sitting();
+  waitLine = pickClementineWaitLine({ exclude: ticks.length ? waitLine : undefined });
   ticks = appendTick(
     ticks,
     chatTick({
@@ -154,6 +159,7 @@ function pushTick(
       maxRounds: plan.maxRounds,
       noteCount: research?.findings?.length,
       followUps: research?.followUpQueries?.length,
+      waitLine,
     }),
   );
 }
@@ -182,6 +188,7 @@ function applyResult(history: ChatTurn[], result: ChatTurnResult) {
   }
   researchSessionId = "";
   writeSessionId = "";
+  waitLine = CLEMENTINE_WAIT_LINES[0]!;
   turns = [
     ...history,
     {
@@ -261,6 +268,7 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
     }
   } finally {
     busy = false;
+    if (!researchSessionId && !writeSessionId) waitLine = CLEMENTINE_WAIT_LINES[0]!;
     persist();
     host.render();
     if (researchSessionId || writeSessionId) {
@@ -313,7 +321,7 @@ export function renderChatRail(host: ChatRailHost) {
         <div class="graph-modes" role="group" aria-label="Chat hats">
           ${CHAT_HATS.map(
             item =>
-              `<button type="button" data-hat="${item.id}" class="${hat === item.id ? "is-active" : ""}">${escapeHtml(item.label)}</button>`,
+              `<button type="button" data-hat="${item.id}" class="${hat === item.id ? "is-active" : ""}" aria-describedby="chat-hat-tip-${item.id}"><span>${escapeHtml(item.label)}</span><span class="agent-protocol-pills__tip" id="chat-hat-tip-${item.id}" role="tooltip">${escapeHtml(item.explain)}</span></button>`,
           ).join("")}
         </div>
         ${
@@ -347,11 +355,11 @@ export function renderChatRail(host: ChatRailHost) {
         <label for="chat-input">Message</label>
         <textarea id="chat-input" rows="3" placeholder="Ask about the archive…">${escapeHtml(input)}</textarea>
         <div class="alchemist__actions">
-          <button type="submit" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${busy || researchSessionId || writeSessionId ? "Still working…" : "Send"}</button>
+          <button type="submit" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${busy || researchSessionId || writeSessionId ? escapeHtml(waitLine) : "Send"}</button>
           ${canSave ? `<button type="button" data-save-brief ${saveBusy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>` : ""}
         </div>
         ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
-        ${busy || researchSessionId || writeSessionId ? `<p class="chat__status" aria-live="polite">Still working…</p>` : ""}
+        ${busy || researchSessionId || writeSessionId ? `<p class="chat__status" aria-live="polite">${escapeHtml(waitLine)}</p>` : ""}
         ${busy || researchSessionId || writeSessionId ? thinkingHistoryHtml(ticks, thinkingOpen) : ""}
       </form>
       <div class="coach__thread" aria-live="polite">

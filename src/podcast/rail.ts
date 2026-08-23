@@ -42,6 +42,19 @@ const DISAGREEMENTS = ["mild", "medium", "sharp"] as const;
 const PACINGS = ["linger", "even", "race"] as const;
 const INTERRUPTIONS = ["finish-thought", "immediate"] as const;
 
+export const ANN_PODCAST_WAIT_LINES = [
+  "Red-pencilling the script…",
+  "Checking what the note actually shows…",
+  "Testing Clementine’s confidence…",
+  "Finding the gap in the evidence…",
+  "Holding on at the weak claim…",
+  "Reading the note as a text…",
+  "Complicating the easy answer…",
+  "Checking the archive earns it…",
+  "Listening for the overstatement…",
+  "Landing the sharper objection…",
+];
+
 let kind: Kind = "one-off";
 let mode: PodcastMode | "" = "recap";
 let recapCadence: (typeof CADENCES)[number] = "weekly";
@@ -140,13 +153,17 @@ function episodeFailure(episode: PodcastEpisode) {
   return episode.error?.trim() || "Podcast failed.";
 }
 
-function runningNote(episode: PodcastEpisode) {
-  if (episode.seriesId && (episode.episodeIndex ?? 1) === 1) return "writing episode 1";
-  if (!episode.turns.length) return "writing the script…";
-  const spoken = episode.turns.filter(turn => turn.audioKey).length;
-  const speakable = episode.turns.filter(turn => turn.kind !== "cue" && turn.kind !== "empty").length;
-  if (!speakable) return "recording…";
-  return `recording turn ${Math.min(spoken + 1, speakable)}/${speakable}`;
+export function pickAnnPodcastWaitLine(
+  { exclude, random = Math.random }: { exclude?: string; random?: () => number } = {},
+) {
+  const pool = exclude ? ANN_PODCAST_WAIT_LINES.filter(line => line !== exclude) : ANN_PODCAST_WAIT_LINES;
+  const choices = pool.length ? pool : ANN_PODCAST_WAIT_LINES;
+  const index = Math.min(choices.length - 1, Math.max(0, Math.floor(random() * choices.length)));
+  return choices[index]!;
+}
+
+function runningNote(_episode: PodcastEpisode) {
+  return pickAnnPodcastWaitLine({ exclude: statusNote });
 }
 
 function formatDate(iso: string) {
@@ -478,7 +495,7 @@ async function generate(host: PodcastRailHost) {
   podcastError = "";
   current = null;
   resetPlayer();
-  statusNote = kind === "series" ? "planning the season" : "recording…";
+  statusNote = pickAnnPodcastWaitLine();
   host.render();
   try {
     if (kind === "series") {
@@ -529,7 +546,7 @@ async function nextEpisode(host: PodcastRailHost, seriesId: string) {
   stopPoll();
   busy = true;
   podcastError = "";
-  statusNote = "recording…";
+  statusNote = pickAnnPodcastWaitLine();
   host.render();
   try {
     current = await nextPodcastEpisode(seriesId);
@@ -575,7 +592,7 @@ export function renderPodcastRail(host: PodcastRailHost) {
         </fieldset>
         ${commissionFields(host.tags)}
         <div class="alchemist__actions">
-          <button type="submit" ${busy ? "disabled" : ""}>${busy ? escapeHtml(statusNote || "Working…") : "Generate"}</button>
+          <button type="submit" ${busy ? "disabled" : ""}>${busy ? escapeHtml(statusNote || ANN_PODCAST_WAIT_LINES[0]!) : "Generate"}</button>
         </div>
         ${podcastError ? `<p class="alchemist__error">${escapeHtml(podcastError)}</p>` : ""}
       </form>

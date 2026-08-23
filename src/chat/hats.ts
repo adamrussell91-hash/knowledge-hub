@@ -14,6 +14,7 @@ export type KernelPath = "quick" | "deep";
 export type ChatHat = {
   id: ChatHatId;
   label: string;
+  explain: string;
   plan: string;
   defaultScope: ChatScope;
   defaultDepth: ChatDepth;
@@ -26,6 +27,7 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "scoping",
     label: "Scoping",
+    explain: "Map the archive quickly to reveal clusters, exemplars, and gaps.",
     defaultScope: "wide",
     defaultDepth: "single",
     plan: "Wide sweep, few bodies. Clusters + counts + one exemplar each + gaps. Cheap map, not an essay.",
@@ -33,6 +35,7 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "synthesis",
     label: "Thematic synthesis",
+    explain: "Build a structured brief from the strongest archive themes.",
     defaultScope: "standard",
     defaultDepth: "iterative",
     plan: "Retrieve, read top bodies, write a structured brief. Every claim carries an archive page id. Never invent a page.",
@@ -40,6 +43,7 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "evidence",
     label: "Evidence check",
+    explain: "Test a claim against supporting, contradicting, and silent evidence.",
     defaultScope: "narrow",
     defaultDepth: "verified",
     plan: "Take the claim. Search paraphrase, key entity, and negation. Classify supports / contradicts / silent. Verdict with contradictions first.",
@@ -47,6 +51,7 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "contested",
     label: "Contested ground",
+    explain: "Surface the archive’s hardest disagreements before its easy overlaps.",
     defaultScope: "narrow",
     defaultDepth: "verified",
     plan: "Negation is first-class. Return disagreement pairs, sorted by how hard they clash, not by relevance.",
@@ -54,6 +59,7 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "internalExternal",
     label: "Internal-then-external",
+    explain: "Check archive coverage first and use outside search only when requested.",
     defaultScope: "standard",
     defaultDepth: "single",
     plan: "Internal archive first plus an honest coverage read. If thin, say so. Do not search the web unless the user clicked Search outside. External hits never look like archive citations.",
@@ -61,6 +67,7 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "methods",
     label: "Methods",
+    explain: "Answer a methods question from methods-tagged notes rather than content notes.",
     defaultScope: "narrow",
     defaultDepth: "single",
     plan: "Filter to methods-tagged notes first, then search only inside that set. A methods question cannot be answered from a content note.",
@@ -68,6 +75,7 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "writing",
     label: "Writing",
+    explain: "Coach the thesis or draft while keeping archive evidence attached.",
     defaultScope: "standard",
     defaultDepth: "single",
     plan: "University writing-coach conversation. Thesis and draft if present. Protocols in prose (reverse outline, stress test, editors). You may pull the archive; do not silently become Synthesis.",
