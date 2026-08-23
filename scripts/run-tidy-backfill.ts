@@ -40,6 +40,13 @@ export function assertCleanStatus(status: string) {
   if (status.trim()) throw new Error("knowledge-hub-data must be clean before backfill starts");
 }
 
+export function assertDataRepoRemote(remote: string) {
+  const normalized = remote.trim().replace(/\.git$/, "");
+  if (!/^(?:https:\/\/github\.com\/|git@github\.com:)adamrussell91-hash\/knowledge-hub-data$/.test(normalized)) {
+    throw new Error("--data-dir must use the adamrussell91-hash/knowledge-hub-data origin remote");
+  }
+}
+
 export function backfillBatchMessage(batchNumber: number) {
   return `Tidy archive notes (backfill batch ${batchNumber}).`;
 }
@@ -80,11 +87,13 @@ async function git(dataDir: string, args: string[]) {
 }
 
 async function assertDataRepo(dataDir: string) {
-  const [requested, root] = await Promise.all([
+  const [requested, root, remote] = await Promise.all([
     realpath(dataDir),
     git(dataDir, ["rev-parse", "--show-toplevel"]).then(value => realpath(value)),
+    git(dataDir, ["remote", "get-url", "origin"]),
   ]);
   if (requested !== root) throw new Error("--data-dir must be the knowledge-hub-data repository root");
+  assertDataRepoRemote(remote);
   assertCleanStatus(await git(dataDir, ["status", "--porcelain"]));
 }
 

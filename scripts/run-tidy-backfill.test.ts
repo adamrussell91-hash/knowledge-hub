@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertCleanStatus,
+  assertDataRepoRemote,
   backfillBatchMessage,
   costProjection,
   parseBackfillArgs,
@@ -28,6 +29,12 @@ describe("data repository boundaries", () => {
   it("rejects a dirty checkout before it can stage data", () => {
     expect(() => assertCleanStatus(" M pages/p.json\n")).toThrow("must be clean");
     expect(() => assertCleanStatus("")).not.toThrow();
+  });
+
+  it("accepts only the knowledge-hub-data GitHub remote", () => {
+    expect(() => assertDataRepoRemote("https://github.com/adamrussell91-hash/knowledge-hub-data.git")).not.toThrow();
+    expect(() => assertDataRepoRemote("git@github.com:adamrussell91-hash/knowledge-hub-data.git")).not.toThrow();
+    expect(() => assertDataRepoRemote("https://github.com/adamrussell91-hash/knowledge-hub.git")).toThrow("knowledge-hub-data");
   });
 
   it("numbers batch commits and serializes only id and reason", () => {
