@@ -76,6 +76,46 @@ export const SHOW_ALL_TUNING_CONTROLS: readonly ShowAllTuningControl[] = [
 export const SHOW_ALL_SPOKE_ALPHA = 0.28;
 export const SHOW_ALL_SETTLE_TICKS = 180;
 export const SHOW_ALL_RETUNE_MS = 90;
+/** CSS-pixel width. Thick enough that diagonals do not hairline into dots. */
+export const SHOW_ALL_STRAND_WIDTH = 2;
+const SHOW_ALL_STRAND_ACTIVE_BOOST = 0.6;
+
+export type ShowAllStrandStroke = {
+  dash: number[];
+  lineCap: CanvasLineCap;
+  lineJoin: CanvasLineJoin;
+  width: number;
+};
+
+export function showAllStrandWidth(active = false) {
+  const base = SHOW_ALL_STRAND_WIDTH * showAllTuning.lineWidthScale;
+  return active ? base + SHOW_ALL_STRAND_ACTIVE_BOOST : base;
+}
+
+/** Show All strands stay solid. Dashes read as dotted hairlines at the default zoom. */
+export function showAllStrandDash(): number[] {
+  return [];
+}
+
+export function showAllStrandStroke(active = false): ShowAllStrandStroke {
+  return {
+    dash: showAllStrandDash(),
+    lineCap: "round",
+    lineJoin: "round",
+    width: showAllStrandWidth(active),
+  };
+}
+
+export function applyShowAllStrandStroke(
+  ctx: Pick<CanvasRenderingContext2D, "lineCap" | "lineJoin" | "lineWidth" | "setLineDash">,
+  args: { active?: boolean; viewK: number },
+) {
+  const stroke = showAllStrandStroke(Boolean(args.active));
+  ctx.lineCap = stroke.lineCap;
+  ctx.lineJoin = stroke.lineJoin;
+  ctx.setLineDash(stroke.dash);
+  ctx.lineWidth = stroke.width / Math.max(args.viewK, 0.001);
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));

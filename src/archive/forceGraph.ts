@@ -10,6 +10,7 @@ import {
 import {
   SHOW_ALL_RETUNE_MS,
   SHOW_ALL_SPOKE_ALPHA,
+  applyShowAllStrandStroke,
   applyShowAllTuning,
   attachGraphSearch,
   canvasRadius,
@@ -405,12 +406,23 @@ export function mountForceGraph(
         curve(ctx, source.x, source.y, target.x, target.y);
       }
 
-      const widthScale = showAll ? showAllTuning.lineWidthScale : 1;
-      if (link.kind === "spoke") {
+      if (showAll) {
+        applyShowAllStrandStroke(ctx, { active, viewK: view.k });
+        if (link.kind === "spoke") {
+          ctx.strokeStyle = active ? "#e07a2f" : link.color;
+          ctx.globalAlpha = (dim ? 0.05 : active ? 0.75 : SHOW_ALL_SPOKE_ALPHA) * fade;
+        } else if (active) {
+          ctx.strokeStyle = "#e07a2f";
+          ctx.globalAlpha = 0.9 * fade;
+        } else {
+          ctx.strokeStyle = link.color;
+          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" ? overlapLinkAlpha() : 0.2) * fade;
+        }
+      } else if (link.kind === "spoke") {
         ctx.setLineDash([4 / view.k, 5 / view.k]);
         ctx.strokeStyle = active ? "#e07a2f" : link.color;
-        ctx.globalAlpha = (dim ? 0.05 : active ? 0.75 : showAll ? SHOW_ALL_SPOKE_ALPHA : 0.4) * fade;
-        ctx.lineWidth = (1.1 * widthScale) / view.k;
+        ctx.globalAlpha = (dim ? 0.05 : active ? 0.75 : 0.4) * fade;
+        ctx.lineWidth = 1.1 / view.k;
       } else if (link.kind === "orbit") {
         ctx.setLineDash([3 / view.k, 6 / view.k]);
         ctx.strokeStyle = active ? "#e07a2f" : link.color;
@@ -418,10 +430,7 @@ export function mountForceGraph(
         ctx.lineWidth = 1.4 / view.k;
       } else {
         ctx.setLineDash([]);
-        const thick =
-          (showAll && link.kind === "overlap"
-            ? 1.1 + (link.weight / maxWeight) * 2.2
-            : 1 + (link.weight / maxWeight) * 4.5) * widthScale;
+        const thick = 1 + (link.weight / maxWeight) * 4.5;
         if (active) {
           ctx.strokeStyle = "#e07a2f";
           ctx.globalAlpha = 0.9 * fade;
@@ -434,6 +443,8 @@ export function mountForceGraph(
       }
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.lineCap = "butt";
+      ctx.lineJoin = "miter";
       ctx.globalAlpha = 1;
     }
 
