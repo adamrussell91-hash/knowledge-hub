@@ -134,21 +134,46 @@ describe("force graph search dimming", () => {
     });
   });
 
-  it("greys links unless both ends are search-hot", () => {
+  it("keeps a matching note's spokes even when the hub title does not match", () => {
     const spoke: GraphLinkDatum = {
-      source: "minor:a1",
+      source: "major:A",
       target: "leaf:n1",
       kind: "spoke",
       weight: 1,
       color: "#7eb0d5",
     };
-    expect(linkDrawState(spoke, minor, leaf, { query: "note", nodes, selected: null, hover: null })).toEqual({
-      active: false,
-      dim: true,
-    });
-    expect(linkDrawState(spoke, leaf, leaf, { query: "note", nodes, selected: null, hover: null })).toEqual({
+    expect(linkDrawState(spoke, major, leaf, { query: "note", nodes, selected: null, hover: null })).toEqual({
       active: true,
       dim: false,
+    });
+  });
+
+  it("keeps a selected note's spokes to its topic hubs", () => {
+    const spoke: GraphLinkDatum = {
+      source: "major:A",
+      target: "leaf:n1",
+      kind: "spoke",
+      weight: 1,
+      color: "#7eb0d5",
+    };
+    expect(linkDrawState(spoke, major, leaf, { query: "", nodes, selected: "Note 1", hover: null })).toEqual({
+      active: true,
+      dim: false,
+    });
+  });
+
+  it("still greys links that do not touch a search-hot node", () => {
+    const otherLeaf = node({ id: "leaf:n2", kind: "leaf", label: "Other", pageId: "p2" });
+    const spoke: GraphLinkDatum = {
+      source: "major:B",
+      target: "leaf:n2",
+      kind: "spoke",
+      weight: 1,
+      color: "#7eb0d5",
+    };
+    expect(linkDrawState(spoke, otherMajor, otherLeaf, { query: "note", nodes, selected: null, hover: null })).toEqual({
+      active: false,
+      dim: true,
     });
   });
 });
@@ -235,6 +260,11 @@ describe("show all draw budget", () => {
     expect(showAllLinkShouldDraw("spoke", 0.16, false)).toBe(false);
     expect(showAllLinkShouldDraw("overlap", 0.02, true)).toBe(true);
     expect(showAllLinkShouldDraw("backbone", 0.01, false)).toBe(true);
+  });
+
+  it("always draws a selected or search-hot spoke even when zoomed out or off-screen", () => {
+    expect(showAllLinkShouldDraw("spoke", 0.09, false, true)).toBe(true);
+    expect(showAllLinkShouldDraw("spoke", 0.16, false, true)).toBe(true);
   });
 });
 

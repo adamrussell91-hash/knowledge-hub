@@ -73,7 +73,7 @@ export const SHOW_ALL_TUNING_CONTROLS: readonly ShowAllTuningControl[] = [
   },
 ];
 
-export const SHOW_ALL_SPOKE_ALPHA = 0.15;
+export const SHOW_ALL_SPOKE_ALPHA = 0.28;
 export const SHOW_ALL_SETTLE_TICKS = 180;
 export const SHOW_ALL_RETUNE_MS = 90;
 
@@ -196,7 +196,13 @@ export function shouldLockShowAll(tickCount: number) {
   return tickCount >= SHOW_ALL_SETTLE_TICKS;
 }
 
-export function showAllLinkShouldDraw(kind: GraphLinkKind, viewK: number, leafOnScreen: boolean) {
+export function showAllLinkShouldDraw(
+  kind: GraphLinkKind,
+  viewK: number,
+  leafOnScreen: boolean,
+  emphasized = false,
+) {
+  if (emphasized) return true;
   if (kind === "spoke") return viewK >= 0.1 && leafOnScreen;
   if (kind === "overlap") return true;
   return true;
@@ -279,12 +285,17 @@ export function linkDrawState(
   args: DrawArgs,
 ): LinkEmphasis {
   if (isGraphSearching(args.query)) {
-    const active = isSearchHot(source, args.query, args.nodes) && isSearchHot(target, args.query, args.nodes);
+    const sourceHot = isSearchHot(source, args.query, args.nodes);
+    const targetHot = isSearchHot(target, args.query, args.nodes);
+    const leafHot =
+      (source.kind === "leaf" && sourceHot) || (target.kind === "leaf" && targetHot);
+    const spokeFromHotHub = link.kind === "spoke" && (sourceHot || targetHot);
+    const active = leafHot || spokeFromHotHub || (sourceHot && targetHot);
     return { active, dim: !active };
   }
   const cluster = selectionCluster(args.nodes, args.selected);
   const focusing = Boolean(args.selected);
-  const selectedActive = isFocusLink(link, args.nodes, cluster);
+  const selectedActive = isFocusLink(link, args.nodes, cluster, args.selected);
   const hoverActive = args.hover != null && (source.id === args.hover.id || target.id === args.hover.id);
   const active = selectedActive || hoverActive;
   return { active, dim: focusing && !active };

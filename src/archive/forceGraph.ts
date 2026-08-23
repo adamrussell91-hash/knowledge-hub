@@ -391,10 +391,10 @@ export function mountForceGraph(
       if (source.departing || target.departing) continue;
       const leaf = source.kind === "leaf" ? source : target.kind === "leaf" ? target : null;
       const leafOnScreen = Boolean(leaf && onScreen(leaf.x ?? 0, leaf.y ?? 0));
-      if (showAll && !showAllLinkShouldDraw(link.kind, view.k, leafOnScreen)) continue;
-      if (showAll && link.kind !== "spoke" && !onScreen(source.x, source.y) && !onScreen(target.x, target.y)) continue;
-
       const { active, dim } = linkDrawState(link, source, target, emphasis);
+      const emphasized = active && !dim;
+      if (showAll && !showAllLinkShouldDraw(link.kind, view.k, leafOnScreen, emphasized)) continue;
+      if (showAll && link.kind !== "spoke" && !emphasized && !onScreen(source.x, source.y) && !onScreen(target.x, target.y)) continue;
       const fade = Math.min(source.opacity ?? 1, target.opacity ?? 1);
 
       ctx.beginPath();
