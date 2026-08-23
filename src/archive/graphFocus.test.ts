@@ -126,7 +126,7 @@ describe("leaf selection by page", () => {
       id: "leaf:other",
       kind: "leaf",
       label: "Other note",
-      parentKeyword: "Motivation and Self Regulation",
+      parentKeyword: "Learning Science and Cognition",
       pageId: "o1",
     });
     const graph = [motivation, learning, zimmerman, other];
