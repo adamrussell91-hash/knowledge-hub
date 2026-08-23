@@ -1,8 +1,6 @@
 name: Split and tidy leftovers
 
 on:
-  push:
-    branches: [cursor/split-tidy-leftovers-06a4]
   workflow_dispatch:
     inputs:
       limit:
