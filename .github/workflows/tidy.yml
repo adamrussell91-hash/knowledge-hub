@@ -42,10 +42,11 @@ jobs:
           if [ -n "$PAGE_ID" ]; then
             npm run tidy -- --id "$PAGE_ID" --data-dir data-repo
           else
-            npm run tidy -- --scan --count 20 --data-dir data-repo
+            npm run tidy -- --scan --count 1 --data-dir data-repo
           fi
 
       - name: Commit tidy artifacts
+        if: always()
         working-directory: data-repo
         run: |
           git config user.name "knowledge-hub-tidy"
