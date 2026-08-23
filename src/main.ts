@@ -67,6 +67,8 @@ import { bindUniverseKey, universeKeyHtml } from "./archive/universeKey";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
 import { enterChatRail, leaveChatRail, renderChatRail } from "./chat/rail";
+import { ensureChatOverlay, hideChatOverlay, openChatOverlay, pinChatOverlayNote } from "./chat/overlay";
+import type { GraphPreviewNote } from "./archive/graphPreview";
 import { connectedLinksHtml } from "./wiki/connectedHtml";
 import { addOrigin, isOriginKind, originKey, removeOrigin } from "./origin/normalize";
 import { resolvedOrigins } from "./origin/notesPlace";
@@ -691,13 +693,15 @@ function renderGraph() {
       universeKeyOpen = open;
     });
   }
-  const preview = mountGraphPreview(stage, { onOpen: pageId => void openPage(pageId) });
+  const preview = mountGraphPreview(stage, { onOpen: openPageInNewTab });
   const onNoteSelect = (note: { pageId: string; title: string; excerpt: string } | null) => {
     if (!note) {
       preview.clear();
       return;
     }
-    preview.show({ ...note, excerpt: note.excerpt || excerptFor(note.pageId) });
+    const card = previewNote(note.pageId, note.title, note.excerpt || excerptFor(note.pageId));
+    preview.show(card);
+    pinChatOverlayNote({ pageId: card.pageId, title: card.title });
   };
 
   document.onkeydown = event => {
@@ -820,12 +824,7 @@ function renderPage(page: Page) {
     button.onclick = () => openCompose(parseOriginRemoveValue(button.dataset.editOrigins ?? ""));
   });
   app.querySelector<HTMLButtonElement>("[data-open-chat]")!.onclick = () => {
-    leaveSpecialRails();
-    view = "chat";
-    enterChatRail({ noteContext: { pageId: page.id, title: page.title } });
-    activePage = null;
-    clearPageHash();
-    render();
+    openChatOverlay({ note: { pageId: page.id, title: page.title } });
   };
   app.querySelector<HTMLButtonElement>("[data-tidy]")!.onclick = async () => {
     if (tidyBusy) return;
@@ -1163,12 +1162,44 @@ async function saveCompose() {
   }
 }
 
+function openPageInNewTab(id: string) {
+  const url = `${location.pathname}${location.search}${pageHashForId(id)}`;
+  window.open(url, "_blank", "noopener");
+}
+
+function previewNote(pageId: string, title: string, excerpt: string): GraphPreviewNote {
+  const entry = entries.find(item => item.id === pageId);
+  return {
+    pageId,
+    title: entry?.title ?? title,
+    excerpt: excerpt || entry?.excerpt || "",
+    tags: entry?.tags,
+    origins: entry ? resolvedOrigins(entry) : [],
+  };
+}
+
+function afterSignedInPaint() {
+  ensureChatOverlay({
+    visible: true,
+    onSavedPage: async saved => {
+      entries = await listPages();
+      await refreshVisible();
+      if (activePage?.id === saved.id) activePage = saved;
+      render();
+    },
+    topicsFor: pageId => {
+      const entry = entries.find(item => item.id === pageId);
+      return entry ? topicKeywords(entry.tags) : [];
+    },
+  });
+}
+
 function render() {
-  if (view === "compose" && compose) return renderCompose(compose);
-  if (view === "page" && activePage) return renderPage(activePage);
-  if (view === "graph") return renderGraph();
-  if (view === "chat") {
-    return renderChatRail({
+  if (view === "compose" && compose) renderCompose(compose);
+  else if (view === "page" && activePage) renderPage(activePage);
+  else if (view === "graph") renderGraph();
+  else if (view === "chat") {
+    renderChatRail({
       app,
       shell,
       render,
@@ -1180,18 +1211,16 @@ function render() {
       },
       pageHeader,
     });
-  }
-  if (view === "podcast") {
-    return renderPodcastRail({
+  } else if (view === "podcast") {
+    renderPodcastRail({
       app,
       tags: vocabularyPresent(entries.map(entry => entry.tags)),
       shell,
       render,
       onOpenPage: pageId => void openPage(pageId),
     });
-  }
-  if (view === "quiz") {
-    return renderQuizRail({
+  } else if (view === "quiz") {
+    renderQuizRail({
       app,
       entries,
       tags: vocabularyPresent(entries.map(entry => entry.tags)),
@@ -1199,8 +1228,10 @@ function render() {
       render,
       onOpenPage: id => void openPage(id),
     });
+  } else {
+    renderList();
   }
-  return renderList();
+  afterSignedInPaint();
 }
 
 function showSignInError(message?: string) {
@@ -1229,6 +1260,7 @@ function bindSignInEnter(form: HTMLFormElement) {
 }
 
 function renderLoadError() {
+  hideChatOverlay();
   app.innerHTML = `<div class="sign-in">
     <div class="sign-in__card">
       <p class="sign-in__brand">Knowledge Hub</p>
@@ -1243,6 +1275,7 @@ function renderLoadError() {
 }
 
 function renderLogin(message?: string) {
+  hideChatOverlay();
   app.innerHTML = `<div class="sign-in">
     <form class="sign-in__card" method="post" action="#" novalidate>
       <div class="sign-in__haze" aria-hidden="true">

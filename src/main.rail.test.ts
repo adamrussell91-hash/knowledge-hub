@@ -68,6 +68,15 @@ describe("Knowledge Hub rail", () => {
     expect(main).not.toContain("University pages stay in the archive");
   });
 
+  it("keeps graph note previews and a portrait chat overlay", () => {
+    expect(main).toContain("openPageInNewTab");
+    expect(main).toContain("ensureChatOverlay");
+    expect(main).toContain("pinChatOverlayNote");
+    expect(css).toContain(".floating-chat-button");
+    expect(css).toContain(".agent-picker__avatar");
+    expect(css).toContain(".graph-preview__excerpt");
+  });
+
   it("makes Knowledge Hub a home control", () => {
     expect(main).toContain('class="hub-rail__brand" data-home');
     expect(main).toContain('href="#"');

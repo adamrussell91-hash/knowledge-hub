@@ -85,6 +85,29 @@ describe("runChatTurn", () => {
     expect(result.coverage?.thin).toBe(false);
   });
 
+  it("tells her she can retag notes and lists every note in play", async () => {
+    let system = "";
+    await runChatTurn({
+      voice,
+      universityJob,
+      hat: "synthesis",
+      messages: [{ role: "user", content: "What is the connection?" }],
+      compose: true,
+      priorResearch: researchResult(),
+      notesInPlay: [
+        { pageId: "p1", title: "Retrieval practice and spacing" },
+        { pageId: "p2", title: "Interleaving in mixed practice sets" },
+      ],
+      complete: async assembled => {
+        system = assembled;
+        return "Same mechanism.";
+      },
+    });
+    expect(system).toContain("note-edit");
+    expect(system).toContain("Retrieval practice and spacing (p1)");
+    expect(system).toContain("Interleaving in mixed practice sets (p2)");
+  });
+
   it("starts a deep Worker session and does not call Claude yet", async () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");
     const fetchImpl = vi.fn().mockResolvedValue({

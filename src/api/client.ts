@@ -108,6 +108,8 @@ export type ChatRequest = {
   workingThesis?: string;
   draft?: string;
   noteContext?: { pageId: string; title: string };
+  notesInPlay?: { pageId: string; title: string }[];
+  personality?: string;
   searchOutside?: boolean;
   researchSessionId?: string;
   writeSessionId?: string;
