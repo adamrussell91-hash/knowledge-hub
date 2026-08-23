@@ -3,11 +3,16 @@ name: Tidy backfill
 on:
   workflow_dispatch:
     inputs:
-      stamp_only:
-        description: "Stamp clean tagged notes without calling Claude"
+      full_run:
+        description: "Drain all remaining model-eligible pages and retry the two named stuck IDs once"
         required: false
         type: boolean
         default: false
+      model_limit:
+        description: "Exact maximum paid calls when full_run is false"
+        required: true
+        type: number
+        default: 100
 
 permissions:
   contents: read
@@ -34,12 +39,29 @@ jobs:
           path: data-repo
           fetch-depth: 0
 
+      - name: Configure tidy author
+        working-directory: data-repo
+        run: |
+          git config user.name "knowledge-hub-tidy"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Backfill tidy
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FULL_RUN: ${{ inputs.full_run }}
+          MODEL_LIMIT: ${{ inputs.model_limit }}
         run: |
-          if [ "${{ inputs.stamp_only }}" = "true" ]; then
-            npm run tidy:backfill -- --stamp-only --data-dir data-repo
+          if [ "$FULL_RUN" = "true" ]; then
+            npm run tidy:backfill -- --data-dir data-repo --full --batch-size 5
           else
-            npm run tidy:backfill -- --data-dir data-repo
+            npm run tidy:backfill -- --data-dir data-repo --model-limit "$MODEL_LIMIT" --batch-size 5
           fi
+
+      - name: Commit failure metadata
+        if: always()
+        working-directory: data-repo
+        run: |
+          git add pages manifest.json _tidy
+          git diff --cached --quiet && echo "No trailing backfill changes" && exit 0
+          git commit -m "Record tidy backfill progress."
+          bash ../scripts/push-data-repo.sh

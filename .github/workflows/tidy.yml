@@ -9,6 +9,10 @@ on:
         description: "Optional single page ID to tidy"
         required: false
         type: string
+      backfill_model_limit:
+        description: "Optional paid backfill page limit (for example 100 for the cost pilot)"
+        required: false
+        type: number
 
 permissions:
   contents: read
@@ -34,24 +38,30 @@ jobs:
           path: data-repo
           fetch-depth: 0
 
+      - name: Configure tidy author
+        working-directory: data-repo
+        run: |
+          git config user.name "knowledge-hub-tidy"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Tidy notes
-        id: tidy
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PAGE_ID: ${{ inputs.page_id }}
+          BACKFILL_MODEL_LIMIT: ${{ inputs.backfill_model_limit }}
         run: |
-          if [ -n "$PAGE_ID" ]; then
+          if [ -n "$BACKFILL_MODEL_LIMIT" ] && [ "$BACKFILL_MODEL_LIMIT" -gt 0 ]; then
+            npm run tidy:backfill -- --data-dir data-repo --model-limit "$BACKFILL_MODEL_LIMIT" --batch-size 5
+          elif [ -n "$PAGE_ID" ]; then
             npm run tidy -- --id "$PAGE_ID" --data-dir data-repo
           else
             npm run tidy -- --scan --count 1 --data-dir data-repo
           fi
 
       - name: Commit tidy artifacts
-        if: steps.tidy.outcome == 'success' || steps.tidy.outcome == 'failure'
+        if: always()
         working-directory: data-repo
         run: |
-          git config user.name "knowledge-hub-tidy"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pages manifest.json _tidy
           git diff --cached --quiet && echo "No tidy changes" && exit 0
           git commit -m "Tidy archive notes."

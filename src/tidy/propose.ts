@@ -74,8 +74,11 @@ export function buildTidyPrompt(input: TidyModelInput) {
   ].join("\n");
 }
 
-const RETRIABLE_ANTHROPIC_STATUS = new Set([400, 429]);
-const ANTHROPIC_RETRY_DELAYS_MS = [2000, 4000, 8000];
+export type TidyUsage = { inputTokens: number; outputTokens: number };
+
+function delay(ms: number) {
+  return new Promise<void>(resolve => setTimeout(resolve, ms));
+}
 
 /** Cloudflare-safe Claude wrapper: all I/O is fetch, with no Node dependencies. */
 export async function proposeTidy(input: {
@@ -84,14 +87,15 @@ export async function proposeTidy(input: {
   apiKey: string;
   fetchImpl?: typeof fetch;
   model?: string;
+  onUsage?: (usage: TidyUsage) => void;
   sleep?: (ms: number) => Promise<void>;
+  maxRetries?: number;
 }): Promise<TidyProposal | null> {
-  const fetchImpl = input.fetchImpl ?? fetch;
-  const sleep = input.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
-  let lastError: Error | null = null;
-  for (let attempt = 0; attempt <= ANTHROPIC_RETRY_DELAYS_MS.length; attempt++) {
-    if (attempt > 0) await sleep(ANTHROPIC_RETRY_DELAYS_MS[attempt - 1]!);
-    const response = await fetchImpl("https://api.anthropic.com/v1/messages", {
+  const sleep = input.sleep ?? delay;
+  const maxRetries = input.maxRetries ?? 2;
+  let response: Response | undefined;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    response = await (input.fetchImpl ?? fetch)("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "x-api-key": input.apiKey, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
@@ -101,13 +105,25 @@ export async function proposeTidy(input: {
         messages: [{ role: "user", content: buildTidyPrompt(input.page) }],
       }),
     });
-    if (response.ok) {
-      const payload = (await response.json()) as { content?: Array<{ type?: string; text?: string }> };
-      const proposal = parseTidyProposal(payload.content?.find(block => block.type === "text")?.text ?? "");
-      return proposal && !tidyQualityIssues(input.page, proposal).length ? proposal : null;
+    if (response.ok) break;
+    if ((response.status !== 400 && response.status !== 429) || attempt === maxRetries) {
+      throw new Error(`Anthropic error ${response.status}`);
     }
-    lastError = new Error(`Anthropic error ${response.status}`);
-    if (!RETRIABLE_ANTHROPIC_STATUS.has(response.status)) throw lastError;
+    await sleep(1000 * 2 ** attempt);
   }
-  throw lastError ?? new Error("Anthropic error");
+  if (!response?.ok) throw new Error(`Anthropic error ${response?.status ?? "unknown"}`);
+  const payload = (await response.json()) as {
+    content?: Array<{ type?: string; text?: string }>;
+    usage?: { input_tokens?: unknown; output_tokens?: unknown };
+  };
+  const inputTokens = payload.usage?.input_tokens;
+  const outputTokens = payload.usage?.output_tokens;
+  if (
+    typeof inputTokens === "number" && Number.isFinite(inputTokens) && inputTokens >= 0 &&
+    typeof outputTokens === "number" && Number.isFinite(outputTokens) && outputTokens >= 0
+  ) {
+    input.onUsage?.({ inputTokens, outputTokens });
+  }
+  const proposal = parseTidyProposal(payload.content?.find(block => block.type === "text")?.text ?? "");
+  return proposal && !tidyQualityIssues(input.page, proposal).length ? proposal : null;
 }

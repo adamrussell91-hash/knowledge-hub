@@ -36,10 +36,6 @@ describe("messy note signals", () => {
     expect(isMessy(page({ tags: ["Note", "Educational Psychology"] }))).toBe(true);
   });
 
-  it("spots old labels that are not on the closed list", () => {
-    expect(isMessy(page({ tags: ["Note", "Educational Psychology"] }))).toBe(true);
-  });
-
   it("spots a run of one-sentence prose paragraphs", () => {
     expect(isMessy(page({ body: "One sentence.\n\nTwo sentence.\n\nThree sentence.\n\nFour sentence." }))).toBe(true);
   });

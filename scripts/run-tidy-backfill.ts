@@ -1,136 +1,147 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { PageSchema, type Page, type PageManifestEntry } from "../src/domain/page";
-import { runTidyBackfill, TIDY_BACKFILL_BATCH_SIZE } from "../src/tidy/backfill";
-import { proposeTidy } from "../src/tidy/propose";
-import { runTidy } from "../src/tidy/run";
-import type { TidyState } from "../src/tidy/run";
+import type { TidyUsage } from "../src/tidy/propose";
 import { loadDotEnv } from "./loadLocalPages";
+import { runTidyBackfill, type BackfillLeftover, type BackfillSummary } from "./tidy-backfill";
+import { createLocalTidyIO } from "./tidy-local-io";
 
 const execFileAsync = promisify(execFile);
+const codeRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export type TidyBackfillArgs = {
-  dataDir?: string;
-  batchSize?: number;
-  commit?: boolean;
-  stampOnly?: boolean;
-  retryIds?: string[];
-};
+export type BackfillArgs = { dataDir: string; batchSize: number; modelLimit?: number };
 
-export function parseTidyBackfillArgs(args: string[]): TidyBackfillArgs {
+function positiveInteger(raw: string | undefined, name: string) {
+  const parsed = raw === undefined ? undefined : Number(raw);
+  if (parsed === undefined || !Number.isInteger(parsed) || parsed < 1) throw new Error(`${name} must be a positive integer`);
+  return parsed;
+}
+
+export function parseBackfillArgs(args: string[]): BackfillArgs {
   const value = (name: string) => {
     const index = args.indexOf(name);
     return index < 0 ? undefined : args[index + 1];
   };
-  const rawCount = value("--batch-size");
-  const batchSize = rawCount === undefined ? undefined : Number(rawCount);
-  if (rawCount !== undefined && (!Number.isInteger(batchSize) || batchSize === undefined || batchSize < 1)) {
-    throw new Error("--batch-size must be a positive integer");
+  const dataDir = value("--data-dir");
+  if (!dataDir) throw new Error("--data-dir is required");
+  const full = args.includes("--full");
+  const rawLimit = value("--model-limit");
+  if (full && rawLimit !== undefined) throw new Error("Use --model-limit or --full, not both");
+  if (!full && rawLimit === undefined) throw new Error("Use --model-limit or --full");
+  const batchSize = value("--batch-size") === undefined ? 5 : positiveInteger(value("--batch-size"), "--batch-size");
+  if (batchSize > 10) throw new Error("--batch-size must be from 1 to 10");
+  const modelLimit = rawLimit === undefined ? undefined : positiveInteger(rawLimit, "--model-limit");
+  return { dataDir, batchSize, ...(modelLimit === undefined ? {} : { modelLimit }) };
+}
+
+export function assertCleanStatus(status: string) {
+  if (status.trim()) throw new Error("knowledge-hub-data must be clean before backfill starts");
+}
+
+export function assertDataRepoRemote(remote: string) {
+  const normalized = remote.trim().replace(/\.git$/, "");
+  if (!/^(?:https:\/\/github\.com\/|git@github\.com:)adamrussell91-hash\/knowledge-hub-data$/.test(normalized)) {
+    throw new Error("--data-dir must use the adamrussell91-hash/knowledge-hub-data origin remote");
   }
-  const retryRaw = value("--retry-ids");
-  const retryIds = retryRaw ? retryRaw.split(",").map(id => id.trim()).filter(Boolean) : undefined;
+}
+
+export function backfillBatchMessage(batchNumber: number) {
+  return `Tidy archive notes (backfill batch ${batchNumber}).`;
+}
+
+export function serializeSkipList(leftovers: BackfillLeftover[]) {
+  return `${JSON.stringify(leftovers.map(({ id, reason }) => ({ id, reason })), null, 2)}\n`;
+}
+
+function percentile(values: number[], fraction: number) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor((sorted.length - 1) * fraction)] ?? 0;
+}
+
+export function costProjection(summary: Pick<BackfillSummary,
+  "attempted" | "remainingModelCalls" | "inputTokens" | "outputTokens" | "pilotCostUsd" | "pageCostSamplesUsd"
+>) {
+  const attempted = Math.max(1, summary.attempted);
+  const projectedRemainingInputTokens = summary.inputTokens / attempted * summary.remainingModelCalls;
+  const projectedRemainingOutputTokens = summary.outputTokens / attempted * summary.remainingModelCalls;
+  const projectedRemainingCostUsd = (projectedRemainingInputTokens + projectedRemainingOutputTokens * 5) / 1_000_000;
+  const samples = [
+    ...summary.pageCostSamplesUsd,
+    ...Array.from({ length: Math.max(0, summary.attempted - summary.pageCostSamplesUsd.length) }, () => 0),
+  ];
   return {
-    ...(value("--data-dir") ? { dataDir: value("--data-dir") } : {}),
-    ...(batchSize ? { batchSize } : {}),
-    commit: !args.includes("--no-commit"),
-    stampOnly: args.includes("--stamp-only"),
-    ...(args.includes("--no-retry") ? { retryIds: [] } : retryIds ? { retryIds } : {}),
+    projectedRemainingInputTokens,
+    projectedRemainingOutputTokens,
+    projectedRemainingCostUsd,
+    projectedTotalCostUsd: summary.pilotCostUsd + projectedRemainingCostUsd,
+    lowTotalCostUsd: summary.pilotCostUsd + percentile(samples, 0.1) * summary.remainingModelCalls,
+    highTotalCostUsd: summary.pilotCostUsd + percentile(samples, 0.9) * summary.remainingModelCalls,
   };
 }
 
-async function readJson<T>(file: string, fallback: T): Promise<T> {
+async function git(dataDir: string, args: string[]) {
+  return (await execFileAsync("git", args, { cwd: dataDir })).stdout.trim();
+}
+
+async function assertDataRepo(dataDir: string) {
+  const [requested, root, remote] = await Promise.all([
+    realpath(dataDir),
+    git(dataDir, ["rev-parse", "--show-toplevel"]).then(value => realpath(value)),
+    git(dataDir, ["remote", "get-url", "origin"]),
+  ]);
+  if (requested !== root) throw new Error("--data-dir must be the knowledge-hub-data repository root");
+  assertDataRepoRemote(remote);
+  assertCleanStatus(await git(dataDir, ["status", "--porcelain"]));
+}
+
+async function hasStagedChanges(dataDir: string) {
   try {
-    return JSON.parse(await readFile(file, "utf8")) as T;
-  } catch {
-    return fallback;
+    await execFileAsync("git", ["diff", "--cached", "--quiet"], { cwd: dataDir });
+    return false;
+  } catch (error) {
+    if ((error as { code?: number }).code === 1) return true;
+    throw error;
   }
 }
 
-async function git(dataDir: string, gitArgs: string[]) {
-  await execFileAsync("git", ["-C", dataDir, ...gitArgs]);
-}
-
-async function commitDataRepo(dataDir: string, message: string) {
-  await git(dataDir, ["add", "pages", "manifest.json", "_tidy"]);
-  const dirty = await execFileAsync("git", ["-C", dataDir, "diff", "--cached", "--quiet"]).then(
-    () => false,
-    (error: NodeJS.ErrnoException) => {
-      if (error.code === 1) return true;
-      throw error;
-    },
-  );
-  if (!dirty) return false;
-  await git(dataDir, [
-    "-c", "user.name=knowledge-hub-tidy",
-    "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com",
-    "commit", "-m", message,
-  ]);
-  await execFileAsync("bash", [path.join(process.cwd(), "scripts", "push-data-repo.sh")], { cwd: dataDir });
+async function commitAndPush(dataDir: string, message: string) {
+  await git(dataDir, ["add", "--", "pages", "manifest.json", "_tidy"]);
+  if (!await hasStagedChanges(dataDir)) return false;
+  await git(dataDir, ["commit", "-m", message]);
+  await execFileAsync("bash", [path.join(codeRoot, "scripts", "push-data-repo.sh")], { cwd: dataDir });
   return true;
 }
 
 export async function main(args = process.argv.slice(2)) {
-  const parsed = parseTidyBackfillArgs(args);
+  const parsed = parseBackfillArgs(args);
   await loadDotEnv();
-  const dataDir = parsed.dataDir ?? path.join(process.cwd(), "migrated", "data-repo");
-  const tidyDir = path.join(dataDir, "_tidy");
-  const statePath = path.join(tidyDir, "state.json");
-  const skipPath = path.join(tidyDir, "backfill-skip-list.json");
-  await mkdir(tidyDir, { recursive: true });
-
-  const io = {
-    listPageIds: async () => (await readdir(path.join(dataDir, "pages"))).filter(file => file.endsWith(".json")).map(file => file.slice(0, -5)),
-    readPage: async (id: string) => {
-      try {
-        return PageSchema.parse(JSON.parse(await readFile(path.join(dataDir, "pages", `${id}.json`), "utf8")));
-      } catch {
-        return null;
-      }
-    },
-    writePage: async (page: Page) => writeFile(path.join(dataDir, "pages", `${page.id}.json`), `${JSON.stringify(page, null, 2)}\n`),
-    readManifest: () => readJson<PageManifestEntry[]>(path.join(dataDir, "manifest.json"), []),
-    writeManifest: async (entries: PageManifestEntry[]) => writeFile(path.join(dataDir, "manifest.json"), `${JSON.stringify(entries, null, 2)}\n`),
-    readState: () => readJson<TidyState>(statePath, { tidied: {} }),
-    writeState: (state: TidyState) => writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`),
-    now: () => new Date().toISOString(),
-  };
-
-  const commitBatch = async () => {
-    if (!parsed.commit) return;
-    await commitDataRepo(dataDir, "Tidy archive notes.");
-  };
-
-  if (parsed.stampOnly) {
-    const result = await runTidy({
-      ...io,
-      scan: true,
-      count: 0,
-      propose: async () => {
-        throw new Error("stamp-only backfill must not call the model");
-      },
-    });
-    await writeFile(skipPath, `${JSON.stringify([], null, 2)}\n`);
-    await commitBatch();
-    console.log(JSON.stringify({ stampOnly: true, stamped: result.stamped.length }));
-    return result;
-  }
-
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is required");
-  const prompt = await readFile(path.join(process.cwd(), "prompts", "tidy.md"), "utf8");
+  await assertDataRepo(parsed.dataDir);
+  const prompt = await readFile(path.join(codeRoot, "prompts", "tidy.md"), "utf8");
+  const usage: TidyUsage[] = [];
+  const io = createLocalTidyIO({ dataDir: parsed.dataDir, apiKey, prompt, onUsage: item => usage.push(item) });
   const summary = await runTidyBackfill({
-    ...io,
-    batchSize: parsed.batchSize ?? TIDY_BACKFILL_BATCH_SIZE,
-    ...(parsed.retryIds ? { retryIds: parsed.retryIds } : {}),
-    propose: page => proposeTidy({ page, prompt, apiKey }),
-    commitBatch,
-    writeSkipList: async skips => writeFile(skipPath, `${JSON.stringify(skips, null, 2)}\n`),
+    io,
+    usage,
+    batchSize: parsed.batchSize,
+    modelLimit: parsed.modelLimit,
+    onPreflight: async () => { await commitAndPush(parsed.dataDir, "Mark clean archive notes tidied (backfill preflight)."); },
+    onBatch: async batch => { await commitAndPush(parsed.dataDir, backfillBatchMessage(batch.batchNumber)); },
   });
-  if (parsed.commit) await commitDataRepo(dataDir, "Tidy backfill skip list.");
-  console.log(JSON.stringify(summary));
-  return summary;
+
+  if (summary.remainingModelCalls > 0) {
+    await commitAndPush(parsed.dataDir, "Record tidy backfill pilot progress.");
+  } else {
+    await writeFile(path.join(parsed.dataDir, "_tidy", "backfill-skip-list.json"), serializeSkipList(summary.leftovers));
+    await commitAndPush(parsed.dataDir, "Record tidy backfill leftovers.");
+  }
+  const report = { ...summary, projection: costProjection(summary) };
+  console.log(JSON.stringify(report));
+  return report;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

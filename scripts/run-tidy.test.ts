@@ -4,6 +4,7 @@ import { assertNoTidyErrors, parseTidyArgs } from "./run-tidy";
 describe("parseTidyArgs", () => {
   it("accepts id, scan count, and data directory flags", () => {
     expect(parseTidyArgs(["--scan", "--count", "99", "--data-dir", "data-repo"])).toEqual({ scan: true, count: 99, dataDir: "data-repo" });
+    expect(parseTidyArgs(["--scan", "--data-dir", "data-repo"])).toEqual({ scan: true, count: 1, dataDir: "data-repo" });
     expect(parseTidyArgs(["--id", "page_1"])).toEqual({ id: "page_1" });
   });
 
