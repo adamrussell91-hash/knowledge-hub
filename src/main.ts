@@ -559,6 +559,16 @@ function showAllModel() {
   return buildShowAllGraph(entries, showAllGrouping);
 }
 
+function showAllMetaText() {
+  if (showAllGrouping !== "tags") return showAllGroupingMeta(showAllGrouping);
+  const model = showAllModel();
+  const notes = model.nodes.filter(node => node.kind === "leaf").length;
+  const hidden = Math.max(0, entries.length - notes);
+  return hidden
+    ? `${notes} tagged · ${model.majorCount} topics · ${hidden} still untagged`
+    : `${notes} tagged · ${model.majorCount} topics`;
+}
+
 function graphMetaText() {
   const constellation = buildArchiveGraph(entries);
   const meta =
@@ -567,7 +577,7 @@ function graphMetaText() {
       : graphMode === "constellation"
         ? `${constellation.majorCount} topics · click a hub to open its constellation`
         : graphMode === "showAll"
-          ? showAllGroupingMeta(showAllGrouping)
+          ? showAllMetaText()
           : `Universe v${UNIVERSE_BUILD}`;
   const searching = graphSearch.trim();
   let searchHint = searching ? ` · search “${searching}”` : "";

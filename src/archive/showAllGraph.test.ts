@@ -3,6 +3,7 @@ import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
 import {
   SHOW_ALL_CLUSTER_GAP,
   buildShowAllGraph,
+  overlapVisitOrder,
   showAllClusterRadius,
 } from "./showAllGraph";
 
@@ -79,6 +80,28 @@ describe("buildShowAllGraph", () => {
   it("gives busier hubs more cluster clearance", () => {
     expect(showAllClusterRadius(100)).toBeGreaterThan(showAllClusterRadius(25));
     expect(showAllClusterRadius(25)).toBeGreaterThan(showAllClusterRadius(1));
+  });
+
+  it("walks each topic in turn so the first tag cannot consume the edge budget", () => {
+    expect(overlapVisitOrder(["gold", "gold", "blue", "gold", "blue"])).toEqual([0, 2, 1, 4, 3]);
+  });
+
+  it("spreads overlap lines across topic clusters instead of filling only the first tag", () => {
+    const pages = [
+      ...Array.from({ length: 80 }, (_, index) => page(`a${index}`, `A ${index}`, [V[0]])),
+      ...Array.from({ length: 80 }, (_, index) => page(`b${index}`, `B ${index}`, [V[1]])),
+      ...Array.from({ length: 80 }, (_, index) => page(`c${index}`, `C ${index}`, [V[2]])),
+    ];
+    const overlaps = buildShowAllGraph(pages).links.filter(link => link.kind === "overlap");
+    const cluster = (id: string) => (id.includes(":a") ? "a" : id.includes(":b") ? "b" : "c");
+    const counts = { a: 0, b: 0, c: 0 };
+    for (const link of overlaps) {
+      counts[cluster(String(link.source))] += 1;
+      counts[cluster(String(link.target))] += 1;
+    }
+    expect(counts.a).toBeGreaterThan(40);
+    expect(counts.b).toBeGreaterThan(40);
+    expect(counts.c).toBeGreaterThan(40);
   });
 
   it("prefers a two-tag overlap over pairing every note that shares one popular tag", () => {

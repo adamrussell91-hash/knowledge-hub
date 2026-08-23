@@ -465,6 +465,23 @@ export function mountForceGraph(
         }
         ctx.globalAlpha = 1;
       }
+      for (const node of simNodes) {
+        if (node.kind !== "major" || node.x == null || node.y == null) continue;
+        if (!onScreen(node.x, node.y)) continue;
+        const { dim } = nodeDrawState(node, emphasis);
+        const fade = node.opacity ?? 1;
+        const drawR = canvasRadius(node.r, view.k, 3.2);
+        ctx.fillStyle = node.ink;
+        ctx.globalAlpha = (dim ? 0.35 : 0.92) * fade;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.font = `600 ${Math.max(11, 13 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
+        const text = node.label.length > 28 ? `${node.label.slice(0, 27)}…` : node.label;
+        ctx.fillText(text, node.x, node.y - drawR - 8 / view.k);
+        ctx.font = `500 ${Math.max(10, 11 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
+        ctx.fillText(`${node.count}`, node.x, node.y - drawR - 22 / Math.sqrt(view.k));
+        ctx.globalAlpha = 1;
+      }
       ctx.restore();
       return;
     }

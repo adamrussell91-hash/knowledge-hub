@@ -84,6 +84,30 @@ function overlapScore(
   return shared * 10 + shared / union + cross;
 }
 
+/** Walk every topic in turn so the first popular tag cannot eat the edge budget. */
+export function overlapVisitOrder(primaryHub: string[]) {
+  const byHub = new Map<string, number[]>();
+  primaryHub.forEach((hub, index) => {
+    const list = byHub.get(hub) ?? [];
+    list.push(index);
+    byHub.set(hub, list);
+  });
+  const hubs = [...byHub.keys()];
+  const order: number[] = [];
+  let slot = 0;
+  let remaining = primaryHub.length;
+  while (remaining > 0) {
+    for (const hub of hubs) {
+      const index = byHub.get(hub)?.[slot];
+      if (index === undefined) continue;
+      order.push(index);
+      remaining -= 1;
+    }
+    slot += 1;
+  }
+  return order;
+}
+
 function overlapLinks(
   eligible: PageManifestEntry[],
   primaryHub: string[],
@@ -92,6 +116,7 @@ function overlapLinks(
   const degree = new Map<string, number>();
   const seen = new Set<string>();
   const overlaps: GraphLinkDatum[] = [];
+  const visit = overlapVisitOrder(primaryHub);
 
   const addEdge = (i: number, j: number, weight: number) => {
     const leftId = `leaf:${eligible[i]!.id}`;
@@ -129,7 +154,7 @@ function overlapLinks(
     return ranked;
   };
 
-  for (let i = 0; i < eligible.length; i++) {
+  for (const i of visit) {
     const leftId = `leaf:${eligible[i]!.id}`;
     for (const candidate of rankedFor(i)) {
       if ((degree.get(leftId) ?? 0) >= OVERLAP_PER_NOTE) break;
@@ -138,7 +163,7 @@ function overlapLinks(
     }
   }
 
-  for (let i = 0; i < eligible.length; i++) {
+  for (const i of visit) {
     const leftId = `leaf:${eligible[i]!.id}`;
     if ((degree.get(leftId) ?? 0) >= 2) continue;
     for (const candidate of rankedFor(i)) {
