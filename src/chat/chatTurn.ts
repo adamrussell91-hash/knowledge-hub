@@ -38,6 +38,7 @@ export type ChatTurnInput = {
   workingThesis?: string;
   draft?: string;
   noteContext?: { pageId: string; title: string };
+  notesInPlay?: { pageId: string; title: string }[];
   searchOutside?: boolean;
   researchSessionId?: string;
   writeSessionId?: string;
@@ -50,6 +51,14 @@ export type ChatTurnInput = {
   write?: ChatWriteClock;
   complete?: (system: string, messages: ChatMessage[]) => Promise<string>;
 };
+
+export const NOTE_EDIT_PROTOCOL = `You can edit archive notes when Adam asks in natural language (retag this, swap that tag, drop this tag). Never claim a write already happened. If you intend a tag change, append exactly one fenced block after your prose:
+
+\`\`\`note-edit
+{"action":"retag","pageId":"page_…","title":"Exact note title","tags":["Closed list tag"]}
+\`\`\`
+
+tags must be from the closed topic vocabulary, at most three. pageId must be a real archive id from this sitting or the notes in play. If you cannot identify the note or the closed-list tags, ask; do not emit a block.`;
 
 export const KERNEL_BUDGET_MS = 20_000;
 export const QUICK_KERNEL_BUDGET_MS = 8_000;
@@ -93,11 +102,22 @@ function searchBody(input: ChatTurnInput) {
   };
 }
 
+function notesInPlay(input: ChatTurnInput) {
+  if (input.notesInPlay?.length) return input.notesInPlay;
+  return input.noteContext ? [input.noteContext] : [];
+}
+
+function notesLine(input: ChatTurnInput, prefix: string) {
+  const notes = notesInPlay(input);
+  if (!notes.length) return "";
+  return `${prefix}${notes.map(note => `${note.title} (${note.pageId})`).join("; ")}`;
+}
+
 function documentContext(input: ChatTurnInput): string | undefined {
   const parts = [
     input.workingThesis?.trim(),
     input.draft?.trim(),
-    input.noteContext ? `Open note: ${input.noteContext.title} (${input.noteContext.pageId})` : "",
+    notesLine(input, "Open note: "),
   ].filter(Boolean);
   return parts.length ? parts.join("\n\n") : undefined;
 }
@@ -237,11 +257,11 @@ function assembledSystem(input: ChatTurnInput, archive: ArchivePack) {
     system: assembleClementinePrompt({
       voice: input.voice,
       job: input.universityJob,
-      surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}\n${archive.note}`,
+      surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}\n${NOTE_EDIT_PROTOCOL}\n${archive.note}`,
       payload: [
         input.workingThesis?.trim() ? `Working thesis:\n${input.workingThesis.trim()}` : "",
         input.draft?.trim() ? `Draft excerpt:\n${input.draft.trim()}` : "",
-        input.noteContext ? `Using open note: ${input.noteContext.title} (${input.noteContext.pageId})` : "",
+        notesLine(input, "Notes in play: "),
         query ? `Latest question:\n${query}` : "",
         coverage ? `Coverage: ${coverage.distinctSources} distinct sources, ${coverage.gapCount} gaps, ${coverage.thin ? "thin" : "enough"}.` : "",
       ]

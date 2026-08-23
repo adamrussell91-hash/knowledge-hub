@@ -71,6 +71,44 @@ describe("clementine-chat handler", () => {
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
   });
 
+  it("loads Ann’s voice when that personality is selected", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes("quick_research")) {
+        return {
+          ok: true,
+          json: async () => ({
+            query: "Gagne",
+            round: 1,
+            status: "done",
+            findings: [],
+            gaps: [],
+            followUpQueries: [],
+          }),
+        };
+      }
+      if (String(url).includes("/chat/write/start")) {
+        return { ok: true, json: async () => ({ writeSessionId: "w-ann", status: "writing" }) };
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const response = await handler(
+      event({
+        body: JSON.stringify({
+          hat: "scoping",
+          personality: "ann",
+          messages: [{ role: "user", content: "What do I have on Gagne?" }],
+        }),
+      }) as never,
+      {} as never,
+    );
+    expect(response.statusCode).toBe(200);
+    const start = fetchImpl.mock.calls.find(([url]) => String(url).includes("/chat/write/start"));
+    const body = JSON.parse(String((start?.[1] as RequestInit).body));
+    expect(body.system).toContain("Ann O’Tation");
+    expect(body.system).toContain("note-edit");
+  });
+
   it("falls back to the live archive when the kernel returns nothing", async () => {
     const fetchImpl = vi.fn(async (url: string) => {
       if (String(url).includes("quick_research")) {

@@ -4,6 +4,7 @@ import { requireSession } from "./_lib/requireSession";
 import { loadPromptFile } from "../../src/clementine/loadFromDisk";
 import { runChatTurn, type ChatMessage } from "../../src/chat/chatTurn";
 import { isChatHatId, type ChatDepth, type ChatScope } from "../../src/chat/hats";
+import { isChatPersonalityId, personalityById } from "../../src/chat/personalities";
 import { ResearchResultSchema } from "../../src/research/schema";
 import { pullLiveArchive } from "./_lib/liveArchive";
 
@@ -19,6 +20,8 @@ function parseBody(raw: string | null) {
       workingThesis?: unknown;
       draft?: unknown;
       noteContext?: unknown;
+      notesInPlay?: unknown;
+      personality?: unknown;
       searchOutside?: unknown;
       researchSessionId?: unknown;
       writeSessionId?: unknown;
@@ -37,13 +40,17 @@ function parseBody(raw: string | null) {
     );
     if (!messages.length) return null;
     if (typeof parsed.hat !== "string" || !isChatHatId(parsed.hat)) return null;
-    const note =
-      parsed.noteContext &&
-      typeof parsed.noteContext === "object" &&
-      typeof (parsed.noteContext as { pageId?: unknown }).pageId === "string" &&
-      typeof (parsed.noteContext as { title?: unknown }).title === "string"
-        ? { pageId: (parsed.noteContext as { pageId: string }).pageId, title: (parsed.noteContext as { title: string }).title }
+    const asNote = (value: unknown) =>
+      value &&
+      typeof value === "object" &&
+      typeof (value as { pageId?: unknown }).pageId === "string" &&
+      typeof (value as { title?: unknown }).title === "string"
+        ? { pageId: (value as { pageId: string }).pageId, title: (value as { title: string }).title }
         : undefined;
+    const note = asNote(parsed.noteContext);
+    const notesInPlay = Array.isArray(parsed.notesInPlay)
+      ? parsed.notesInPlay.map(asNote).filter((item): item is { pageId: string; title: string } => Boolean(item))
+      : undefined;
     return {
       messages,
       hat: parsed.hat,
@@ -52,6 +59,8 @@ function parseBody(raw: string | null) {
       workingThesis: typeof parsed.workingThesis === "string" ? parsed.workingThesis : undefined,
       draft: typeof parsed.draft === "string" ? parsed.draft : undefined,
       noteContext: note,
+      notesInPlay,
+      personality: typeof parsed.personality === "string" && isChatPersonalityId(parsed.personality) ? parsed.personality : undefined,
       searchOutside: parsed.searchOutside === true,
       researchSessionId: typeof parsed.researchSessionId === "string" ? parsed.researchSessionId : undefined,
       writeSessionId: typeof parsed.writeSessionId === "string" ? parsed.writeSessionId : undefined,
@@ -84,8 +93,9 @@ export const handler: Handler = async event => {
     return { statusCode: 503, headers: cors(origin), body: JSON.stringify({ error: "Chat write clock is not configured" }) };
   }
   try {
+    const who = personalityById(body.personality ?? "clementine") ?? personalityById("clementine")!;
     const result = await runChatTurn({
-      voice: loadPromptFile("clementine-voice.md"),
+      voice: loadPromptFile(who.voiceFile),
       universityJob: loadPromptFile("clementine-university.md"),
       hat: body.hat,
       scope: body.scope,
@@ -94,6 +104,7 @@ export const handler: Handler = async event => {
       workingThesis: body.workingThesis,
       draft: body.draft,
       noteContext: body.noteContext,
+      notesInPlay: body.notesInPlay,
       searchOutside: body.searchOutside,
       researchSessionId: body.researchSessionId,
       writeSessionId: body.writeSessionId,
