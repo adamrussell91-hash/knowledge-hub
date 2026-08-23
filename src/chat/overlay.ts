@@ -212,11 +212,14 @@ function overlayHtml() {
     <section class="chat-overlay" aria-label="Chat">
       <div class="chat-overlay__top">
         <p class="chat-overlay__who">Talking to ${escapeHtml(who.shortName)}</p>
-        <button class="hub-icon-btn chat-overlay__close" type="button" data-close-overlay aria-label="Close chat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-            <path d="M6 6l12 12M18 6 6 18" />
-          </svg>
-        </button>
+        <div class="chat-overlay__tools">
+          <button class="btn btn--ghost" type="button" data-new-chat ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>New chat</button>
+          <button class="hub-icon-btn chat-overlay__close" type="button" data-close-overlay aria-label="Close chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
       </div>
       ${pickerHtml()}
       ${
@@ -297,6 +300,13 @@ function bind(root: HTMLElement) {
   });
   root.querySelector<HTMLButtonElement>("[data-close-overlay]")?.addEventListener("click", () => {
     open = false;
+    persist();
+    paint();
+  });
+  root.querySelector<HTMLButtonElement>("[data-new-chat]")?.addEventListener("click", () => {
+    if (busy || writeSessionId || researchSessionId) return;
+    resetSitting();
+    notes = [];
     persist();
     paint();
   });

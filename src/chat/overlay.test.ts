@@ -26,4 +26,28 @@ describe("chat overlay", () => {
     hideChatOverlay();
     expect(document.querySelector(".floating-chat-button")).toBeNull();
   });
+
+  it("starts a new overlay sitting from New chat", () => {
+    sessionStorage.setItem(
+      "knowledge-hub-overlay-chat-v1",
+      JSON.stringify({
+        personality: "clementine",
+        open: true,
+        input: "",
+        turns: [
+          { role: "user", content: "How do these notes connect?" },
+          { role: "assistant", content: "They share a retrieval thread." },
+        ],
+        notes: [{ pageId: "p1", title: "Retrieval practice" }],
+      }),
+    );
+    ensureChatOverlay({ visible: true });
+    expect(document.body.textContent).toContain("How do these notes connect?");
+    expect(document.body.textContent).toContain("Retrieval practice");
+    document.querySelector<HTMLButtonElement>("[data-new-chat]")!.click();
+    expect(document.body.textContent).not.toContain("How do these notes connect?");
+    expect(document.body.textContent).not.toContain("They share a retrieval thread.");
+    expect(document.body.textContent).not.toContain("Retrieval practice");
+    expect(document.querySelector("[data-new-chat]")).toBeTruthy();
+  });
 });

@@ -24,7 +24,7 @@ function makeHost(): ChatRailHost {
     render() {
       renderChatRail(host);
     },
-    pageHeader: (eyebrow, title) => `<header><p>${eyebrow}</p><h1>${title}</h1></header>`,
+    pageHeader: (eyebrow, title, extra = "") => `<header><p>${eyebrow}</p><h1>${title}</h1>${extra}</header>`,
   };
   return host;
 }
@@ -86,5 +86,28 @@ describe("Knowledge chat rail protocol affordances", () => {
     finish?.({ status: "done", reply: "Here is the useful thread." });
     await vi.waitFor(() => expect(host.app.textContent).toContain("Here is the useful thread."));
     expect(host.app.querySelector(".chat__status")).toBeNull();
+  });
+
+  it("starts a new sitting from New chat", () => {
+    sessionStorage.setItem(
+      "knowledge-hub-chat-v1",
+      JSON.stringify({
+        hat: "scoping",
+        input: "",
+        turns: [
+          { role: "user", content: "What connects these notes?" },
+          { role: "assistant", content: "A shared retrieval thread." },
+        ],
+        noteContext: { pageId: "p1", title: "Retrieval practice" },
+      }),
+    );
+    const host = makeHost();
+    host.render();
+    expect(host.app.textContent).toContain("A shared retrieval thread.");
+    expect(host.app.textContent).toContain("Retrieval practice");
+    host.app.querySelector<HTMLButtonElement>("[data-new-chat]")!.click();
+    expect(host.app.textContent).not.toContain("A shared retrieval thread.");
+    expect(host.app.textContent).not.toContain("Retrieval practice");
+    expect(host.app.querySelector("[data-new-chat]")).toBeTruthy();
   });
 });
