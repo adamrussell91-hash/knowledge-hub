@@ -1,8 +1,6 @@
 name: Tidy retry 400 leftovers
 
 on:
-  push:
-    branches: [cursor/drain-remaining-400s-06a4]
   workflow_dispatch:
     inputs:
       limit:
