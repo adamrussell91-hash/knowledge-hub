@@ -1657,6 +1657,121 @@
   .wiki-card__pair {
     grid-template-columns: 1fr;
   }
+
+  .canvas:has(.graph-wrap) {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding: var(--space-3);
+    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .canvas:has(.graph-wrap) .page-header {
+    margin-bottom: var(--space-3);
+  }
+
+  .graph-wrap {
+    flex: 1 1 auto;
+    min-height: calc(100dvh - 10.5rem);
+  }
+
+  .graph-stage {
+    position: relative;
+    min-height: calc(100dvh - 10.5rem);
+  }
+
+  .graph-toolbar {
+    top: var(--space-2);
+    left: var(--space-2);
+    right: var(--space-2);
+    max-width: none;
+    gap: var(--space-1);
+    padding: var(--space-2);
+  }
+
+  .graph-search {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .graph-modes button {
+    padding: 0.3rem 0.65rem;
+    font-size: var(--text-xs);
+  }
+
+  .graph-speed {
+    flex: 1 1 auto;
+  }
+
+  .graph-speed input[type="range"] {
+    width: 5.5rem;
+  }
+
+  .universe-key {
+    top: var(--space-2);
+    right: var(--space-2);
+    bottom: auto;
+  }
+
+  .universe-zoom {
+    position: absolute;
+    top: calc(var(--space-2) + 3.2rem);
+    right: var(--space-2);
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    box-shadow: var(--elev-2);
+  }
+
+  .universe-zoom .btn {
+    width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border-radius: 0;
+    touch-action: manipulation;
+  }
+
+  .universe-zoom .btn + .btn {
+    border-top: 1px solid var(--line);
+  }
+
+  .graph-preview {
+    left: var(--space-3);
+    right: var(--space-3);
+    bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: 38vh;
+    overflow: auto;
+  }
+
+  .coach.chat {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .coach.chat .coach__thread {
+    order: -1;
+  }
+
+  .coach.chat .coach__form {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat__source {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-protocol-pills__tip {
+    display: none;
+  }
 }
 
 .quiz-card {
@@ -2549,6 +2664,38 @@
   border-radius: var(--radius-sm);
   background: var(--warm-white);
   color: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .floating-chat-button {
+    right: max(1rem, env(safe-area-inset-right, 0px));
+    bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-overlay {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    max-height: none;
+    border-radius: 0;
+    padding-top: max(var(--space-4), env(safe-area-inset-top, 0px));
+    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
+  }
+
+  .chat-overlay .chat-messages {
+    flex: 1;
+  }
+
+  body:has(.chat-overlay) .floating-chat-button {
+    display: none;
+  }
+
+  body:has(.coach.chat) #kh-chat-overlay {
+    display: none;
+  }
 }
 
 .tag-delta {

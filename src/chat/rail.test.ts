@@ -11,6 +11,8 @@ describe("Chat rail layout", () => {
   it("stacks the composer above the thread and renders replies as markdown", () => {
     expect(css).toContain(".coach.chat");
     expect(css).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(css).toContain(".coach.chat .coach__thread");
+    expect(css).toContain("order: -1");
     expect(rail).toContain("renderMarkdown(turn.content)");
     expect(rail).toContain("thinkingHistoryHtml");
     expect(rail).toContain("searchedNotesHtml");
