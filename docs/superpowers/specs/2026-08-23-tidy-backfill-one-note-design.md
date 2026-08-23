@@ -24,7 +24,7 @@ Every remaining page is classified before a model call:
 - A page goes to Claude when it is messy, has no topic tags, or has any unknown/non-vocabulary topic tag.
 - Non-topic metadata tags remain untouched and do not make a clean page model-eligible.
 
-Fast-path stamps are persisted in `_tidy/state.json` and count as successful batch progress. They do not rewrite the page or manifest.
+Fast-path stamps are persisted in `_tidy/state.json` during one preflight pass and committed once before model work begins. They do not rewrite the page or manifest. Batches of five apply to Claude-eligible pages, avoiding hundreds of tiny commits for state-only stamps.
 
 ## Shared local tidy I/O
 
@@ -59,7 +59,7 @@ The scan default and hard cap are both one. `.github/workflows/tidy.yml` invokes
 The backfill runner:
 
 1. Requires a clean `knowledge-hub-data` worktree and snapshots eligible page IDs.
-2. Applies the clean-note fast path and processes Claude-eligible IDs explicitly through `runTidy({ id })` in ordered batches of five.
+2. Applies and pushes the clean-note fast path in one preflight commit, then processes Claude-eligible IDs explicitly through `runTidy({ id })` in ordered batches of five.
 3. Continues after per-page read, model, validation, or write failures.
 4. Retries Anthropic 400 and 429 failures with bounded exponential delays; no other failure tight-loops.
 5. Commits and pushes pages, `manifest.json`, and `_tidy` after every batch containing a success, using `Tidy archive notes (backfill batch N).`
