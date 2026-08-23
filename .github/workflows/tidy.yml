@@ -35,6 +35,7 @@ jobs:
           fetch-depth: 0
 
       - name: Tidy notes
+        id: tidy
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PAGE_ID: ${{ inputs.page_id }}
@@ -42,10 +43,11 @@ jobs:
           if [ -n "$PAGE_ID" ]; then
             npm run tidy -- --id "$PAGE_ID" --data-dir data-repo
           else
-            npm run tidy -- --scan --count 20 --data-dir data-repo
+            npm run tidy -- --scan --count 1 --data-dir data-repo
           fi
 
       - name: Commit tidy artifacts
+        if: steps.tidy.outcome == 'success' || steps.tidy.outcome == 'failure'
         working-directory: data-repo
         run: |
           git config user.name "knowledge-hub-tidy"

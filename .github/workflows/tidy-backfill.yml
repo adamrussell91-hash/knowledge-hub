@@ -1,0 +1,45 @@
+name: Tidy backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      stamp_only:
+        description: "Stamp clean tagged notes without calling Claude"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Checkout data repo
+        uses: actions/checkout@v4
+        with:
+          repository: adamrussell91-hash/knowledge-hub-data
+          token: ${{ secrets.DATA_REPO_TOKEN }}
+          path: data-repo
+          fetch-depth: 0
+
+      - name: Backfill tidy
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ "${{ inputs.stamp_only }}" = "true" ]; then
+            npm run tidy:backfill -- --stamp-only --data-dir data-repo
+          else
+            npm run tidy:backfill -- --data-dir data-repo
+          fi

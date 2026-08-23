@@ -8,17 +8,33 @@ const page = (id: string, overrides: Partial<Page> = {}): Page => ({
 });
 
 describe("runTidy", () => {
-  it("caps scans at twenty, prioritising untidied messy notes", async () => {
-    const pages = Array.from({ length: 25 }, (_, i) => page(`p${i}`, { body: i < 2 ? "Messy\n\n\n\ntext" : "Clean note." }));
+  it("scans one model-needed note by default and prioritises messy pages", async () => {
+    const pages = Array.from({ length: 6 }, (_, i) => page(`p${i}`, {
+      tags: i < 4 ? [] : ["Philosophy Knowledge and Society"],
+      body: i < 2 ? "Messy\n\n\n\ntext" : "Clean note.",
+    }));
     const called: string[] = [];
+    const states: unknown[] = [];
     await runTidy({
-      scan: true, count: 100, readPage: async id => pages.find(p => p.id === id) ?? null, listPageIds: async () => pages.map(p => p.id),
-      readManifest: async () => [], writeManifest: async () => {}, readState: async () => ({ tidied: { p2: "2026-08-11T00:00:00.000Z" } }), writeState: async () => {},
+      scan: true, readPage: async id => pages.find(p => p.id === id) ?? null, listPageIds: async () => pages.map(p => p.id),
+      readManifest: async () => [], writeManifest: async () => {}, readState: async () => ({ tidied: { p3: "2026-08-11T00:00:00.000Z" } }), writeState: async value => { states.push(value); },
       propose: async p => { called.push(p.id); return { tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }; }, writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z", random: () => 0,
     });
-    expect(called).toHaveLength(20);
-    expect(called.slice(0, 2)).toEqual(["p0", "p1"]);
-    expect(called).not.toContain("p2");
+    expect(called).toEqual(["p0"]);
+    expect(states.at(-1)).toMatchObject({
+      tidied: expect.objectContaining({ p4: "2026-08-12T00:00:00.000Z", p5: "2026-08-12T00:00:00.000Z" }),
+    });
+  });
+
+  it("honours an explicit scan count for model-needed notes", async () => {
+    const pages = Array.from({ length: 5 }, (_, i) => page(`p${i}`, { tags: [], body: i < 3 ? "Messy\n\n\n\ntext" : "Clean note." }));
+    const called: string[] = [];
+    await runTidy({
+      scan: true, count: 3, readPage: async id => pages.find(p => p.id === id) ?? null, listPageIds: async () => pages.map(p => p.id),
+      readManifest: async () => [], writeManifest: async () => {}, readState: async () => ({ tidied: {} }), writeState: async () => {},
+      propose: async p => { called.push(p.id); return { tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }; }, writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z", random: () => 0,
+    });
+    expect(called).toEqual(["p0", "p1", "p2"]);
   });
 
   it("does not write an unchanged page but records that it was tidied", async () => {
@@ -61,12 +77,89 @@ describe("runTidy", () => {
 
   it("persists successful progress when one note fails so the next scan resumes", async () => {
     const states: unknown[] = [];
-    await runTidy({ scan: true, count: 2, readPage: async id => page(id), listPageIds: async () => ["bad", "good"], readManifest: async () => [], writeManifest: async () => {}, readState: async () => ({ tidied: {} }), writeState: async value => { states.push(value); }, propose: async p => { if (p.id === "bad") throw new Error("model failed"); return { tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }; }, writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z", random: () => 0 });
-    expect(states.at(-1)).toMatchObject({ tidied: { good: "2026-08-12T00:00:00.000Z" } });
+    await runTidy({
+      scan: true, count: 2,
+      readPage: async id => page(id, { tags: [] }),
+      listPageIds: async () => ["bad", "good"],
+      readManifest: async () => [], writeManifest: async () => {},
+      readState: async () => ({ tidied: {} }),
+      writeState: async value => { states.push(value); },
+      propose: async p => {
+        if (p.id === "bad") throw new Error("model failed");
+        return { tags: ["Philosophy Knowledge and Society"], body: p.body, title: null };
+      },
+      writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z", random: () => 0,
+    });
+    expect(states.at(-1)).toMatchObject({
+      tidied: { good: "2026-08-12T00:00:00.000Z" },
+      failures: { bad: { at: "2026-08-12T00:00:00.000Z", reason: "model failed", attempts: 1 } },
+    });
+  });
+
+  it("skips a recent scan failure until the cooldown elapses", async () => {
+    const called: string[] = [];
+    await runTidy({
+      scan: true, count: 2,
+      readPage: async id => page(id, { tags: [] }),
+      listPageIds: async () => ["hot", "ready"],
+      readManifest: async () => [], writeManifest: async () => {},
+      readState: async () => ({
+        tidied: {},
+        failures: {
+          hot: { at: "2026-08-11T00:00:00.000Z", reason: "model failed", attempts: 1 },
+          ready: { at: "2026-08-08T00:00:00.000Z", reason: "model failed", attempts: 1 },
+        },
+      }),
+      writeState: async () => {},
+      propose: async p => { called.push(p.id); return { tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }; },
+      writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z", random: () => 0,
+    });
+    expect(called).toEqual(["ready"]);
+  });
+
+  it("retries a cooling-down failure when an explicit id is requested", async () => {
+    let calls = 0;
+    await runTidy({
+      id: "hot",
+      readPage: async () => page("hot", { tags: [] }),
+      listPageIds: async () => ["hot"],
+      readManifest: async () => [], writeManifest: async () => {},
+      readState: async () => ({ failures: { hot: { at: "2026-08-11T00:00:00.000Z", reason: "model failed", attempts: 2 } } }),
+      writeState: async () => {},
+      propose: async p => { calls++; return { tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }; },
+      writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z",
+    });
+    expect(calls).toBe(1);
+  });
+
+  it("clears a stored failure after a successful tidy", async () => {
+    let state: unknown;
+    await runTidy({
+      id: "p",
+      readPage: async () => page("p", { tags: [] }),
+      listPageIds: async () => ["p"],
+      readManifest: async () => [], writeManifest: async () => {},
+      readState: async () => ({ failures: { p: { at: "2026-08-11T00:00:00.000Z", reason: "model failed", attempts: 1 } } }),
+      writeState: async value => { state = value; },
+      propose: async p => ({ tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }),
+      writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z",
+    });
+    expect(state).toMatchObject({ tidied: { p: "2026-08-12T00:00:00.000Z" } });
+    expect(state).not.toHaveProperty("failures.p");
   });
 
   it("sanitizes malformed tidy state before selecting pages", () => {
     expect(normalizeTidyState({ lastRunAt: 3, tidied: { good: "2026-08-12T00:00:00.000Z", bad: 4 } })).toEqual({ tidied: { good: "2026-08-12T00:00:00.000Z" } });
+    expect(normalizeTidyState({
+      failures: {
+        good: { at: "2026-08-11T00:00:00.000Z", reason: "model failed", attempts: 2 },
+        bad: 4,
+        incomplete: { at: "2026-08-11T00:00:00.000Z" },
+      },
+    })).toEqual({
+      tidied: {},
+      failures: { good: { at: "2026-08-11T00:00:00.000Z", reason: "model failed", attempts: 2 } },
+    });
     expect(normalizeTidyState(null)).toEqual({ tidied: {} });
   });
 
@@ -74,7 +167,10 @@ describe("runTidy", () => {
     const states: unknown[] = [];
     const result = await runTidy({ id: "missing", readPage: async () => null, listPageIds: async () => [], readManifest: async () => [], writeManifest: async () => {}, readState: async () => ({ tidied: {} }), writeState: async state => { states.push(state); }, propose: async () => null, writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z" });
     expect(result.errors).toEqual(["missing: page was not found or is invalid"]);
-    expect(states.at(-1)).toMatchObject({ tidied: {} });
+    expect(states.at(-1)).toMatchObject({
+      tidied: {},
+      failures: { missing: { at: "2026-08-12T00:00:00.000Z", reason: "page was not found or is invalid", attempts: 1 } },
+    });
   });
 
   it("upserts an absent manifest entry when it writes a page", async () => {

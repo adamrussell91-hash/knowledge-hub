@@ -56,9 +56,48 @@ describe("parseTidyProposal", () => {
     expect(proposal).toMatchObject({ tags: ["Philosophy Knowledge and Society"], body: "Clean" });
   });
 
-  it("throws on a non-OK model response and returns null for a malformed text response", async () => {
+  it("retries Anthropic 400 and 429 with backoff, then throws", async () => {
     const page = { id: "p", title: "Caesar", area: "notes" as const, tags: ["History"], body: "Text", connected: [], attachments: [], source: "hub" as const, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", schema_version: 1 as const };
-    await expect(proposeTidy({ page, prompt: "Controller", apiKey: "key", fetchImpl: async () => new Response("no", { status: 429 }) })).rejects.toThrow("Anthropic error 429");
+    const sleeps: number[] = [];
+    let calls = 0;
+    await expect(proposeTidy({
+      page, prompt: "Controller", apiKey: "key",
+      fetchImpl: async () => { calls += 1; return new Response("no", { status: 429 }); },
+      sleep: async ms => { sleeps.push(ms); },
+    })).rejects.toThrow("Anthropic error 429");
+    expect(calls).toBe(4);
+    expect(sleeps).toEqual([2000, 4000, 8000]);
+  });
+
+  it("does not retry other Anthropic HTTP errors", async () => {
+    const page = { id: "p", title: "Caesar", area: "notes" as const, tags: ["History"], body: "Text", connected: [], attachments: [], source: "hub" as const, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", schema_version: 1 as const };
+    let calls = 0;
+    await expect(proposeTidy({
+      page, prompt: "Controller", apiKey: "key",
+      fetchImpl: async () => { calls += 1; return new Response("no", { status: 500 }); },
+      sleep: async () => { throw new Error("should not sleep"); },
+    })).rejects.toThrow("Anthropic error 500");
+    expect(calls).toBe(1);
+  });
+
+  it("returns a later success after a retried 400", async () => {
+    const page = { id: "p", title: "Caesar", area: "notes" as const, tags: ["History"], body: "Text", connected: [], attachments: [], source: "hub" as const, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", schema_version: 1 as const };
+    let calls = 0;
+    const proposal = await proposeTidy({
+      page, prompt: "Controller", apiKey: "key",
+      fetchImpl: async () => {
+        calls += 1;
+        if (calls === 1) return new Response("no", { status: 400 });
+        return new Response(JSON.stringify({ content: [{ type: "text", text: '{"tags":["Philosophy Knowledge and Society"],"body":"Clean"}' }] }));
+      },
+      sleep: async () => {},
+    });
+    expect(calls).toBe(2);
+    expect(proposal).toMatchObject({ tags: ["Philosophy Knowledge and Society"], body: "Clean" });
+  });
+
+  it("returns null for a malformed text response", async () => {
+    const page = { id: "p", title: "Caesar", area: "notes" as const, tags: ["History"], body: "Text", connected: [], attachments: [], source: "hub" as const, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", schema_version: 1 as const };
     await expect(proposeTidy({ page, prompt: "Controller", apiKey: "key", fetchImpl: async () => new Response(JSON.stringify({ content: [{ type: "text", text: "not json" }] })) })).resolves.toBeNull();
   });
 
