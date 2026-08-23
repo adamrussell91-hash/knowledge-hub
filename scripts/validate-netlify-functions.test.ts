@@ -62,6 +62,18 @@ describe("Curator workflow secrets", () => {
   });
 });
 
+describe("Sync manifest tags workflow", () => {
+  it("copies page-file tags onto the live list with the same data-repo token as tidy", async () => {
+    const workflow = await readFile(path.join(process.cwd(), ".github/workflows/sync-manifest-from-pages.yml"), "utf8");
+    expect(workflow).not.toMatch(/secrets\.GITHUB_[A-Z0-9_]+/);
+    expect(workflow).toContain("secrets.DATA_REPO_TOKEN");
+    expect(workflow).toContain("adamrussell91-hash/knowledge-hub-data");
+    expect(workflow).toContain("scripts/sync-manifest-from-pages.ts");
+    expect(workflow).toContain("--execute");
+    expect(workflow).toContain("Copy tidied page tags onto the All Notes manifest.");
+  });
+});
+
 describe("Stamp origins workflow", () => {
   it("writes notebook, book, and PD pills into the data repo with the same token as tidy", async () => {
     const workflow = await readFile(path.join(process.cwd(), ".github/workflows/stamp-origins.yml"), "utf8");

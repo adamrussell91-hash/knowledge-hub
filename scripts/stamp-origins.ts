@@ -83,7 +83,7 @@ export function manifestKeys(page: Page, fileId?: string) {
 
 type ManifestRow = PageManifestEntry & { path?: string };
 
-/** Copy origins from page files onto every matching list row, even when the page itself did not change. */
+/** Copy page-file fields onto every matching list row, even when the page itself did not change. */
 export function syncManifestOrigins(
   manifest: ManifestRow[],
   pages: Page[],
@@ -104,6 +104,9 @@ export function syncManifestOrigins(
     if (!page) return { ...entry };
     return {
       ...entry,
+      title: page.title,
+      tags: page.tags,
+      excerpt: excerptFromTidyBody(page.body),
       ...(page.origins?.length ? { origins: page.origins } : {}),
       ...(page.source_notion_id ? { source_notion_id: page.source_notion_id } : {}),
     };

@@ -109,6 +109,24 @@ describe("stamp origins", () => {
     ).toEqual([{ kind: "notebook", label: "Boy's Education" }]);
   });
 
+  it("copies tidied topic tags from the page file onto a stale list row", () => {
+    const ready = page({
+      id: "page_notion_00c518fb7b884781a60f702ec3185eb3",
+      tags: ["Note", "Learning Science and Cognition"],
+      body: "A cleaned lecture body.",
+    });
+    expect(
+      syncManifestOrigins(
+        [{ id: ready.id, title: "Old", area: ready.area, tags: ["Educational Psychology"], excerpt: "Old." }],
+        [ready],
+      )[0],
+    ).toMatchObject({
+      title: "Lecture",
+      tags: ["Note", "Learning Science and Cognition"],
+      excerpt: "A cleaned lecture body.",
+    });
+  });
+
   it("appends notebook pages that exist as files but never reached the list", () => {
     const ready = page({
       id: "page_notion_00c518fb7b884781a60f702ec3185eb3",
