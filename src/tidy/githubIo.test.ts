@@ -52,8 +52,12 @@ describe("tidyPageDirect", () => {
         ),
     });
     expect(saved.body).toBe("Cleaned body");
-    expect(vi.mocked(putContent)).toHaveBeenCalledOnce();
-    expect(vi.mocked(putContent).mock.calls[0]?.[2]).toBe(`pages/${page.id}.json`);
+    expect(vi.mocked(putContent).mock.calls.map(call => call[2])).toEqual([
+      `pages/${page.id}.json`,
+      "manifest.json",
+    ]);
+    const manifest = JSON.parse(vi.mocked(putContent).mock.calls[1]?.[3] as string) as Array<{ tags: string[] }>;
+    expect(manifest[0]?.tags).toEqual(["Philosophy Knowledge and Society"]);
   });
 
   it("fails clearly when Claude does not return tidy JSON", async () => {
