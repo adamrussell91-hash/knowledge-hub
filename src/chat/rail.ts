@@ -314,7 +314,11 @@ export function renderChatRail(host: ChatRailHost) {
   const writing = hat === "writing";
   host.shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · Chat needs the Netlify API (session + Anthropic). The browser never talks to the research kernel.</p>` : ""}
-    ${host.pageHeader("Professor Clementine Haig", "Chat")}
+    ${host.pageHeader(
+      "Professor Clementine Haig",
+      "Chat",
+      `<button class="btn btn--ghost" data-new-chat type="button" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>New chat</button>`,
+    )}
     <section class="coach chat">
       <form class="coach__form glass-panel">
         <p class="chat__picker-label">How should she work</p>
@@ -411,6 +415,15 @@ export function renderChatRail(host: ChatRailHost) {
   };
   host.app.querySelector<HTMLButtonElement>("[data-clear-note]")?.addEventListener("click", () => {
     noteContext = undefined;
+    persist();
+    host.render();
+  });
+  host.app.querySelector<HTMLButtonElement>("[data-new-chat]")?.addEventListener("click", () => {
+    if (busy || researchSessionId || writeSessionId) return;
+    resetSitting();
+    noteContext = undefined;
+    thinkingOpen = false;
+    sourcesOpen.clear();
     persist();
     host.render();
   });

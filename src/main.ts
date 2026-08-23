@@ -687,13 +687,14 @@ function renderGraph() {
     };
   });
 
+  const wrap = app.querySelector<HTMLElement>(".graph-wrap")!;
   const stage = app.querySelector<HTMLElement>(".graph-stage")!;
   if (graphMode === "universe") {
     bindUniverseKey(app, open => {
       universeKeyOpen = open;
     });
   }
-  const preview = mountGraphPreview(stage, { onOpen: openPageInNewTab });
+  const preview = mountGraphPreview(wrap, { onOpen: openPageInNewTab });
   const onNoteSelect = (note: { pageId: string; title: string; excerpt: string } | null) => {
     if (!note) {
       preview.clear();
@@ -706,7 +707,7 @@ function renderGraph() {
 
   document.onkeydown = event => {
     if (event.key !== "Enter") return;
-    const open = stage.querySelector<HTMLButtonElement>("[data-open-note]");
+    const open = preview.el.querySelector<HTMLButtonElement>("[data-open-note]");
     if (open && !preview.el.hidden) open.click();
   };
 
