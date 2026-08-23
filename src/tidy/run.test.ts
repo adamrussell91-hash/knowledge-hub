@@ -8,7 +8,7 @@ const page = (id: string, overrides: Partial<Page> = {}): Page => ({
 });
 
 describe("runTidy", () => {
-  it("caps scans at twenty, prioritising untidied messy notes", async () => {
+  it("caps scans at one, prioritising an untidied messy note", async () => {
     const pages = Array.from({ length: 25 }, (_, i) => page(`p${i}`, { body: i < 2 ? "Messy\n\n\n\ntext" : "Clean note." }));
     const called: string[] = [];
     await runTidy({
@@ -16,8 +16,7 @@ describe("runTidy", () => {
       readManifest: async () => [], writeManifest: async () => {}, readState: async () => ({ tidied: { p2: "2026-08-11T00:00:00.000Z" } }), writeState: async () => {},
       propose: async p => { called.push(p.id); return { tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }; }, writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z", random: () => 0,
     });
-    expect(called).toHaveLength(20);
-    expect(called.slice(0, 2)).toEqual(["p0", "p1"]);
+    expect(called).toEqual(["p0"]);
     expect(called).not.toContain("p2");
   });
 
@@ -65,8 +64,74 @@ describe("runTidy", () => {
     expect(states.at(-1)).toMatchObject({ tidied: { good: "2026-08-12T00:00:00.000Z" } });
   });
 
+  it("records a failed page and selects another page during its 72-hour cooldown", async () => {
+    let state: unknown = { tidied: {} };
+    const proposed: string[] = [];
+    const base = {
+      scan: true,
+      count: 1,
+      readPage: async (id: string) => page(id, { body: "Messy\n\n\n\ntext" }),
+      listPageIds: async () => ["bad", "good"],
+      readManifest: async () => [],
+      writeManifest: async () => {},
+      readState: async () => state,
+      writeState: async (value: unknown) => { state = value; },
+      writePage: async () => {},
+      random: () => 0,
+    };
+
+    const failed = await runTidy({
+      ...base,
+      propose: async p => { proposed.push(p.id); throw new Error("model failed"); },
+      now: () => "2026-08-12T00:00:00.000Z",
+    });
+    expect(failed.errors).toEqual(["bad: model failed"]);
+    expect(state).toMatchObject({
+      failures: { bad: { attempts: 1, lastFailedAt: "2026-08-12T00:00:00.000Z", reason: "model failed" } },
+    });
+
+    const resumed = await runTidy({
+      ...base,
+      propose: async p => { proposed.push(p.id); return { tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }; },
+      now: () => "2026-08-13T00:00:00.000Z",
+    });
+    expect(resumed.selected).toEqual(["good"]);
+    expect(proposed).toEqual(["bad", "good"]);
+  });
+
+  it("lets an explicit id retry during cooldown and clears its failure after success", async () => {
+    let state: unknown = {
+      tidied: {},
+      failures: { bad: { attempts: 2, lastFailedAt: "2026-08-12T00:00:00.000Z", reason: "model failed" } },
+    };
+    const result = await runTidy({
+      id: "bad",
+      readPage: async id => page(id),
+      listPageIds: async () => ["bad"],
+      readManifest: async () => [],
+      writeManifest: async () => {},
+      readState: async () => state,
+      writeState: async value => { state = value; },
+      propose: async p => ({ tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }),
+      writePage: async () => {},
+      now: () => "2026-08-13T00:00:00.000Z",
+    });
+    expect(result.selected).toEqual(["bad"]);
+    expect(state).toMatchObject({ tidied: { bad: "2026-08-13T00:00:00.000Z" }, failures: {} });
+  });
+
   it("sanitizes malformed tidy state before selecting pages", () => {
-    expect(normalizeTidyState({ lastRunAt: 3, tidied: { good: "2026-08-12T00:00:00.000Z", bad: 4 } })).toEqual({ tidied: { good: "2026-08-12T00:00:00.000Z" } });
+    expect(normalizeTidyState({
+      lastRunAt: 3,
+      tidied: { good: "2026-08-12T00:00:00.000Z", bad: 4 },
+      failures: {
+        valid: { attempts: 2, lastFailedAt: "2026-08-12T00:00:00.000Z", reason: "bad output" },
+        invalid: { attempts: "two", lastFailedAt: 4, reason: null },
+      },
+    })).toEqual({
+      tidied: { good: "2026-08-12T00:00:00.000Z" },
+      failures: { valid: { attempts: 2, lastFailedAt: "2026-08-12T00:00:00.000Z", reason: "bad output" } },
+    });
     expect(normalizeTidyState(null)).toEqual({ tidied: {} });
   });
 
