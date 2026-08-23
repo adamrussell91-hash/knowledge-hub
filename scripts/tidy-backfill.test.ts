@@ -67,7 +67,7 @@ describe("runTidyBackfill", () => {
     const summary = await runTidyBackfill({ io, batchSize: 5, usage: [], onPreflight, onBatch });
 
     expect(propose.mock.calls.map(([item]) => item.id)).toEqual(["bad", "good"]);
-    expect(summary).toMatchObject({ stamped: 1, attempted: 2, succeeded: 1, failed: 1 });
+    expect(summary).toMatchObject({ stamped: 1, attempted: 2, succeeded: 1, failed: 1, remainingModelEligible: 1, remainingModelCalls: 0 });
     expect(summary.leftovers).toEqual([{ id: "bad", reason: "toxic note" }]);
     expect(readState().tidied).toHaveProperty("clean", "2026-08-23T00:00:00.000Z");
     expect(onPreflight).toHaveBeenCalledOnce();
@@ -86,7 +86,7 @@ describe("runTidyBackfill", () => {
 
     const summary = await runTidyBackfill({ io, batchSize: 5, modelLimit: 100, usage });
 
-    expect(summary).toMatchObject({ stamped: 1, attempted: 100, succeeded: 100, remainingModelEligible: 5 });
+    expect(summary).toMatchObject({ stamped: 1, attempted: 100, succeeded: 100, remainingModelEligible: 5, remainingModelCalls: 5 });
     expect(summary.inputTokens).toBe(10_000);
     expect(summary.outputTokens).toBe(2_000);
     expect(summary.pilotCostUsd).toBe(0.02);
@@ -107,6 +107,42 @@ describe("runTidyBackfill", () => {
     expect(attempts).toBe(2);
     expect(summary.leftovers).toEqual([]);
     expect(summary.succeeded).toBe(1);
+  });
+
+  it("does not exceed a bounded model-call limit with a known stuck retry", async () => {
+    const stuck = KNOWN_STUCK_IDS[0];
+    let proposals = 0;
+    const { io } = memoryIO([page(stuck, { tags: [] })], async () => {
+      proposals++;
+      throw new Error("invalid proposal");
+    });
+
+    const summary = await runTidyBackfill({ io, usage: [], modelLimit: 1 });
+
+    expect(proposals).toBe(1);
+    expect(summary).toMatchObject({ attempted: 1, remainingModelEligible: 1, remainingModelCalls: 1 });
+  });
+
+  it("counts actual model calls and continues past a pre-proposal read failure", async () => {
+    const pages = Array.from({ length: 101 }, (_, index) => page(`model-${index}`, { tags: [] }));
+    const usage: Array<{ inputTokens: number; outputTokens: number }> = [];
+    const { io } = memoryIO(pages, async item => {
+      usage.push({ inputTokens: 10, outputTokens: 2 });
+      return { tags: ["Philosophy Knowledge and Society"], body: item.body, title: null };
+    });
+    const reads = new Map<string, number>();
+    const realReadPage = io.readPage;
+    io.readPage = async id => {
+      const count = (reads.get(id) ?? 0) + 1;
+      reads.set(id, count);
+      if (id === "model-0" && count > 1) return null;
+      return realReadPage(id);
+    };
+
+    const summary = await runTidyBackfill({ io, usage, modelLimit: 100 });
+
+    expect(summary).toMatchObject({ attempted: 100, succeeded: 100, remainingModelEligible: 1, remainingModelCalls: 0 });
+    expect(usage).toHaveLength(100);
   });
 
   it("attempts a scheduled failure once but does not repeat a prior backfill failure", async () => {

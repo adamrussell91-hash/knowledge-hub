@@ -55,11 +55,11 @@ function percentile(values: number[], fraction: number) {
 }
 
 export function costProjection(summary: Pick<BackfillSummary,
-  "attempted" | "remainingModelEligible" | "inputTokens" | "outputTokens" | "pilotCostUsd" | "pageCostSamplesUsd"
+  "attempted" | "remainingModelCalls" | "inputTokens" | "outputTokens" | "pilotCostUsd" | "pageCostSamplesUsd"
 >) {
   const attempted = Math.max(1, summary.attempted);
-  const projectedRemainingInputTokens = summary.inputTokens / attempted * summary.remainingModelEligible;
-  const projectedRemainingOutputTokens = summary.outputTokens / attempted * summary.remainingModelEligible;
+  const projectedRemainingInputTokens = summary.inputTokens / attempted * summary.remainingModelCalls;
+  const projectedRemainingOutputTokens = summary.outputTokens / attempted * summary.remainingModelCalls;
   const projectedRemainingCostUsd = (projectedRemainingInputTokens + projectedRemainingOutputTokens * 5) / 1_000_000;
   const samples = [
     ...summary.pageCostSamplesUsd,
@@ -70,8 +70,8 @@ export function costProjection(summary: Pick<BackfillSummary,
     projectedRemainingOutputTokens,
     projectedRemainingCostUsd,
     projectedTotalCostUsd: summary.pilotCostUsd + projectedRemainingCostUsd,
-    lowTotalCostUsd: summary.pilotCostUsd + percentile(samples, 0.1) * summary.remainingModelEligible,
-    highTotalCostUsd: summary.pilotCostUsd + percentile(samples, 0.9) * summary.remainingModelEligible,
+    lowTotalCostUsd: summary.pilotCostUsd + percentile(samples, 0.1) * summary.remainingModelCalls,
+    highTotalCostUsd: summary.pilotCostUsd + percentile(samples, 0.9) * summary.remainingModelCalls,
   };
 }
 
@@ -124,7 +124,7 @@ export async function main(args = process.argv.slice(2)) {
     onBatch: async batch => { await commitAndPush(parsed.dataDir, backfillBatchMessage(batch.batchNumber)); },
   });
 
-  if (summary.remainingModelEligible > 0) {
+  if (summary.remainingModelCalls > 0) {
     await commitAndPush(parsed.dataDir, "Record tidy backfill pilot progress.");
   } else {
     await writeFile(path.join(parsed.dataDir, "_tidy", "backfill-skip-list.json"), serializeSkipList(summary.leftovers));

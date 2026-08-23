@@ -27,6 +27,7 @@ export type BackfillSummary = {
   unchanged: number;
   failed: number;
   remainingModelEligible: number;
+  remainingModelCalls: number;
   inputTokens: number;
   outputTokens: number;
   pilotCostUsd: number;
@@ -72,6 +73,7 @@ export async function runTidyBackfill(options: BackfillOptions): Promise<Backfil
   const now = options.io.now();
   const stampedIds: string[] = [];
   const modelIds: string[] = [];
+  const modelFailures = new Set<string>();
   const leftovers = new Map<string, string>();
 
   for (const id of ids) {
@@ -92,6 +94,7 @@ export async function runTidyBackfill(options: BackfillOptions): Promise<Backfil
     const previousFailure = state.failures[id];
     if (previousFailure?.backfillAttemptedAt) {
       leftovers.set(id, previousFailure.reason);
+      modelFailures.add(id);
       continue;
     }
     modelIds.push(id);
@@ -102,14 +105,14 @@ export async function runTidyBackfill(options: BackfillOptions): Promise<Backfil
     await options.onPreflight?.(stampedIds);
   }
 
-  let attempted = 0;
+  let modelCalls = 0;
   let succeeded = 0;
   let unchanged = 0;
   let batchNumber = 0;
-  const limitedIds = modelIds.slice(0, modelLimit);
+  let nextModelIndex = 0;
 
   const attemptPage = async (id: string) => {
-    attempted++;
+    let modelCalled = false;
     const markBackfillFailure = async (reason: string) => {
       const latest = normalizeTidyState(await options.io.readState());
       latest.failures ??= {};
@@ -122,40 +125,58 @@ export async function runTidyBackfill(options: BackfillOptions): Promise<Backfil
       await options.io.writeState({ ...latest, lastRunAt: options.io.now() });
     };
     try {
-      const result = await runTidy({ ...options.io, id });
+      const result = await runTidy({
+        ...options.io,
+        id,
+        propose: page => {
+          modelCalled = true;
+          return options.io.propose(page);
+        },
+      });
       if (result.errors.length) {
         const reason = errorReason(id, result.errors);
         await markBackfillFailure(reason);
         leftovers.set(id, reason);
-        return { ok: false as const, reason };
+        modelFailures.add(id);
+        return { ok: false as const, reason, modelCalled };
       }
       leftovers.delete(id);
+      modelFailures.delete(id);
       succeeded++;
       if (result.skipped.includes(id)) unchanged++;
-      return { ok: true as const };
+      return { ok: true as const, modelCalled };
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       await markBackfillFailure(reason);
       leftovers.set(id, reason);
-      return { ok: false as const, reason };
+      modelFailures.add(id);
+      return { ok: false as const, reason, modelCalled };
     }
   };
 
-  for (let offset = 0; offset < limitedIds.length; offset += batchSize) {
+  while (nextModelIndex < modelIds.length && modelCalls < modelLimit) {
     batchNumber++;
-    const attemptedIds = limitedIds.slice(offset, offset + batchSize);
+    const attemptedIds: string[] = [];
     const successfulIds: string[] = [];
     const failures: BackfillLeftover[] = [];
-    for (const id of attemptedIds) {
+    let batchModelCalls = 0;
+    while (nextModelIndex < modelIds.length && modelCalls < modelLimit && batchModelCalls < batchSize) {
+      const id = modelIds[nextModelIndex++]!;
+      attemptedIds.push(id);
       const result = await attemptPage(id);
+      if (result.modelCalled) {
+        modelCalls++;
+        batchModelCalls++;
+      }
       if (result.ok) successfulIds.push(id);
       else failures.push({ id, reason: result.reason });
     }
     if (successfulIds.length) await options.onBatch?.({ batchNumber, attemptedIds, successfulIds, failures });
   }
 
-  const completedMainPass = limitedIds.length === modelIds.length;
-  if (completedMainPass) {
+  const completedMainPass = nextModelIndex === modelIds.length;
+  const fullRun = modelLimit === Number.POSITIVE_INFINITY;
+  if (completedMainPass && fullRun) {
     const retryIds = KNOWN_STUCK_IDS.filter(id => leftovers.has(id));
     if (retryIds.length) {
       batchNumber++;
@@ -163,6 +184,7 @@ export async function runTidyBackfill(options: BackfillOptions): Promise<Backfil
       const failures: BackfillLeftover[] = [];
       for (const id of retryIds) {
         const result = await attemptPage(id);
+        if (result.modelCalled) modelCalls++;
         if (result.ok) successfulIds.push(id);
         else failures.push({ id, reason: result.reason });
       }
@@ -174,15 +196,18 @@ export async function runTidyBackfill(options: BackfillOptions): Promise<Backfil
   const outputTokens = options.usage.reduce((total, item) => total + item.outputTokens, 0);
   const pageCostSamplesUsd = options.usage.map(item => (item.inputTokens + item.outputTokens * 5) / 1_000_000);
   const finalLeftovers = [...leftovers].map(([id, reason]) => ({ id, reason })).sort((a, b) => a.id.localeCompare(b.id));
+  const unprocessedModelIds = modelIds.length - nextModelIndex;
+  const pendingKnownRetries = fullRun ? 0 : KNOWN_STUCK_IDS.filter(id => modelFailures.has(id)).length;
 
   return {
     scanned: ids.length,
     stamped: stampedIds.length,
-    attempted,
+    attempted: modelCalls,
     succeeded,
     unchanged,
     failed: finalLeftovers.length,
-    remainingModelEligible: modelIds.length - limitedIds.length,
+    remainingModelEligible: unprocessedModelIds + modelFailures.size,
+    remainingModelCalls: unprocessedModelIds + pendingKnownRetries,
     inputTokens,
     outputTokens,
     pilotCostUsd: (inputTokens + outputTokens * 5) / 1_000_000,

@@ -42,6 +42,7 @@ describe("costProjection", () => {
     const projection = costProjection({
       attempted: 100,
       remainingModelEligible: 200,
+      remainingModelCalls: 200,
       inputTokens: 100_000,
       outputTokens: 20_000,
       pilotCostUsd: 0.2,
