@@ -13,8 +13,9 @@ describe("parseTidyArgs", () => {
     expect(() => parseTidyArgs(["--scan", "--count", "nope"])).toThrow("--count");
   });
 
-  it("turns persisted per-note failures into a CLI failure", () => {
+  it("fails an explicit --id tidy, but lets a scan persist failures and commit", () => {
     expect(() => assertNoTidyErrors({ errors: ["p: model failed"] })).toThrow("p: model failed");
+    expect(() => assertNoTidyErrors({ errors: ["p: model failed"] }, "scan")).not.toThrow();
     expect(() => assertNoTidyErrors({ errors: [] })).not.toThrow();
   });
 });

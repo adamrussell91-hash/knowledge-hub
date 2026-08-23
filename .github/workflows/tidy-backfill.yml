@@ -1,0 +1,56 @@
+name: Tidy backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      model_limit:
+        description: "Exact maximum number of paid Claude calls"
+        required: true
+        type: number
+        default: 100
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Checkout data repo
+        uses: actions/checkout@v4
+        with:
+          repository: adamrussell91-hash/knowledge-hub-data
+          token: ${{ secrets.DATA_REPO_TOKEN }}
+          path: data-repo
+          fetch-depth: 0
+
+      - name: Configure tidy author
+        working-directory: data-repo
+        run: |
+          git config user.name "knowledge-hub-tidy"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Backfill tidy
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODEL_LIMIT: ${{ inputs.model_limit }}
+        run: npm run tidy:backfill -- --data-dir data-repo --model-limit "$MODEL_LIMIT" --batch-size 5
+
+      - name: Commit failure metadata
+        if: always()
+        working-directory: data-repo
+        run: |
+          git add pages manifest.json _tidy
+          git diff --cached --quiet && echo "No trailing backfill changes" && exit 0
+          git commit -m "Record tidy backfill progress."
+          bash ../scripts/push-data-repo.sh

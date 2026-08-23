@@ -42,3 +42,8 @@ export function shouldSkipTidy(page: Page, lastTidiedAt?: string) {
   const updated = Date.parse(page.updated_at);
   return Number.isFinite(tidied) && Number.isFinite(updated) && tidied > updated;
 }
+
+/** Scan/backfill can mark these tidied without a model call. */
+export function canStampWithoutModel(page: Page) {
+  return !isMessy(page) && page.tags.filter(isTopicKeyword).length >= 1;
+}

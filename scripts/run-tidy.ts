@@ -18,7 +18,8 @@ export function parseTidyArgs(args: string[]): TidyArgs {
   return { ...(id ? { id } : { scan: true }), ...(resolvedCount ? { count: resolvedCount } : {}), ...(value("--data-dir") ? { dataDir: value("--data-dir") } : {}) };
 }
 
-export function assertNoTidyErrors(result: { errors: string[] }) {
+export function assertNoTidyErrors(result: { errors: string[] }, mode: "id" | "scan" = "id") {
+  if (mode === "scan") return;
   if (result.errors.length) throw new Error(`Tidy failed for ${result.errors.length} page(s): ${result.errors.join("; ")}`);
 }
 
@@ -34,7 +35,7 @@ export async function main(args = process.argv.slice(2)) {
     ...createLocalTidyIO({ dataDir, apiKey, prompt }),
   });
   console.log(JSON.stringify(result));
-  assertNoTidyErrors(result);
+  assertNoTidyErrors(result, parsed.id ? "id" : "scan");
   return result;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Page } from "../domain/page";
-import { isMessy, shouldSkipTidy } from "./messy";
+import { canStampWithoutModel, isMessy, shouldSkipTidy } from "./messy";
 
 const page = (overrides: Partial<Page> = {}): Page => ({
   id: "page_hub_caesar",
@@ -36,10 +36,6 @@ describe("messy note signals", () => {
     expect(isMessy(page({ tags: ["Note", "Educational Psychology"] }))).toBe(true);
   });
 
-  it("spots old labels that are not on the closed list", () => {
-    expect(isMessy(page({ tags: ["Note", "Educational Psychology"] }))).toBe(true);
-  });
-
   it("spots a run of one-sentence prose paragraphs", () => {
     expect(isMessy(page({ body: "One sentence.\n\nTwo sentence.\n\nThree sentence.\n\nFour sentence." }))).toBe(true);
   });
@@ -48,5 +44,13 @@ describe("messy note signals", () => {
     expect(shouldSkipTidy(page(), "2026-08-11T00:00:00.000Z")).toBe(true);
     expect(shouldSkipTidy(page(), "2026-08-09T00:00:00.000Z")).toBe(false);
     expect(shouldSkipTidy(page({ body: "Text\n\n\n\nMore" }), "2026-08-11T00:00:00.000Z")).toBe(false);
+  });
+
+  it("stamps only clean notes that already have 1–3 closed-list topic tags", () => {
+    expect(canStampWithoutModel(page())).toBe(true);
+    expect(canStampWithoutModel(page({ tags: ["Note", "EDST5805", "Philosophy Knowledge and Society", "Learning Science and Cognition"] }))).toBe(true);
+    expect(canStampWithoutModel(page({ tags: ["Note", "EDST5805"] }))).toBe(false);
+    expect(canStampWithoutModel(page({ tags: ["Educational Psychology"] }))).toBe(false);
+    expect(canStampWithoutModel(page({ body: "Text\n\n\n\nMore" }))).toBe(false);
   });
 });

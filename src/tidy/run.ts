@@ -1,7 +1,7 @@
 import type { Page, PageManifestEntry } from "../domain/page";
 import { plainExcerpt } from "../lib/plainExcerpt";
 import { topicTagsEqual } from "./applyTags";
-import { isMessy, shouldSkipTidy } from "./messy";
+import { canStampWithoutModel, isMessy, shouldSkipTidy } from "./messy";
 import { applyTidyProposal, normalizeTidyBody } from "./propose";
 import type { TidyProposal } from "./types";
 
@@ -101,7 +101,7 @@ export async function runTidy(io: TidyIO) {
       ? (await io.listPageIds()).filter(id => !recentlyFailed(state, id, now))
       : [];
   const pages: Page[] = [];
-  const result = { selected: [] as string[], changed: [] as string[], skipped: [] as string[], errors: [] as string[] };
+  const result = { selected: [] as string[], changed: [] as string[], skipped: [] as string[], stamped: [] as string[], errors: [] as string[] };
   const recordFailure = (id: string, reason: string) => {
     const previous = state.failures?.[id];
     state.failures![id] = { ...previous, attempts: (previous?.attempts ?? 0) + 1, lastFailedAt: now, reason };
@@ -129,6 +129,12 @@ export async function runTidy(io: TidyIO) {
     try {
       if (!io.id && shouldSkipTidy(page, state.tidied[page.id])) {
         result.skipped.push(page.id);
+        continue;
+      }
+      if (!io.id && canStampWithoutModel(page)) {
+        state.tidied[page.id] = now;
+        delete state.failures[page.id];
+        result.stamped.push(page.id);
         continue;
       }
       const proposal = await io.propose(page);

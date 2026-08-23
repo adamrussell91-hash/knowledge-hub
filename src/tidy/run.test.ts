@@ -20,6 +20,29 @@ describe("runTidy", () => {
     expect(called).not.toContain("p2");
   });
 
+  it("stamps one clean canonical scan note without calling the model", async () => {
+    let state: unknown = { tidied: {} };
+    let calls = 0;
+    const result = await runTidy({
+      scan: true,
+      count: 100,
+      readPage: async id => page(id),
+      listPageIds: async () => ["clean-a", "clean-b"],
+      readManifest: async () => [],
+      writeManifest: async () => {},
+      readState: async () => state,
+      writeState: async value => { state = value; },
+      propose: async () => { calls++; return null; },
+      writePage: async () => {},
+      now: () => "2026-08-12T00:00:00.000Z",
+      random: () => 0,
+    });
+    expect(calls).toBe(0);
+    expect(result.selected).toHaveLength(1);
+    expect(result.stamped).toEqual(result.selected);
+    expect(state).toMatchObject({ tidied: { [result.selected[0]!]: "2026-08-12T00:00:00.000Z" } });
+  });
+
   it("does not write an unchanged page but records that it was tidied", async () => {
     const writes: Page[] = [];
     let state: unknown;
