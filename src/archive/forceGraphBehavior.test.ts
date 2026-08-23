@@ -4,6 +4,8 @@ import {
   SHOW_ALL_SETTLE_TICKS,
   SHOW_ALL_TUNING_CONTROLS,
   SHOW_ALL_TUNING_DEFAULTS,
+  SHOW_ALL_STRAND_WIDTH,
+  applyShowAllStrandStroke,
   applyShowAllTuning,
   fitViewToNodes,
   initialForceView,
@@ -14,6 +16,9 @@ import {
   nodeHoverTip,
   overlapLinkAlpha,
   resetShowAllTuning,
+  showAllStrandDash,
+  showAllStrandStroke,
+  showAllStrandWidth,
   resolveBackgroundClick,
   resolveEnterKey,
   resolveNodeClick,
@@ -252,6 +257,40 @@ describe("show all draw budget", () => {
   it("locks the settled map at a bounded tick budget", () => {
     expect(shouldLockShowAll(SHOW_ALL_SETTLE_TICKS - 1)).toBe(false);
     expect(shouldLockShowAll(SHOW_ALL_SETTLE_TICKS)).toBe(true);
+  });
+
+  it("draws every Show All strand at the same solid rounded width", () => {
+    expect(showAllStrandWidth()).toBe(SHOW_ALL_STRAND_WIDTH);
+    expect(showAllStrandDash()).toEqual([]);
+    expect(showAllStrandStroke(false)).toEqual({
+      dash: [],
+      lineCap: "round",
+      lineJoin: "round",
+      width: SHOW_ALL_STRAND_WIDTH,
+    });
+    expect(showAllStrandStroke(true).width).toBe(SHOW_ALL_STRAND_WIDTH + 0.6);
+    expect(showAllStrandStroke(true).dash).toEqual([]);
+    const ctx = {
+      lineCap: "butt" as CanvasLineCap,
+      lineJoin: "miter" as CanvasLineJoin,
+      lineWidth: 1,
+      dash: [4, 5] as number[],
+      setLineDash(next: number[]) {
+        this.dash = [...next];
+      },
+    };
+    applyShowAllStrandStroke(ctx, { viewK: 0.16 });
+    expect(ctx.lineCap).toBe("round");
+    expect(ctx.lineJoin).toBe("round");
+    expect(ctx.dash).toEqual([]);
+    expect(ctx.lineWidth).toBeCloseTo(SHOW_ALL_STRAND_WIDTH / 0.16);
+  });
+
+  it("scales strand width only from the Width slider, never from overlap weight", () => {
+    applyShowAllTuning({ lineWidthScale: 1.5 });
+    expect(showAllStrandWidth()).toBe(3);
+    resetShowAllTuning();
+    expect(showAllStrandWidth()).toBe(SHOW_ALL_STRAND_WIDTH);
   });
 
   it("draws overlap edges at any zoom and keeps spokes at the default Show All zoom", () => {

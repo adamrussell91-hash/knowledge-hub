@@ -1,0 +1,131 @@
+/** @vitest-environment jsdom */
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { mountForceGraph } from "./forceGraph";
+import { SHOW_ALL_STRAND_WIDTH, resetShowAllTuning } from "./forceGraphBehavior";
+import type { ArchiveGraphModel, GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
+
+type StrokeRecord = {
+  lineWidth: number;
+  dash: number[];
+  lineCap: string;
+  strokeStyle: string;
+};
+
+function recordingContext() {
+  const strokes: StrokeRecord[] = [];
+  let dash: number[] = [];
+  const ctx = {
+    globalAlpha: 1,
+    fillStyle: "#000",
+    strokeStyle: "#000",
+    lineWidth: 1,
+    lineCap: "butt",
+    lineJoin: "miter",
+    font: "",
+    textAlign: "left",
+    textBaseline: "alphabetic",
+    setTransform() {},
+    clearRect() {},
+    save() {},
+    restore() {},
+    translate() {},
+    scale() {},
+    beginPath() {},
+    arc() {},
+    fill() {},
+    stroke() {
+      strokes.push({
+        lineWidth: ctx.lineWidth,
+        dash: [...dash],
+        lineCap: ctx.lineCap,
+        strokeStyle: String(ctx.strokeStyle),
+      });
+    },
+    fillText() {},
+    moveTo() {},
+    lineTo() {},
+    quadraticCurveTo() {},
+    setLineDash(next: number[]) {
+      dash = [...next];
+    },
+    getLineDash() {
+      return [...dash];
+    },
+  };
+  return { ctx, strokes };
+}
+
+function installCanvas() {
+  const recorded = recordingContext();
+  HTMLCanvasElement.prototype.getContext = function () {
+    return recorded.ctx as unknown as CanvasRenderingContext2D;
+  };
+  return recorded;
+}
+
+function stubFrame() {
+  vi.stubGlobal("devicePixelRatio", 1);
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    queueMicrotask(() => cb(0));
+    return 1;
+  });
+  vi.stubGlobal("cancelAnimationFrame", vi.fn());
+}
+
+function node(
+  partial: Partial<GraphNodeDatum> & Pick<GraphNodeDatum, "id" | "kind" | "label">,
+): GraphNodeDatum {
+  return {
+    count: 1,
+    color: "#5b8ec8",
+    soft: "rgba(91, 142, 200, 0.7)",
+    ink: "#294c71",
+    r: 6,
+    x: 760,
+    y: 560,
+    ...partial,
+  };
+}
+
+function model(): ArchiveGraphModel {
+  const hub = node({ id: "major:A", kind: "major", label: "A", count: 3, r: 12, x: 760, y: 560 });
+  const a = node({ id: "leaf:a", kind: "leaf", label: "Note A", pageId: "a", x: 800, y: 580 });
+  const b = node({ id: "leaf:b", kind: "leaf", label: "Note B", pageId: "b", x: 720, y: 540 });
+  const c = node({ id: "leaf:c", kind: "leaf", label: "Note C", pageId: "c", x: 780, y: 620 });
+  const links: GraphLinkDatum[] = [
+    { source: "leaf:a", target: "major:A", kind: "spoke", weight: 1, color: hub.color },
+    { source: "leaf:b", target: "major:A", kind: "spoke", weight: 1, color: hub.color },
+    { source: "leaf:c", target: "major:A", kind: "spoke", weight: 1, color: hub.color },
+    { source: "leaf:a", target: "leaf:b", kind: "overlap", weight: 1, color: a.soft },
+    { source: "leaf:b", target: "leaf:c", kind: "overlap", weight: 8, color: b.soft },
+  ];
+  return { nodes: [hub, a, b, c], links, majorCount: 1, minorCount: 0, leaves: new Map() };
+}
+
+describe("Show All strand drawing", () => {
+  afterEach(() => {
+    resetShowAllTuning();
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  it("strokes every on-screen strand at one solid rounded width, including heavy overlaps", () => {
+    stubFrame();
+    const recorded = installCanvas();
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 1100 });
+    document.body.appendChild(host);
+
+    const stop = mountForceGraph(host, model(), {}, { variant: "showAll", search: "", excerptFor: () => "" });
+    const viewK = 0.16;
+    const expected = SHOW_ALL_STRAND_WIDTH / viewK;
+    const strands = recorded.strokes.filter(stroke => stroke.strokeStyle !== "#fff");
+
+    expect(strands.length).toBeGreaterThanOrEqual(5);
+    expect(new Set(strands.map(stroke => stroke.lineWidth))).toEqual(new Set([expected]));
+    expect(strands.every(stroke => stroke.dash.length === 0)).toBe(true);
+    expect(strands.every(stroke => stroke.lineCap === "round")).toBe(true);
+
+    stop();
+  });
+});
