@@ -90,7 +90,7 @@ export async function runTidyBackfill(options: BackfillOptions): Promise<Backfil
       continue;
     }
     const previousFailure = state.failures[id];
-    if (previousFailure) {
+    if (previousFailure?.backfillAttemptedAt) {
       leftovers.set(id, previousFailure.reason);
       continue;
     }
@@ -110,10 +110,22 @@ export async function runTidyBackfill(options: BackfillOptions): Promise<Backfil
 
   const attemptPage = async (id: string) => {
     attempted++;
+    const markBackfillFailure = async (reason: string) => {
+      const latest = normalizeTidyState(await options.io.readState());
+      latest.failures ??= {};
+      const failure = latest.failures[id];
+      if (failure) failure.backfillAttemptedAt = options.io.now();
+      else {
+        recordFailure(latest, id, reason, options.io.now());
+        latest.failures[id]!.backfillAttemptedAt = options.io.now();
+      }
+      await options.io.writeState({ ...latest, lastRunAt: options.io.now() });
+    };
     try {
       const result = await runTidy({ ...options.io, id });
       if (result.errors.length) {
         const reason = errorReason(id, result.errors);
+        await markBackfillFailure(reason);
         leftovers.set(id, reason);
         return { ok: false as const, reason };
       }
@@ -123,9 +135,7 @@ export async function runTidyBackfill(options: BackfillOptions): Promise<Backfil
       return { ok: true as const };
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      const latest = normalizeTidyState(await options.io.readState());
-      recordFailure(latest, id, reason, options.io.now());
-      await options.io.writeState({ ...latest, lastRunAt: options.io.now() });
+      await markBackfillFailure(reason);
       leftovers.set(id, reason);
       return { ok: false as const, reason };
     }

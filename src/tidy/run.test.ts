@@ -125,12 +125,12 @@ describe("runTidy", () => {
       lastRunAt: 3,
       tidied: { good: "2026-08-12T00:00:00.000Z", bad: 4 },
       failures: {
-        valid: { attempts: 2, lastFailedAt: "2026-08-12T00:00:00.000Z", reason: "bad output" },
+        valid: { attempts: 2, lastFailedAt: "2026-08-12T00:00:00.000Z", reason: "bad output", backfillAttemptedAt: "2026-08-12T01:00:00.000Z" },
         invalid: { attempts: "two", lastFailedAt: 4, reason: null },
       },
     })).toEqual({
       tidied: { good: "2026-08-12T00:00:00.000Z" },
-      failures: { valid: { attempts: 2, lastFailedAt: "2026-08-12T00:00:00.000Z", reason: "bad output" } },
+      failures: { valid: { attempts: 2, lastFailedAt: "2026-08-12T00:00:00.000Z", reason: "bad output", backfillAttemptedAt: "2026-08-12T01:00:00.000Z" } },
     });
     expect(normalizeTidyState(null)).toEqual({ tidied: {} });
   });

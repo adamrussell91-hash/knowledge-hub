@@ -18,8 +18,8 @@ const page = (id: string, overrides: Partial<Page> = {}): Page => ({
   ...overrides,
 });
 
-function memoryIO(inputPages: Page[], propose: TidyIO["propose"]) {
-  let state: TidyState = { tidied: {} };
+function memoryIO(inputPages: Page[], propose: TidyIO["propose"], initialState: TidyState = { tidied: {} }) {
+  let state: TidyState = initialState;
   let manifest: PageManifestEntry[] = [];
   const pages = new Map(inputPages.map(item => [item.id, item]));
   const io: Omit<TidyIO, "id" | "scan" | "count"> = {
@@ -107,5 +107,24 @@ describe("runTidyBackfill", () => {
     expect(attempts).toBe(2);
     expect(summary.leftovers).toEqual([]);
     expect(summary.succeeded).toBe(1);
+  });
+
+  it("attempts a scheduled failure once but does not repeat a prior backfill failure", async () => {
+    const propose = vi.fn(async (item: Page) => ({ tags: ["Philosophy Knowledge and Society"], body: item.body, title: null }));
+    const { io } = memoryIO([
+      page("scheduled-failure", { tags: [] }),
+      page("backfill-failure", { tags: [] }),
+    ], propose, {
+      tidied: {},
+      failures: {
+        "scheduled-failure": { attempts: 1, lastFailedAt: "2026-08-22T00:00:00.000Z", reason: "scheduled model failed" },
+        "backfill-failure": { attempts: 1, lastFailedAt: "2026-08-22T00:00:00.000Z", reason: "backfill model failed", backfillAttemptedAt: "2026-08-22T00:00:00.000Z" },
+      },
+    });
+
+    const summary = await runTidyBackfill({ io, usage: [] });
+
+    expect(propose.mock.calls.map(([item]) => item.id)).toEqual(["scheduled-failure"]);
+    expect(summary.leftovers).toEqual([{ id: "backfill-failure", reason: "backfill model failed" }]);
   });
 });

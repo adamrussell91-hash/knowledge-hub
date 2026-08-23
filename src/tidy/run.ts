@@ -5,7 +5,7 @@ import { isMessy, shouldSkipTidy } from "./messy";
 import { applyTidyProposal, normalizeTidyBody } from "./propose";
 import type { TidyProposal } from "./types";
 
-export type TidyFailure = { attempts: number; lastFailedAt: string; reason: string };
+export type TidyFailure = { attempts: number; lastFailedAt: string; reason: string; backfillAttemptedAt?: string };
 export type TidyState = { lastRunAt?: string; tidied: Record<string, string>; failures?: Record<string, TidyFailure> };
 
 const FAILURE_COOLDOWN_MS = 72 * 60 * 60 * 1000;
@@ -43,7 +43,8 @@ export function normalizeTidyState(value: unknown): TidyState {
         failure && typeof failure === "object" && !Array.isArray(failure) &&
         Number.isInteger((failure as TidyFailure).attempts) && (failure as TidyFailure).attempts > 0 &&
         typeof (failure as TidyFailure).lastFailedAt === "string" &&
-        typeof (failure as TidyFailure).reason === "string",
+        typeof (failure as TidyFailure).reason === "string" &&
+        ((failure as TidyFailure).backfillAttemptedAt === undefined || typeof (failure as TidyFailure).backfillAttemptedAt === "string"),
       );
     }))
     : {};
