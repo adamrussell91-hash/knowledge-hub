@@ -197,7 +197,7 @@ export function shouldLockShowAll(tickCount: number) {
 }
 
 export function showAllLinkShouldDraw(kind: GraphLinkKind, viewK: number, leafOnScreen: boolean) {
-  if (kind === "spoke") return viewK >= 0.18 && leafOnScreen;
+  if (kind === "spoke") return viewK >= 0.1 && leafOnScreen;
   if (kind === "overlap") return true;
   return true;
 }

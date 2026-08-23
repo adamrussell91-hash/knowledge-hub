@@ -229,10 +229,10 @@ describe("show all draw budget", () => {
     expect(shouldLockShowAll(SHOW_ALL_SETTLE_TICKS)).toBe(true);
   });
 
-  it("draws overlap edges at any zoom and keeps spokes for closer views", () => {
-    expect(showAllLinkShouldDraw("spoke", 0.11, true)).toBe(false);
-    expect(showAllLinkShouldDraw("spoke", 0.18, false)).toBe(false);
-    expect(showAllLinkShouldDraw("spoke", 0.18, true)).toBe(true);
+  it("draws overlap edges at any zoom and keeps spokes at the default Show All zoom", () => {
+    expect(showAllLinkShouldDraw("spoke", 0.09, true)).toBe(false);
+    expect(showAllLinkShouldDraw("spoke", 0.16, true)).toBe(true);
+    expect(showAllLinkShouldDraw("spoke", 0.16, false)).toBe(false);
     expect(showAllLinkShouldDraw("overlap", 0.02, true)).toBe(true);
     expect(showAllLinkShouldDraw("backbone", 0.01, false)).toBe(true);
   });
