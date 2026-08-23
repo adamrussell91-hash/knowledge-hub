@@ -53,3 +53,35 @@ describe("archive graph", () => {
     expect(colorForTopic(V[2]).fill).toBe(KEYWORD_PALETTE[2].fill);
   });
 });
+
+describe("topic colours", () => {
+  function hue(hex: string) {
+    const n = Number.parseInt(hex.slice(1), 16);
+    const r = ((n >> 16) & 255) / 255;
+    const g = ((n >> 8) & 255) / 255;
+    const b = (n & 255) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max === min) return 0;
+    const d = max - min;
+    let h = 0;
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    return (h * 60 + 360) % 360;
+  }
+
+  function hueGap(a: string, b: string) {
+    const delta = Math.abs(hue(a) - hue(b));
+    return Math.min(delta, 360 - delta);
+  }
+
+  it("gives every closed topic its own fill and keeps neighbours in different hue families", () => {
+    expect(KEYWORD_PALETTE).toHaveLength(V.length);
+    expect(new Set(KEYWORD_PALETTE.map(swatch => swatch.fill)).size).toBe(V.length);
+    for (let index = 0; index < KEYWORD_PALETTE.length; index++) {
+      const next = KEYWORD_PALETTE[(index + 1) % KEYWORD_PALETTE.length]!;
+      expect(hueGap(KEYWORD_PALETTE[index]!.fill, next.fill)).toBeGreaterThanOrEqual(28);
+    }
+  });
+});
