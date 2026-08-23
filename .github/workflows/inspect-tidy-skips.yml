@@ -1,0 +1,29 @@
+name: Inspect tidy leftovers
+
+on:
+  push:
+    branches: [cursor/inspect-tidy-leftovers-06a4]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Checkout data repo
+        uses: actions/checkout@v4
+        with:
+          repository: adamrussell91-hash/knowledge-hub-data
+          token: ${{ secrets.DATA_REPO_TOKEN }}
+          path: data-repo
+          fetch-depth: 1
+      - name: Inspect skip-listed leftovers
+        run: npx tsx scripts/inspect-tidy-skips.ts --data-dir data-repo
