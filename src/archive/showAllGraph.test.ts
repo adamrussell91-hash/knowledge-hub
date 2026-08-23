@@ -19,7 +19,7 @@ function page(
 const V = TOPIC_VOCABULARY;
 
 describe("buildShowAllGraph", () => {
-  it("emits one node per note, a spoke to the primary hub, and overlap edges for shared tags", () => {
+  it("emits one node per note, a spoke to every topic hub, and overlap edges for shared tags", () => {
     const model = buildShowAllGraph([
       page("p1", "Alpha", [V[0], V[2]]),
       page("p2", "Beta", [V[0], V[2]]),
@@ -31,7 +31,8 @@ describe("buildShowAllGraph", () => {
     expect(new Set(leaves.map(node => node.id)).size).toBe(3);
 
     const spokes = model.links.filter(link => link.kind === "spoke");
-    expect(spokes.filter(link => String(link.target) === "leaf:p1" || String(link.source) === "leaf:p1").length).toBe(1);
+    expect(spokes.filter(link => String(link.target) === "leaf:p1" || String(link.source) === "leaf:p1").length).toBe(2);
+    expect(leaves.find(node => node.pageId === "p1")?.hubLabels).toEqual([V[0], V[2]]);
 
     const overlaps = model.links.filter(link => link.kind === "overlap");
     expect(overlaps.length).toBeGreaterThanOrEqual(2);
@@ -80,6 +81,27 @@ describe("buildShowAllGraph", () => {
   it("gives busier hubs more cluster clearance", () => {
     expect(showAllClusterRadius(100)).toBeGreaterThan(showAllClusterRadius(25));
     expect(showAllClusterRadius(25)).toBeGreaterThan(showAllClusterRadius(1));
+  });
+
+  it("draws a spoke from a note to each of its topic hubs", () => {
+    const model = buildShowAllGraph([
+      page("p1", "Zimmerman's Component Skills of Self-Regulated Learning", [V[1], V[0]]),
+    ]);
+    const leafId = "leaf:p1";
+    const spokes = model.links.filter(
+      link => link.kind === "spoke" && (String(link.source) === leafId || String(link.target) === leafId),
+    );
+    expect(spokes).toHaveLength(2);
+    const hubs = spokes
+      .map(link => (String(link.source) === leafId ? String(link.target) : String(link.source)))
+      .sort();
+    expect(hubs).toEqual([`major:${V[0]}`, `major:${V[1]}`].sort());
+    expect(spokes.map(link => link.color).sort()).toEqual(
+      [
+        model.nodes.find(node => node.id === `major:${V[0]}`)!.color,
+        model.nodes.find(node => node.id === `major:${V[1]}`)!.color,
+      ].sort(),
+    );
   });
 
   it("walks each topic in turn so the first tag cannot consume the edge budget", () => {

@@ -213,6 +213,7 @@ export function buildShowAllGraph(
   const links: GraphLinkDatum[] = [];
   const primaryHub: string[] = [];
 
+  const labelsById = new Map(eligible.map((entry, index) => [entry.id, labelsByEntry[index] ?? []]));
   const byHub = new Map<string, { hub?: GraphNodeDatum; entries: PageManifestEntry[] }>();
   eligible.forEach((entry, index) => {
     const labels = labelsByEntry[index] ?? [];
@@ -230,6 +231,7 @@ export function buildShowAllGraph(
       const seed = organicSeed(entry.id, index, group.entries.length);
       const x = (origin.x ?? LAYOUT_CENTRE.x) + seed.x;
       const y = (origin.y ?? LAYOUT_CENTRE.y) + seed.y;
+      const hubLabels = [...new Set(labelsById.get(entry.id) ?? [])].filter(label => hubByLabel.has(label));
       nodes.push({
         id: `leaf:${entry.id}`,
         kind: "leaf",
@@ -237,6 +239,7 @@ export function buildShowAllGraph(
         count: 1,
         pageId: entry.id,
         parentKeyword: group.hub?.label,
+        hubLabels,
         color: group.hub?.color ?? "#888888",
         soft: group.hub?.soft ?? "rgba(136, 136, 136, 0.7)",
         ink: group.hub?.ink ?? "#444444",
@@ -246,13 +249,15 @@ export function buildShowAllGraph(
         homeX: origin.x ?? LAYOUT_CENTRE.x,
         homeY: origin.y ?? LAYOUT_CENTRE.y,
       });
-      if (group.hub) {
+      for (const label of hubLabels) {
+        const hub = hubByLabel.get(label);
+        if (!hub) continue;
         links.push({
           source: `leaf:${entry.id}`,
-          target: group.hub.id,
+          target: hub.id,
           kind: "spoke",
           weight: 1,
-          color: group.hub.color,
+          color: hub.color,
         });
       }
     });

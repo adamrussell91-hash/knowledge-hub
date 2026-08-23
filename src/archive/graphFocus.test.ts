@@ -102,4 +102,65 @@ describe("leaf selection by page", () => {
     const copies = twins.filter(item => item.pageId === "p1");
     expect(copies.every(item => isFocusNode(item, cluster))).toBe(true);
   });
+
+  it("keeps a selected note linked to its topic hubs", () => {
+    const zimmerman = node({
+      id: "leaf:z",
+      kind: "leaf",
+      label: "Zimmerman's Component Skills of Self-Regulated Learning",
+      parentKeyword: "Motivation and Self Regulation",
+      hubLabels: ["Motivation and Self Regulation", "Learning Science and Cognition"],
+      pageId: "z1",
+    });
+    const motivation = node({
+      id: "major:Motivation and Self Regulation",
+      kind: "major",
+      label: "Motivation and Self Regulation",
+    });
+    const learning = node({
+      id: "major:Learning Science and Cognition",
+      kind: "major",
+      label: "Learning Science and Cognition",
+    });
+    const other = node({
+      id: "leaf:other",
+      kind: "leaf",
+      label: "Other note",
+      parentKeyword: "Learning Science and Cognition",
+      pageId: "o1",
+    });
+    const graph = [motivation, learning, zimmerman, other];
+    const cluster = selectionCluster(graph, zimmerman.label);
+    expect(cluster.has("Motivation and Self Regulation")).toBe(true);
+    expect(cluster.has("Learning Science and Cognition")).toBe(true);
+    expect(cluster.has("Other note")).toBe(false);
+
+    const spokeA: GraphLinkDatum = {
+      source: zimmerman.id,
+      target: motivation.id,
+      kind: "spoke",
+      weight: 1,
+      color: "#f68620",
+    };
+    const spokeB: GraphLinkDatum = {
+      source: zimmerman.id,
+      target: learning.id,
+      kind: "spoke",
+      weight: 1,
+      color: "#5b8ec8",
+    };
+    const overlap: GraphLinkDatum = {
+      source: zimmerman.id,
+      target: other.id,
+      kind: "overlap",
+      weight: 1,
+      color: "rgba(160, 160, 160, 0.7)",
+    };
+    expect(isFocusLink(spokeA, graph, cluster, zimmerman.label)).toBe(true);
+    expect(isFocusLink(spokeB, graph, cluster, zimmerman.label)).toBe(true);
+    expect(isFocusLink(overlap, graph, cluster, zimmerman.label)).toBe(true);
+
+    const hubCluster = selectionCluster(graph, "Motivation and Self Regulation");
+    expect(isFocusLink(overlap, graph, hubCluster, "Motivation and Self Regulation")).toBe(false);
+  });
 });

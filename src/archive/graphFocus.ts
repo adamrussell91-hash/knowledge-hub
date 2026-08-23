@@ -1,9 +1,14 @@
 import type { GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
 
+function resolveEnd(end: GraphLinkDatum["source"], nodes: GraphNodeDatum[]) {
+  if (typeof end !== "string") return end;
+  return nodes.find(item => item.id === end) ?? null;
+}
+
 function nodeLabel(end: GraphLinkDatum["source"], nodes: GraphNodeDatum[]) {
-  if (typeof end !== "string") return end.label;
-  const node = nodes.find(item => item.id === end);
-  return node?.label ?? end.replace(/^(major|minor|leaf):/, "");
+  const node = resolveEnd(end, nodes);
+  if (node) return node.label;
+  return typeof end === "string" ? end.replace(/^(major|minor|leaf):/, "") : end.label;
 }
 
 export function nodeMatchesQuery(node: GraphNodeDatum, query: string) {
@@ -36,7 +41,11 @@ export function selectionCluster(nodes: GraphNodeDatum[], selected: string | nul
   const pageIds = new Set(selectedNodes.map(node => node.pageId).filter(Boolean) as string[]);
   if (pageIds.size) {
     for (const node of nodes) {
-      if (node.pageId && pageIds.has(node.pageId)) cluster.add(node.label);
+      if (node.pageId && pageIds.has(node.pageId)) {
+        cluster.add(node.label);
+        if (node.parentKeyword) cluster.add(node.parentKeyword);
+        for (const hub of node.hubLabels ?? []) cluster.add(hub);
+      }
     }
     return cluster;
   }
@@ -57,12 +66,28 @@ export function selectionCluster(nodes: GraphNodeDatum[], selected: string | nul
   return cluster;
 }
 
-export function isFocusLink(link: GraphLinkDatum, nodes: GraphNodeDatum[], cluster: Set<string>) {
+export function isFocusLink(
+  link: GraphLinkDatum,
+  nodes: GraphNodeDatum[],
+  cluster: Set<string>,
+  selected: string | null = null,
+) {
   if (cluster.size === 0) return false;
   if (link.kind === "backbone") return false;
   const sourceLabel = nodeLabel(link.source, nodes);
   const targetLabel = nodeLabel(link.target, nodes);
-  return cluster.has(sourceLabel) && cluster.has(targetLabel);
+  if (cluster.has(sourceLabel) && cluster.has(targetLabel)) return true;
+
+  if (!selected) return false;
+  const selectedLeaves = nodes.filter(
+    node => node.kind === "leaf" && (node.label === selected || node.id === selected),
+  );
+  if (!selectedLeaves.length) return false;
+  const leafIds = new Set(selectedLeaves.map(node => node.id));
+  const pageIds = new Set(selectedLeaves.map(node => node.pageId).filter(Boolean) as string[]);
+  const touchesSelectedLeaf = (node: GraphNodeDatum | null) =>
+    Boolean(node && (leafIds.has(node.id) || (node.pageId && pageIds.has(node.pageId))));
+  return touchesSelectedLeaf(resolveEnd(link.source, nodes)) || touchesSelectedLeaf(resolveEnd(link.target, nodes));
 }
 
 export function isFocusNode(node: GraphNodeDatum, cluster: Set<string>) {
