@@ -7,14 +7,19 @@ import {
   UNIVERSE_BUILD,
   KIND_DEPTH,
   advanceOrbitClock,
+  cameraFromWorld,
   fillDots,
   glowSpread,
+  isNarrowViewport,
   mountSolarView,
+  pinchDistance,
+  pinchMidpoint,
   presence,
   resolveSearchHits,
   searchResolveStats,
   solarCamera,
   solarScales,
+  solarStageSize,
   solarZoomClamp,
   zoomBand,
 } from "./solarView";
@@ -240,6 +245,42 @@ describe("presence and bands", () => {
   });
 });
 
+describe("mobile-only universe camera", () => {
+  it("keeps the desktop stage on the 720px floor", () => {
+    expect(isNarrowViewport(1280)).toBe(false);
+    expect(solarStageSize({ clientWidth: 800, clientHeight: 0 }, { innerWidth: 1280, innerHeight: 900 })).toEqual({
+      width: 800,
+      height: 720,
+    });
+    expect(solarStageSize({ clientWidth: 1100, clientHeight: 400 }, { innerWidth: 1440, innerHeight: 1000 })).toEqual({
+      width: 1100,
+      height: 800,
+    });
+  });
+
+  it("sizes a phone stage from the leftover viewport instead of a 720px floor", () => {
+    expect(isNarrowViewport(390)).toBe(true);
+    expect(solarStageSize({ clientWidth: 390, clientHeight: 520 }, { innerWidth: 390, innerHeight: 844 })).toEqual({
+      width: 390,
+      height: 520,
+    });
+    expect(solarStageSize({ clientWidth: 390, clientHeight: 0 }, { innerWidth: 390, innerHeight: 667 }).height).toBeLessThan(
+      720,
+    );
+  });
+
+  it("keeps wheel-zoom camera math", () => {
+    const world = { x: 100, y: 40 };
+    expect(cameraFromWorld(world, 1.08, 200, 160, { left: 0, top: 0 })).toEqual({
+      k: 1.08,
+      x: 200 - 100 * 1.08,
+      y: 160 - 40 * 1.08,
+    });
+    expect(pinchDistance({ x: 0, y: 0 }, { x: 30, y: 40 })).toBe(50);
+    expect(pinchMidpoint({ x: 10, y: 20 }, { x: 30, y: 40 })).toEqual({ x: 20, y: 30 });
+  });
+});
+
 describe("zoom ladder", () => {
   it("derives kMax from content and keeps the fit-to-max range at most 400:1", () => {
     const { fitK, kMin, kMax } = solarScales(3400, 8, 1440, 900);
@@ -429,6 +470,66 @@ describe("mountSolarView", () => {
       title: "Zebra Unique Page",
       excerpt: "zebra excerpt",
     });
+    stop();
+  });
+
+  it("does not mount zoom buttons on a desktop-width window", () => {
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 800, configurable: true });
+    const stop = mountSolarView(host, buildSolarModel([]), { search: "", onNoteSelect() {} });
+    expect(host.querySelector(".universe-zoom")).toBeNull();
+    stop();
+  });
+
+  it("mounts pinch-safe zoom buttons only on a narrow window", () => {
+    vi.stubGlobal("innerWidth", 390);
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 390, configurable: true });
+    const stop = mountSolarView(host, buildSolarModel([]), { search: "", onNoteSelect() {} });
+    expect(host.querySelector(".universe-zoom")).toBeTruthy();
+    expect(host.querySelectorAll("[data-universe-zoom]")).toHaveLength(2);
+    stop();
+  });
+
+  it("treats a two-finger pinch as zoom, not a note click", () => {
+    const frames = stubFrame();
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 800, configurable: true });
+    const entries = tagged("g", V0, 12, i => (i === 0 ? "Zebra Unique Page" : `Note ${i}`));
+    const model = buildSolarModel(entries);
+    const onNoteSelect = vi.fn();
+    const stop = mountSolarView(host, model, { search: "Zebra Unique", onNoteSelect });
+    frames.pump(16);
+    const target = model.bodies.find(body => body.pageId === "g0")!;
+    const world = worldPos(target, model);
+    const width = 800;
+    const height = Math.max(720, Math.floor(window.innerHeight * 0.8));
+    const { fitK } = solarScales(model.reach, model.tightest, width, height);
+    const sx = width / 2 + world.x * fitK;
+    const sy = height / 2 + world.y * fitK;
+    const canvas = host.querySelector("canvas")!;
+    canvas.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width,
+      height,
+      right: width,
+      bottom: height,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    });
+    const pointer = (type: string, pointerId: number, clientX: number, clientY: number) => {
+      const event = new MouseEvent(type, { clientX, clientY, bubbles: true });
+      Object.defineProperty(event, "pointerId", { value: pointerId });
+      return event;
+    };
+    canvas.dispatchEvent(pointer("pointerdown", 1, sx, sy));
+    canvas.dispatchEvent(pointer("pointerdown", 2, sx + 40, sy));
+    window.dispatchEvent(pointer("pointermove", 2, sx + 90, sy));
+    window.dispatchEvent(pointer("pointerup", 1, sx, sy));
+    window.dispatchEvent(pointer("pointerup", 2, sx + 90, sy));
+    expect(onNoteSelect).not.toHaveBeenCalled();
     stop();
   });
 });

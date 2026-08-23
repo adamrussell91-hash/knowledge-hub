@@ -1,4 +1,5 @@
 import { PageSchema, type Page, type PageManifestEntry } from "../domain/page";
+import { savePageRecord } from "../../netlify/functions/_lib/savePageRecord";
 import { getContent, putContent } from "../../netlify/functions/_lib/githubWrite";
 import { applyTidyProposal, proposeTidy } from "./propose";
 import type { TidyProposal } from "./types";
@@ -112,6 +113,5 @@ export async function tidyPageDirect(input: {
     created_at: parsed.data.created_at,
     updated_at: new Date().toISOString(),
   };
-  await fns.putContent(`pages/${input.id}.json`, JSON.stringify(stored), current.sha, `Save ${input.id}`);
-  return stored;
+  return savePageRecord(stored, fns);
 }

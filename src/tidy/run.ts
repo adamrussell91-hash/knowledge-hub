@@ -91,6 +91,20 @@ function upsertManifestEntry(manifest: PageManifestEntry[], page: Page): PageMan
     : manifest.map((item, index) => (index === existing ? { ...item, title: entry.title, tags: entry.tags, excerpt: entry.excerpt, origins: entry.origins } : item));
 }
 
+function sameJson(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function manifestEntryStale(existing: PageManifestEntry | undefined, page: Page) {
+  if (!existing) return true;
+  return (
+    existing.title !== page.title ||
+    !sameJson(existing.tags, page.tags) ||
+    existing.excerpt !== excerptFromTidyBody(page.body) ||
+    !sameJson(existing.origins ?? [], page.origins ?? [])
+  );
+}
+
 export async function runTidy(io: TidyIO) {
   const state = normalizeTidyState(await io.readState());
   state.failures ??= {};
@@ -124,6 +138,12 @@ export async function runTidy(io: TidyIO) {
   const selected = io.id ? pages : selectPages(pages, state, io.count ?? 1, io.random ?? Math.random, now);
   let manifest = await io.readManifest();
   result.selected = selected.map(page => page.id);
+  const writeManifestFor = async (page: Page) => {
+    if (!manifestEntryStale(manifest.find(item => item.id === page.id), page)) return;
+    const nextManifest = upsertManifestEntry(manifest, page);
+    await io.writeManifest(nextManifest);
+    manifest = nextManifest;
+  };
 
   for (const page of selected) {
     try {
@@ -132,6 +152,7 @@ export async function runTidy(io: TidyIO) {
         continue;
       }
       if (!io.id && canStampWithoutModel(page)) {
+        await writeManifestFor(page);
         state.tidied[page.id] = now;
         delete state.failures[page.id];
         result.stamped.push(page.id);
@@ -156,7 +177,10 @@ export async function runTidy(io: TidyIO) {
         }
         manifest = nextManifest;
         result.changed.push(page.id);
-      } else result.skipped.push(page.id);
+      } else {
+        await writeManifestFor(page);
+        result.skipped.push(page.id);
+      }
       state.tidied[page.id] = now;
       delete state.failures[page.id];
     } catch (error) {

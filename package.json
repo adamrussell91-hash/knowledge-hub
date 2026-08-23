@@ -20,6 +20,7 @@
     "tidy:split": "tsx scripts/run-tidy-split.ts",
     "retag": "tsx scripts/run-retag.ts",
     "stamp-origins": "tsx scripts/stamp-origins.ts",
+    "sync-manifest": "tsx scripts/sync-manifest-from-pages.ts",
     "research:dev": "wrangler dev --config worker/wrangler.jsonc",
     "research:deploy": "wrangler deploy --config worker/wrangler.jsonc"
   },

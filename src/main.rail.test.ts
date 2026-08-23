@@ -81,6 +81,11 @@ describe("Knowledge Hub rail", () => {
     expect(css).toContain(".agent-picker__avatar");
     expect(css).toContain(".graph-preview__excerpt");
     expect(css).toMatch(/\.floating-chat-button\s*\{[^}]*background:\s*var\(--wave\)/);
+    expect(css).toMatch(/\.chat-overlay\s*\{[^}]*width:\s*min\(24rem, calc\(100vw - 3rem\)\)/);
+    expect(css).toMatch(/\.graph-stage\s*\{[^}]*min-height:\s*560px/);
+    expect(css).toContain(".universe-zoom");
+    expect(css).toContain("body:has(.chat-overlay) .floating-chat-button");
+    expect(css).toContain("body:has(.coach.chat) #kh-chat-overlay");
   });
 
   it("makes Knowledge Hub a home control", () => {

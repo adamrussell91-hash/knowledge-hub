@@ -92,6 +92,47 @@ export function solarCamera(focus: { x: number; y: number }, k: number, width: n
   return { k, x: width / 2 - focus.x * k, y: height / 2 - focus.y * k };
 }
 
+const NARROW_VIEWPORT_PX = 720;
+
+export function isNarrowViewport(innerWidth: number) {
+  return innerWidth <= NARROW_VIEWPORT_PX;
+}
+
+/** Desktop canvas size is unchanged. Phones use the leftover viewport, not a 720px floor. */
+export function solarStageSize(
+  host: { clientWidth: number; clientHeight: number },
+  viewport: { innerWidth: number; innerHeight: number },
+) {
+  const width = host.clientWidth || 1100;
+  if (isNarrowViewport(viewport.innerWidth)) {
+    const fallback = Math.max(360, Math.floor(viewport.innerHeight * 0.58));
+    return { width, height: Math.max(host.clientHeight || 0, fallback) };
+  }
+  return { width, height: Math.max(720, Math.floor(viewport.innerHeight * 0.8)) };
+}
+
+export function cameraFromWorld(
+  world: { x: number; y: number },
+  nextK: number,
+  clientX: number,
+  clientY: number,
+  rect: { left: number; top: number },
+) {
+  return {
+    k: nextK,
+    x: clientX - rect.left - world.x * nextK,
+    y: clientY - rect.top - world.y * nextK,
+  };
+}
+
+export function pinchDistance(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+export function pinchMidpoint(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
 export function advanceOrbitClock(seconds: number, deltaMs: number, speed: number, freeze: boolean) {
   if (freeze) return 0;
   return seconds + (Math.max(deltaMs, 0) / 1000) * speed;
@@ -200,8 +241,7 @@ export function fillDots(
 }
 
 export function mountSolarView(host: HTMLElement, model: SolarModel, options: SolarViewOptions): GraphMount {
-  const width = host.clientWidth || 1100;
-  const height = Math.max(720, Math.floor(window.innerHeight * 0.8));
+  const { width, height } = solarStageSize(host, window);
   host.innerHTML = "";
   host.style.height = `${height}px`;
   const onNoteSelect = options.onNoteSelect;
@@ -229,6 +269,19 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
   tip.className = "graph-tip";
   tip.hidden = true;
   host.appendChild(tip);
+
+  const narrow = isNarrowViewport(window.innerWidth);
+  if (narrow) {
+    const zoom = document.createElement("div");
+    zoom.className = "universe-zoom";
+    zoom.setAttribute("role", "group");
+    zoom.setAttribute("aria-label", "Universe zoom");
+    zoom.innerHTML = `
+      <button class="btn btn--ghost" type="button" data-universe-zoom="in" aria-label="Zoom in">+</button>
+      <button class="btn btn--ghost" type="button" data-universe-zoom="out" aria-label="Zoom out">−</button>
+    `;
+    host.appendChild(zoom);
+  }
 
   const ctx = canvas.getContext("2d")!;
   let hoverIdx = -1;
@@ -456,60 +509,131 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
     raf = requestAnimationFrame(loop);
   }
 
+  function zoomAt(clientX: number, clientY: number, factor: number) {
+    const world = toWorld(clientX, clientY);
+    const next = solarZoomClamp(view.k * factor, kMin, kMax);
+    const rect = canvas.getBoundingClientRect();
+    Object.assign(view, cameraFromWorld(world, next, clientX, clientY, rect));
+  }
+
   canvas.addEventListener(
     "wheel",
     event => {
       event.preventDefault();
-      const world = toWorld(event.clientX, event.clientY);
-      const next = solarZoomClamp(view.k * (event.deltaY < 0 ? 1.08 : 0.92), kMin, kMax);
-      const rect = canvas.getBoundingClientRect();
-      view.x = event.clientX - rect.left - world.x * next;
-      view.y = event.clientY - rect.top - world.y * next;
-      view.k = next;
+      zoomAt(event.clientX, event.clientY, event.deltaY < 0 ? 1.08 : 0.92);
     },
     { passive: false },
   );
 
-  canvas.addEventListener("pointerdown", event => {
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const origin = { ...view };
-    let panned = false;
-    const onMove = (move: PointerEvent) => {
-      if (Math.hypot(move.clientX - startX, move.clientY - startY) < 4 && !panned) return;
-      panned = true;
-      view.x = origin.x + (move.clientX - startX);
-      view.y = origin.y + (move.clientY - startY);
-    };
-    const onUp = (up: PointerEvent) => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      if (panned) return;
-      const world = toWorld(up.clientX, up.clientY);
-      const z = zNow();
-      const i = findBody(world.x, world.y, z);
-      if (i < 0) {
-        selectedIdx = null;
-        recomputeHot();
-        onNoteSelect(null);
-        return;
+  host.querySelectorAll<HTMLButtonElement>("[data-universe-zoom]").forEach(button => {
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = canvas.getBoundingClientRect();
+      zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, button.dataset.universeZoom === "in" ? 1.18 : 0.85);
+    });
+  });
+
+  const pointers = new Map<number, { x: number; y: number }>();
+  let gestureOrigin = { x: 0, y: 0 };
+  let gestureStart = { x: 0, y: 0 };
+  let gesturePointerId = 1;
+  let panned = false;
+  let pinch:
+    | {
+        dist: number;
+        k: number;
+        world: { x: number; y: number };
       }
-      const now = performance.now();
-      const doubled = lastClickIdx === i && now - lastClickAt < 400;
-      lastClickIdx = i;
-      lastClickAt = now;
-      if (doubled) frameBody(i);
-      const body = B[i]!;
-      selectedIdx = i;
+    | null = null;
+
+  function pointerIdOf(event: PointerEvent) {
+    return event.pointerId ?? 1;
+  }
+
+  function beginPinch() {
+    if (pointers.size < 2) return;
+    const [a, b] = [...pointers.values()] as [{ x: number; y: number }, { x: number; y: number }];
+    const mid = pinchMidpoint(a, b);
+    pinch = { dist: pinchDistance(a, b), k: view.k, world: toWorld(mid.x, mid.y) };
+    panned = true;
+  }
+
+  function applyPinch() {
+    if (!pinch || pointers.size < 2 || pinch.dist < 1) return;
+    const [a, b] = [...pointers.values()] as [{ x: number; y: number }, { x: number; y: number }];
+    const mid = pinchMidpoint(a, b);
+    const next = solarZoomClamp(pinch.k * (pinchDistance(a, b) / pinch.dist), kMin, kMax);
+    const rect = canvas.getBoundingClientRect();
+    Object.assign(view, cameraFromWorld(pinch.world, next, mid.x, mid.y, rect));
+  }
+
+  function selectAt(clientX: number, clientY: number) {
+    const world = toWorld(clientX, clientY);
+    const z = zNow();
+    const i = findBody(world.x, world.y, z);
+    if (i < 0) {
+      selectedIdx = null;
       recomputeHot();
-      if (body.pageId) {
-        onNoteSelect({ pageId: body.pageId, title: body.label, excerpt: body.excerpt ?? "" });
-      } else {
-        onNoteSelect(null);
-      }
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
+      onNoteSelect(null);
+      return;
+    }
+    const now = performance.now();
+    const doubled = lastClickIdx === i && now - lastClickAt < 400;
+    lastClickIdx = i;
+    lastClickAt = now;
+    if (doubled) frameBody(i);
+    const body = B[i]!;
+    selectedIdx = i;
+    recomputeHot();
+    if (body.pageId) {
+      onNoteSelect({ pageId: body.pageId, title: body.label, excerpt: body.excerpt ?? "" });
+    } else {
+      onNoteSelect(null);
+    }
+  }
+
+  const onGestureMove = (move: PointerEvent) => {
+    const id = pointerIdOf(move);
+    if (!pointers.has(id)) return;
+    pointers.set(id, { x: move.clientX, y: move.clientY });
+    if (pointers.size >= 2) {
+      if (!pinch) beginPinch();
+      applyPinch();
+      return;
+    }
+    if (id !== gesturePointerId) return;
+    if (Math.hypot(move.clientX - gestureStart.x, move.clientY - gestureStart.y) < 4 && !panned) return;
+    panned = true;
+    view.x = gestureOrigin.x + (move.clientX - gestureStart.x);
+    view.y = gestureOrigin.y + (move.clientY - gestureStart.y);
+  };
+
+  const onGestureUp = (up: PointerEvent) => {
+    const id = pointerIdOf(up);
+    if (!pointers.has(id)) return;
+    pointers.delete(id);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size > 0) return;
+    window.removeEventListener("pointermove", onGestureMove);
+    window.removeEventListener("pointerup", onGestureUp);
+    if (panned) return;
+    selectAt(up.clientX, up.clientY);
+  };
+
+  canvas.addEventListener("pointerdown", event => {
+    const id = pointerIdOf(event);
+    if (pointers.size === 0) {
+      panned = false;
+      pinch = null;
+      gesturePointerId = id;
+      gestureStart = { x: event.clientX, y: event.clientY };
+      gestureOrigin = { ...view };
+      window.addEventListener("pointermove", onGestureMove);
+      window.addEventListener("pointerup", onGestureUp);
+    }
+    pointers.set(id, { x: event.clientX, y: event.clientY });
+    if (pointers.size === 2) beginPinch();
   });
 
   canvas.addEventListener("pointermove", event => {

@@ -1,0 +1,42 @@
+name: Sync list tags from page files
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Checkout data repo
+        uses: actions/checkout@v4
+        with:
+          repository: adamrussell91-hash/knowledge-hub-data
+          token: ${{ secrets.DATA_REPO_TOKEN }}
+          path: data-repo
+          fetch-depth: 0
+
+      - name: Copy page-file tags onto the All Notes manifest
+        run: npx tsx scripts/sync-manifest-from-pages.ts --data-dir data-repo --execute
+
+      - name: Commit synced list rows
+        working-directory: data-repo
+        run: |
+          git config user.name "knowledge-hub-stamp"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git diff --cached --quiet && echo "No manifest tag drift" && exit 0
+          git commit -m "Copy tidied page tags onto the All Notes manifest."
+          bash ../scripts/push-data-repo.sh

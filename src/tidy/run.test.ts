@@ -51,6 +51,46 @@ describe("runTidy", () => {
     expect(state).toMatchObject({ lastRunAt: "2026-08-12T00:00:00.000Z", tidied: { p: "2026-08-12T00:00:00.000Z" } });
   });
 
+  it("copies page tags onto a stale list row when the model leaves the page unchanged", async () => {
+    let manifest: unknown = [{ id: "p", title: "p", area: "notes", tags: ["Educational Psychology"], excerpt: "Old." }];
+    await runTidy({
+      id: "p",
+      readPage: async () => page("p"),
+      listPageIds: async () => ["p"],
+      readManifest: async () => manifest as never,
+      writeManifest: async entries => { manifest = entries; },
+      readState: async () => ({ tidied: {} }),
+      writeState: async () => {},
+      propose: async p => ({ tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }),
+      writePage: async () => {},
+      now: () => "2026-08-12T00:00:00.000Z",
+    });
+    expect(manifest).toEqual([
+      expect.objectContaining({ id: "p", tags: ["Philosophy Knowledge and Society"], excerpt: "Clean note." }),
+    ]);
+  });
+
+  it("copies page tags onto the list when it stamps a clean note", async () => {
+    let manifest: unknown = [{ id: "clean-a", title: "clean-a", area: "notes", tags: ["History"], excerpt: "Old." }];
+    const result = await runTidy({
+      scan: true,
+      count: 1,
+      readPage: async id => page(id),
+      listPageIds: async () => ["clean-a"],
+      readManifest: async () => manifest as never,
+      writeManifest: async entries => { manifest = entries; },
+      readState: async () => ({ tidied: {} }),
+      writeState: async () => {},
+      propose: async () => null,
+      writePage: async () => {},
+      now: () => "2026-08-12T00:00:00.000Z",
+    });
+    expect(result.stamped).toEqual(["clean-a"]);
+    expect(manifest).toEqual([
+      expect.objectContaining({ id: "clean-a", tags: ["Philosophy Knowledge and Society"] }),
+    ]);
+  });
+
   it("processes an explicitly requested clean page even when its scan state is current", async () => {
     let calls = 0;
     await runTidy({ id: "p", readPage: async () => page("p"), listPageIds: async () => ["p"], readManifest: async () => [], writeManifest: async () => {}, readState: async () => ({ tidied: { p: "2026-08-11T00:00:00.000Z" } }), writeState: async () => {}, propose: async p => { calls++; return { tags: ["Philosophy Knowledge and Society"], body: p.body, title: null }; }, writePage: async () => {}, now: () => "2026-08-12T00:00:00.000Z" });
