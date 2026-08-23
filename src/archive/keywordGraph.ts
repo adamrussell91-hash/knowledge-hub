@@ -9,27 +9,41 @@ const BACKBONE_MIN_WEIGHT = 3;
 const BACKBONE_MAX_EDGES = 22;
 const LEAF_SAMPLE = 14;
 
+function swatch(fill: string, ink: string) {
+  const n = Number.parseInt(fill.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return { fill, soft: `rgba(${r}, ${g}, ${b}, 0.7)`, ink } as const;
+}
+
+/**
+ * One swatch per closed topic. Hues are kit-anchored (Wave, High Sea, Success,
+ * Danger, pastel inks) and interleaved so neighbouring vocabulary items do not
+ * land in the same family — the old list repeated blue/sage/gold until the
+ * map read as two dusty piles.
+ */
 export const KEYWORD_PALETTE = [
-  { fill: "#7eb0d5", soft: "rgba(126, 176, 213, 0.7)", ink: "#315875" },
-  { fill: "#88b39a", soft: "rgba(136, 179, 154, 0.7)", ink: "#44604e" },
-  { fill: "#d4b96a", soft: "rgba(212, 185, 106, 0.7)", ink: "#6c581f" },
-  { fill: "#d4a07f", soft: "rgba(212, 160, 127, 0.7)", ink: "#77503a" },
-  { fill: "#b5a3d1", soft: "rgba(181, 163, 209, 0.7)", ink: "#5d4d72" },
-  { fill: "#6f9ec4", soft: "rgba(111, 158, 196, 0.7)", ink: "#294c71" },
-  { fill: "#9cbf8f", soft: "rgba(156, 191, 143, 0.7)", ink: "#3c5949" },
-  { fill: "#c9a35c", soft: "rgba(201, 163, 92, 0.7)", ink: "#6c581f" },
-  { fill: "#c98b78", soft: "rgba(201, 139, 120, 0.7)", ink: "#7a5038" },
-  { fill: "#9f8fc2", soft: "rgba(159, 143, 194, 0.7)", ink: "#5d4e70" },
-  { fill: "#5f8fb8", soft: "rgba(95, 143, 184, 0.7)", ink: "#315875" },
-  { fill: "#7aa68a", soft: "rgba(122, 166, 138, 0.7)", ink: "#44604e" },
-  { fill: "#b8974e", soft: "rgba(184, 151, 78, 0.7)", ink: "#6c581f" },
-  { fill: "#b87d68", soft: "rgba(184, 125, 104, 0.7)", ink: "#77503a" },
-  { fill: "#8f7eb0", soft: "rgba(143, 126, 176, 0.7)", ink: "#5d4d72" },
-  { fill: "#d4a8b8", soft: "rgba(212, 168, 184, 0.7)", ink: "#6e4454" },
-  { fill: "#6fb0a8", soft: "rgba(111, 176, 168, 0.7)", ink: "#2f5c57" },
-  { fill: "#c4b06a", soft: "rgba(196, 176, 106, 0.7)", ink: "#6a5a28" },
-  { fill: "#8a9cc4", soft: "rgba(138, 156, 196, 0.7)", ink: "#3d4a6e" },
-  { fill: "#c47a8a", soft: "rgba(196, 122, 138, 0.7)", ink: "#6e3d48" },
+  swatch("#5b8ec8", "#294c71"),
+  swatch("#f68620", "#a85a0c"),
+  swatch("#4a9a68", "#2f7a4f"),
+  swatch("#9b7eb8", "#5d4e70"),
+  swatch("#d4b44a", "#6c581f"),
+  swatch("#c45c5c", "#9b2c2c"),
+  swatch("#3d9aa6", "#2f5c57"),
+  swatch("#d4896a", "#7a5038"),
+  swatch("#376fb7", "#17375e"),
+  swatch("#d46a8a", "#6e3d48"),
+  swatch("#7eb0d5", "#315875"),
+  swatch("#7aaa5a", "#3c5949"),
+  swatch("#8f7eb0", "#5d4d72"),
+  swatch("#e07818", "#a85a0c"),
+  swatch("#5a7a9a", "#244f7c"),
+  swatch("#c98b78", "#77503a"),
+  swatch("#6fb0a8", "#2f5c57"),
+  swatch("#b55a7a", "#6e4454"),
+  swatch("#c9a35c", "#6c581f"),
+  swatch("#9b2c2c", "#6e3d48"),
 ] as const;
 
 export function isTopicKeyword(tag: string) {
