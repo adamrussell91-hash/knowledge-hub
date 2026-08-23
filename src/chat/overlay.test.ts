@@ -8,11 +8,12 @@ describe("chat overlay", () => {
     sessionStorage.clear();
   });
 
-  it("uses personality portraits on the FAB and the picker", () => {
+  it("uses a chat icon on the FAB and portraits in the picker", () => {
     ensureChatOverlay({ visible: true });
     const fab = document.querySelector<HTMLButtonElement>(".floating-chat-button")!;
     expect(fab).toBeTruthy();
-    expect(fab.querySelector("img")?.getAttribute("src")).toBe("/assets/agents/clementine.png");
+    expect(fab.querySelector("svg")).toBeTruthy();
+    expect(fab.querySelector("img")).toBeNull();
     fab.click();
     const portraits = [...document.querySelectorAll<HTMLImageElement>(".agent-picker__avatar img")].map(img => img.getAttribute("src"));
     expect(portraits).toEqual(["/assets/agents/clementine.png", "/assets/agents/ann.png"]);

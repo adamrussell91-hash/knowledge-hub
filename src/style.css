@@ -2361,23 +2361,20 @@
   width: 3.2rem;
   height: 3.2rem;
   padding: 0;
-  overflow: hidden;
   appearance: none;
   -webkit-appearance: none;
   border: 0;
   border-radius: 50%;
-  background: var(--paper);
+  color: var(--on-dark);
+  background: var(--wave);
   box-shadow: 0 0.7rem 1.8rem rgba(10, 21, 54, 0.28);
   cursor: pointer;
 }
 
-.floating-chat-button img {
-  width: 118%;
-  height: 118%;
-  max-width: none;
-  object-fit: cover;
-  display: block;
-  border-radius: 50%;
+.floating-chat-button svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: currentColor;
 }
 
 .chat-overlay {
