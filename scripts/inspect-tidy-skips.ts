@@ -1,13 +1,13 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { PageSchema } from "../src/domain/page";
+import { PageSchema, type Page } from "../src/domain/page";
 import { isTopicKeyword } from "../src/archive/keywordGraph";
 import { isMessy } from "../src/tidy/messy";
 import { tidyQualityIssues } from "../src/tidy/propose";
 import { canonicalTopicTag } from "../src/tidy/vocabulary";
 import type { TidySkipEntry } from "./run-tidy";
 
-function flagsFor(page: { title: string; body: string; tags: string[] }) {
+function flagsFor(page: Page) {
   const flags: string[] = [];
   if (page.body.length >= 12_000) flags.push("long-body");
   if (page.body.length < 40) flags.push("tiny-body");
@@ -17,8 +17,8 @@ function flagsFor(page: { title: string; body: string; tags: string[] }) {
     flags.push("broken-title");
   }
   if (page.tags.filter(isTopicKeyword).some(tag => !canonicalTopicTag(tag))) flags.push("unknown-topic-tags");
-  if (isMessy(page as never)) flags.push("messy");
-  const dummy = tidyQualityIssues(page as never, { tags: ["Philosophy Knowledge and Society"], body: page.body, title: null });
+  if (isMessy(page)) flags.push("messy");
+  const dummy = tidyQualityIssues(page, { tags: ["Philosophy Knowledge and Society"], body: page.body, title: null });
   flags.push(...dummy.map(issue => `quality:${issue}`));
   return [...new Set(flags)];
 }
