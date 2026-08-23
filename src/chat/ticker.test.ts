@@ -5,7 +5,7 @@ describe("chatTick", () => {
   it("names the sitting when search starts", () => {
     expect(
       chatTick({ phase: "searching", hatLabel: "Scoping", scope: "wide", depth: "single" }),
-    ).toBe("Searching archive — Scoping · wide · single");
+    ).toBe("Checking the archive shelves… — Scoping · wide · single");
   });
 
   it("reports live deep-round progress", () => {
@@ -20,13 +20,13 @@ describe("chatTick", () => {
         noteCount: 6,
         followUps: 1,
       }),
-    ).toBe("Round 2/5 — 6 notes, 1 follow-up");
+    ).toBe("Checking the archive shelves… — round 2/5, 6 notes, 1 follow-up");
   });
 
   it("only calls a pull failed when the archive request itself failed", () => {
     expect(
       chatTick({ phase: "failed", hatLabel: "Scoping", scope: "wide", depth: "single" }),
-    ).toBe("Archive pull failed — writing with what she has");
+    ).toBe("Checking the archive shelves… — archive pull failed; using what she has");
     expect(
       chatTick({
         phase: "round",
@@ -37,7 +37,7 @@ describe("chatTick", () => {
         maxRounds: 1,
         noteCount: 0,
       }),
-    ).toBe("Round 1/1 — 0 notes, 0 follow-ups");
+    ).toBe("Checking the archive shelves… — round 1/1, 0 notes, 0 follow-ups");
   });
 
   it("says when a follow-up uses the sitting library", () => {
@@ -49,7 +49,7 @@ describe("chatTick", () => {
         depth: "single",
         noteCount: 32,
       }),
-    ).toBe("Using 32 searched notes from this sitting");
+    ).toBe("Checking the archive shelves… — 32 searched notes from this sitting");
   });
 
   it("says when she starts writing from the notes she has", () => {
@@ -61,7 +61,7 @@ describe("chatTick", () => {
         depth: "single",
         noteCount: 3,
       }),
-    ).toBe("Writing from 3 archive notes");
+    ).toBe("Checking the archive shelves… — 3 archive notes in play");
   });
 });
 

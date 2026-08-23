@@ -13,6 +13,9 @@ describe("chat hats", () => {
       "writing",
     ]);
     expect(CHAT_HATS.some(hat => /consolidat/i.test(hat.label))).toBe(false);
+    for (const hat of CHAT_HATS) {
+      expect(hat.explain).toMatch(/^[A-Z][^.?!]*[.?!]$/);
+    }
   });
 
   it("uses cheap defaults and lets discrete dials override them", () => {
