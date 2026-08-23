@@ -15,7 +15,11 @@ describe("parseTidyArgs", () => {
   });
 
   it("rejects a missing scan/id mode and invalid values", () => {
-    expect(() => parseTidyArgs([])).toThrow("Use --id, --scan, or --from-skip-list");
+    expect(() => parseTidyArgs([])).toThrow("Use --id, --scan, --from-skip-list, or --from-id-list");
+    expect(parseTidyArgs(["--from-id-list", "_tidy/last-split.json", "--data-dir", "data-repo"])).toEqual({
+      fromIdList: "_tidy/last-split.json",
+      dataDir: "data-repo",
+    });
     expect(() => parseTidyArgs(["--scan", "--count", "nope"])).toThrow("--count");
   });
 

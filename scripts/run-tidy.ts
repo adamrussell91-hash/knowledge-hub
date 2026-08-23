@@ -11,6 +11,7 @@ export type TidyArgs = {
   count?: number;
   dataDir?: string;
   fromSkipList?: boolean;
+  fromIdList?: string;
   skipReason?: string;
   limit?: number;
 };
@@ -20,8 +21,9 @@ export function parseTidyArgs(args: string[]): TidyArgs {
   const id = value("--id");
   const scan = args.includes("--scan");
   const fromSkipList = args.includes("--from-skip-list");
-  const modes = [Boolean(id), scan, fromSkipList].filter(Boolean).length;
-  if (modes !== 1) throw new Error("Use --id, --scan, or --from-skip-list");
+  const fromIdList = value("--from-id-list");
+  const modes = [Boolean(id), scan, fromSkipList, Boolean(fromIdList)].filter(Boolean).length;
+  if (modes !== 1) throw new Error("Use --id, --scan, --from-skip-list, or --from-id-list");
   const rawCount = value("--count");
   const count = rawCount === undefined ? undefined : Number(rawCount);
   if (rawCount !== undefined && (!Number.isInteger(count) || count === undefined || count < 1)) throw new Error("--count must be a positive integer");
@@ -31,7 +33,7 @@ export function parseTidyArgs(args: string[]): TidyArgs {
   const skipReason = value("--reason");
   const resolvedCount = scan ? count ?? 1 : count;
   return {
-    ...(id ? { id } : fromSkipList ? { fromSkipList: true } : { scan: true }),
+    ...(id ? { id } : fromSkipList ? { fromSkipList: true } : fromIdList ? { fromIdList } : { scan: true }),
     ...(resolvedCount ? { count: resolvedCount } : {}),
     ...(value("--data-dir") ? { dataDir: value("--data-dir") } : {}),
     ...(skipReason ? { skipReason } : {}),
@@ -69,6 +71,32 @@ export async function main(args = process.argv.slice(2)) {
   const dataDir = parsed.dataDir ?? path.join(process.cwd(), "migrated", "data-repo");
   const prompt = await readFile(path.join(process.cwd(), "prompts", "tidy.md"), "utf8");
   const io = createLocalTidyIO({ dataDir, apiKey, prompt });
+  if (parsed.fromIdList) {
+    const listed = JSON.parse(await readFile(parsed.fromIdList, "utf8")) as { tidyIds?: string[] } | string[];
+    const ids = Array.isArray(listed) ? listed : listed.tidyIds ?? [];
+    const skipPath = path.join(dataDir, "_tidy", "backfill-skip-list.json");
+    let skips: TidySkipEntry[] = [];
+    try { skips = JSON.parse(await readFile(skipPath, "utf8")) as TidySkipEntry[]; } catch { /* optional */ }
+    const results: Array<{ id: string; reason?: string }> = [];
+    for (const id of ids) {
+      const result = await runTidy({ ...io, id });
+      const reason = result.errors[0]?.startsWith(`${id}: `) ? result.errors[0].slice(id.length + 2) : result.errors[0];
+      const item = { id, ...(reason ? { reason } : {}) };
+      results.push(item);
+      skips = applySkipRetryResults(skips, [item]);
+      await writeFile(skipPath, `${JSON.stringify(skips, null, 2)}\n`);
+      console.log(JSON.stringify({ id, changed: result.changed, skipped: result.skipped, errors: result.errors, reason: reason ?? null }));
+    }
+    const summary = {
+      attempted: results.length,
+      succeeded: results.filter(item => !item.reason).length,
+      failed: results.filter(item => item.reason).length,
+      reasons: [...new Set(results.map(item => item.reason).filter(Boolean))],
+    };
+    await writeFile(path.join(dataDir, "_tidy", "last-retry-summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
+    console.log(JSON.stringify(summary));
+    return summary;
+  }
   if (parsed.fromSkipList) {
     const skipPath = path.join(dataDir, "_tidy", "backfill-skip-list.json");
     let skips = JSON.parse(await readFile(skipPath, "utf8")) as TidySkipEntry[];
