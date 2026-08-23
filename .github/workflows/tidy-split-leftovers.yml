@@ -62,10 +62,15 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          data = json.loads(Path("data-repo/_tidy/last-split.json").read_text())
-          ids = data.get("tidyIds") or []
+          tidy = Path("data-repo/_tidy")
+          queued = json.loads((tidy / "last-split.json").read_text()).get("tidyIds") or []
+          try:
+            tidied = set((json.loads((tidy / "state.json").read_text()).get("tidied") or {}).keys())
+          except Exception:
+            tidied = set()
+          ids = [item for item in queued if item not in tidied]
           Path("/tmp/tidy-remaining.json").write_text(json.dumps({"tidyIds": ids}, indent=2))
-          print(f"TIDY_QUEUE {len(ids)}")
+          print(f"TIDY_QUEUE {len(ids)} skipped_already_tidied {len(queued) - len(ids)}")
           PY
           batch=0
           while true; do

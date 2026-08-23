@@ -29,6 +29,15 @@ export type SplitSummary = {
   tidyIds: string[];
 };
 
+export function mergeTidyIds(previous: string[] | undefined, next: string[]) {
+  return [...new Set([...(previous ?? []), ...next])];
+}
+
+export function untidiedIds(ids: string[], tidied: Record<string, string> | undefined) {
+  const done = new Set(Object.keys(tidied ?? {}));
+  return ids.filter(id => !done.has(id));
+}
+
 export async function main(args = process.argv.slice(2)) {
   const parsed = parseTidySplitArgs(args);
   await loadDotEnv();
@@ -87,7 +96,19 @@ export async function main(args = process.argv.slice(2)) {
   await io.writeState({ ...state, lastRunAt: now });
   await mkdir(tidyDir, { recursive: true });
   await writeFile(skipPath, `${JSON.stringify([...remaining.values()].sort((a, b) => a.id.localeCompare(b.id)), null, 2)}\n`);
-  const summary: SplitSummary = { scanned: targets.length, split, created, unchanged, tidyIds: [...new Set(tidyIds)] };
+  let previousIds: string[] = [];
+  try {
+    previousIds = (JSON.parse(await readFile(path.join(tidyDir, "last-split.json"), "utf8")) as SplitSummary).tidyIds ?? [];
+  } catch {
+    /* first split */
+  }
+  const summary: SplitSummary = {
+    scanned: targets.length,
+    split,
+    created,
+    unchanged,
+    tidyIds: mergeTidyIds(previousIds, tidyIds),
+  };
   await writeFile(path.join(tidyDir, "last-split.json"), `${JSON.stringify(summary, null, 2)}\n`);
   console.log(JSON.stringify({ scanned: summary.scanned, split: summary.split, created: summary.created, unchanged: summary.unchanged, tidyIds: summary.tidyIds.length }));
   return summary;
