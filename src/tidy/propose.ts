@@ -80,6 +80,20 @@ function delay(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
 
+/** Keep status plus Anthropic's error.message so skip lists can distinguish credits, size, and bad requests. */
+export async function formatAnthropicError(response: Response) {
+  const body = await response.text();
+  try {
+    const parsed = JSON.parse(body) as { error?: { type?: unknown; message?: unknown } };
+    const message = typeof parsed.error?.message === "string" ? parsed.error.message.trim() : "";
+    if (message) return `Anthropic error ${response.status}: ${message}`;
+  } catch {
+    // Fall through to a short raw body.
+  }
+  const trimmed = body.replace(/\s+/g, " ").trim().slice(0, 300);
+  return trimmed ? `Anthropic error ${response.status}: ${trimmed}` : `Anthropic error ${response.status}`;
+}
+
 /** Cloudflare-safe Claude wrapper: all I/O is fetch, with no Node dependencies. */
 export async function proposeTidy(input: {
   page: Page;
@@ -107,11 +121,11 @@ export async function proposeTidy(input: {
     });
     if (response.ok) break;
     if ((response.status !== 400 && response.status !== 429) || attempt === maxRetries) {
-      throw new Error(`Anthropic error ${response.status}`);
+      throw new Error(await formatAnthropicError(response));
     }
     await sleep(1000 * 2 ** attempt);
   }
-  if (!response?.ok) throw new Error(`Anthropic error ${response?.status ?? "unknown"}`);
+  if (!response?.ok) throw new Error(response ? await formatAnthropicError(response) : "Anthropic error unknown");
   const payload = (await response.json()) as {
     content?: Array<{ type?: string; text?: string }>;
     usage?: { input_tokens?: unknown; output_tokens?: unknown };

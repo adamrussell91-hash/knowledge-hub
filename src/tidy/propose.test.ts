@@ -58,7 +58,17 @@ describe("parseTidyProposal", () => {
 
   it("throws on a non-OK model response and returns null for a malformed text response", async () => {
     const page = { id: "p", title: "Caesar", area: "notes" as const, tags: ["History"], body: "Text", connected: [], attachments: [], source: "hub" as const, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z", schema_version: 1 as const };
-    await expect(proposeTidy({ page, prompt: "Controller", apiKey: "key", maxRetries: 0, fetchImpl: async () => new Response("no", { status: 429 }) })).rejects.toThrow("Anthropic error 429");
+    await expect(proposeTidy({ page, prompt: "Controller", apiKey: "key", maxRetries: 0, fetchImpl: async () => new Response("no", { status: 429 }) })).rejects.toThrow("Anthropic error 429: no");
+    await expect(proposeTidy({
+      page,
+      prompt: "Controller",
+      apiKey: "key",
+      maxRetries: 0,
+      fetchImpl: async () => new Response(JSON.stringify({
+        type: "error",
+        error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API." },
+      }), { status: 400 }),
+    })).rejects.toThrow("Anthropic error 400: Your credit balance is too low to access the Anthropic API.");
     await expect(proposeTidy({ page, prompt: "Controller", apiKey: "key", fetchImpl: async () => new Response(JSON.stringify({ content: [{ type: "text", text: "not json" }] })) })).resolves.toBeNull();
   });
 

@@ -1,0 +1,58 @@
+name: Tidy retry 400 sample
+
+on:
+  push:
+    branches: [cursor/retry-tidy-400s-06a4]
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "How many Anthropic error 400 leftovers to retry"
+        required: false
+        type: number
+        default: 10
+
+permissions:
+  contents: read
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Checkout data repo
+        uses: actions/checkout@v4
+        with:
+          repository: adamrussell91-hash/knowledge-hub-data
+          token: ${{ secrets.DATA_REPO_TOKEN }}
+          path: data-repo
+          fetch-depth: 0
+
+      - name: Configure tidy author
+        working-directory: data-repo
+        run: |
+          git config user.name "knowledge-hub-tidy"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Retry skip-listed Anthropic 400 pages
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LIMIT: ${{ inputs.limit || 10 }}
+        run: npm run tidy -- --from-skip-list --reason "Anthropic error 400" --limit "$LIMIT" --data-dir data-repo
+
+      - name: Commit tidy artifacts
+        if: always()
+        working-directory: data-repo
+        run: |
+          git add pages manifest.json _tidy
+          git diff --cached --quiet && echo "No tidy changes" && exit 0
+          git commit -m "Retry a sample of tidy Anthropic 400 leftovers."
+          bash ../scripts/push-data-repo.sh
