@@ -2,9 +2,9 @@
 
 Return **only** one JSON object with this exact shape:
 
-`{"tags":["Philosophy Knowledge and Society"]}`
+`{"tags":["Philosophy Knowledge and Society","Research Methods and Evidence Literacy","Higher Education and Academic Practice"]}`
 
-Choose topic tags **only** from this closed list. Use the exact strings. One tag is enough. Two or three only if the note genuinely spans that many. Never more than three. Never pad. Never invent a new name. Humanities, classics, and history-of-ideas that are not actually about schooling use **Philosophy Knowledge and Society**.
+Choose topic tags **only** from this closed list. Use the exact strings. **Three tags is the target.** Pick the three strongest fits. Use two only if a third would be a stretch. Use one only if the note is truly a single topic. Never more than three. Never invent a new name. Humanities, classics, and history-of-ideas that are not actually about schooling use **Philosophy Knowledge and Society**.
 
 The current tags are legacy labels. Use them as hints, not as names to copy.
 
