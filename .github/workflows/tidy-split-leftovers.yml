@@ -1,0 +1,98 @@
+name: Split and tidy leftovers
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Pages to tidy per batch after splitting"
+        required: false
+        type: number
+        default: 25
+
+permissions:
+  contents: read
+
+jobs:
+  split-and-tidy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Checkout data repo
+        uses: actions/checkout@v4
+        with:
+          repository: adamrussell91-hash/knowledge-hub-data
+          token: ${{ secrets.DATA_REPO_TOKEN }}
+          path: data-repo
+          fetch-depth: 0
+
+      - name: Configure tidy author
+        working-directory: data-repo
+        run: |
+          git config user.name "knowledge-hub-tidy"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Split long leftovers
+        run: npm run tidy:split -- --data-dir data-repo
+
+      - name: Commit split notes
+        working-directory: data-repo
+        run: |
+          git add pages manifest.json _tidy
+          git diff --cached --quiet && echo "No split changes" && exit 0
+          git commit -m "Split long tidy leftovers into smaller notes."
+          bash ../scripts/push-data-repo.sh
+
+      - name: Tidy split notes
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LIMIT: ${{ inputs.limit || 25 }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          tidy = Path("data-repo/_tidy")
+          queued = json.loads((tidy / "last-split.json").read_text()).get("tidyIds") or []
+          try:
+            tidied = set((json.loads((tidy / "state.json").read_text()).get("tidied") or {}).keys())
+          except Exception:
+            tidied = set()
+          ids = [item for item in queued if item not in tidied]
+          Path("/tmp/tidy-remaining.json").write_text(json.dumps({"tidyIds": ids}, indent=2))
+          print(f"TIDY_QUEUE {len(ids)} skipped_already_tidied {len(queued) - len(ids)}")
+          PY
+          batch=0
+          while true; do
+            remaining="$(python3 -c 'import json; print(len(json.load(open("/tmp/tidy-remaining.json"))["tidyIds"]))')"
+            if [ "${remaining}" -eq 0 ]; then
+              echo "No more split notes to tidy"
+              break
+            fi
+            batch=$((batch + 1))
+            python3 -c 'import json,os; limit=int(os.environ["LIMIT"]); ids=json.load(open("/tmp/tidy-remaining.json"))["tidyIds"]; json.dump({"tidyIds": ids[:limit]}, open("/tmp/tidy-batch.json","w")); json.dump({"tidyIds": ids[limit:]}, open("/tmp/tidy-remaining.json","w")); print("queued", min(limit,len(ids)), "remaining_after", max(0,len(ids)-limit))'
+            echo "=== tidy batch ${batch} ==="
+            npm run tidy -- --from-id-list /tmp/tidy-batch.json --data-dir data-repo
+            if python3 -c 'import json; s=json.load(open("data-repo/_tidy/last-retry-summary.json")); raise SystemExit(0 if s["failed"]==s["attempted"] and s["attempted"] and any("credit" in r.lower() or "too low" in r.lower() for r in s.get("reasons",[])) else 1)'; then
+              echo "Stopping: Anthropic credit exhausted"
+              break
+            fi
+            (
+              cd data-repo
+              git add pages manifest.json _tidy
+              if git diff --cached --quiet; then
+                echo "No tidy changes in batch ${batch}"
+              else
+                git commit -m "Tidy split leftover notes (batch ${batch})."
+                bash ../scripts/push-data-repo.sh
+              fi
+            )
+          done

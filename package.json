@@ -17,6 +17,7 @@
     "curator": "tsx scripts/run-curator.ts",
     "tidy": "tsx scripts/run-tidy.ts",
     "tidy:backfill": "tsx scripts/run-tidy-backfill.ts",
+    "tidy:split": "tsx scripts/run-tidy-split.ts",
     "retag": "tsx scripts/run-retag.ts",
     "stamp-origins": "tsx scripts/stamp-origins.ts",
     "sync-manifest": "tsx scripts/sync-manifest-from-pages.ts",
