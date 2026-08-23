@@ -52,6 +52,10 @@ export function applySkipRetryResults(skips: TidySkipEntry[], results: Array<{ i
   return [...next.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
+export function isAnthropicCreditReason(reason: string) {
+  return /credit balance|too low to access the Anthropic API|purchase credits/i.test(reason);
+}
+
 export function assertNoTidyErrors(result: { errors: string[] }, mode: "id" | "scan" = "id") {
   if (mode === "scan") return;
   if (result.errors.length) throw new Error(`Tidy failed for ${result.errors.length} page(s): ${result.errors.join("; ")}`);
@@ -67,23 +71,25 @@ export async function main(args = process.argv.slice(2)) {
   const io = createLocalTidyIO({ dataDir, apiKey, prompt });
   if (parsed.fromSkipList) {
     const skipPath = path.join(dataDir, "_tidy", "backfill-skip-list.json");
-    const skips = JSON.parse(await readFile(skipPath, "utf8")) as TidySkipEntry[];
+    let skips = JSON.parse(await readFile(skipPath, "utf8")) as TidySkipEntry[];
     const ids = selectSkipRetryIds(skips, parsed.skipReason ?? "Anthropic error 400", parsed.limit ?? 10);
     const results: Array<{ id: string; changed: string[]; skipped: string[]; errors: string[]; reason?: string }> = [];
     for (const id of ids) {
       const result = await runTidy({ ...io, id });
       const reason = result.errors[0]?.startsWith(`${id}: `) ? result.errors[0].slice(id.length + 2) : result.errors[0];
-      results.push({ id, changed: result.changed, skipped: result.skipped, errors: result.errors, ...(reason ? { reason } : {}) });
+      const item = { id, changed: result.changed, skipped: result.skipped, errors: result.errors, ...(reason ? { reason } : {}) };
+      results.push(item);
+      skips = applySkipRetryResults(skips, [item]);
+      await writeFile(skipPath, `${JSON.stringify(skips, null, 2)}\n`);
       console.log(JSON.stringify({ id, changed: result.changed, skipped: result.skipped, errors: result.errors, reason: reason ?? null }));
     }
-    const nextSkips = applySkipRetryResults(skips, results);
-    await writeFile(skipPath, `${JSON.stringify(nextSkips, null, 2)}\n`);
     const summary = {
       attempted: results.length,
       succeeded: results.filter(item => !item.reason).length,
       failed: results.filter(item => item.reason).length,
       reasons: [...new Set(results.map(item => item.reason).filter(Boolean))],
     };
+    await writeFile(path.join(dataDir, "_tidy", "last-retry-summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
     console.log(JSON.stringify(summary));
     return summary;
   }

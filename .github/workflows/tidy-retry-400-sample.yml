@@ -1,13 +1,15 @@
-name: Tidy retry 400 sample
+name: Tidy retry 400 leftovers
 
 on:
+  push:
+    branches: [cursor/drain-remaining-400s-06a4]
   workflow_dispatch:
     inputs:
       limit:
-        description: "How many Anthropic error 400 leftovers to retry"
+        description: "Pages per batch"
         required: false
         type: number
-        default: 10
+        default: 50
 
 permissions:
   contents: read
@@ -15,7 +17,7 @@ permissions:
 jobs:
   retry:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
 
@@ -40,17 +42,48 @@ jobs:
           git config user.name "knowledge-hub-tidy"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Retry skip-listed Anthropic 400 pages
+      - name: Drain skip-listed Anthropic 400 pages
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          LIMIT: ${{ inputs.limit || 10 }}
-        run: npm run tidy -- --from-skip-list --reason "Anthropic error 400" --limit "$LIMIT" --data-dir data-repo
-
-      - name: Commit tidy artifacts
-        if: always()
-        working-directory: data-repo
+          LIMIT: ${{ inputs.limit || 50 }}
         run: |
-          git add pages manifest.json _tidy
-          git diff --cached --quiet && echo "No tidy changes" && exit 0
-          git commit -m "Retry a sample of tidy Anthropic 400 leftovers."
-          bash ../scripts/push-data-repo.sh
+          set -euo pipefail
+          batch=0
+          total_attempted=0
+          total_succeeded=0
+          total_failed=0
+          while true; do
+            batch=$((batch + 1))
+            echo "=== batch ${batch} (limit ${LIMIT}) ==="
+            npm run tidy -- --from-skip-list --reason "Anthropic error 400" --limit "$LIMIT" --data-dir data-repo
+            summary_file="data-repo/_tidy/last-retry-summary.json"
+            attempted="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["attempted"])' "${summary_file}")"
+            succeeded="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["succeeded"])' "${summary_file}")"
+            failed="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["failed"])' "${summary_file}")"
+            credit="$(python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); print("yes" if any("credit" in r.lower() or "too low" in r.lower() for r in s.get("reasons", [])) else "no")' "${summary_file}")"
+            echo "BATCH_SUMMARY attempted=${attempted} succeeded=${succeeded} failed=${failed} credit=${credit}"
+            total_attempted=$((total_attempted + attempted))
+            total_succeeded=$((total_succeeded + succeeded))
+            total_failed=$((total_failed + failed))
+
+            (
+              cd data-repo
+              git add pages manifest.json _tidy
+              if git diff --cached --quiet; then
+                echo "No tidy changes in batch ${batch}"
+              else
+                git commit -m "Retry tidy Anthropic 400 leftovers (batch ${batch})."
+                bash ../scripts/push-data-repo.sh
+              fi
+            )
+
+            if [ "${attempted}" -eq 0 ]; then
+              echo "No more Anthropic error 400 leftovers"
+              break
+            fi
+            if [ "${failed}" -eq "${attempted}" ] && [ "${credit}" = "yes" ]; then
+              echo "Stopping: Anthropic credit exhausted"
+              break
+            fi
+          done
+          echo "DRAIN_TOTALS batches=${batch} attempted=${total_attempted} succeeded=${total_succeeded} failed=${total_failed}"

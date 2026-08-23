@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySkipRetryResults, assertNoTidyErrors, parseTidyArgs, selectSkipRetryIds } from "./run-tidy";
+import { applySkipRetryResults, assertNoTidyErrors, isAnthropicCreditReason, parseTidyArgs, selectSkipRetryIds } from "./run-tidy";
 
 describe("parseTidyArgs", () => {
   it("accepts id, scan count, and data directory flags", () => {
@@ -32,6 +32,8 @@ describe("parseTidyArgs", () => {
       { id: "c", reason: "Anthropic error 400: credit balance is too low" },
       { id: "d", reason: "Anthropic error 400" },
     ]);
+    expect(isAnthropicCreditReason("Anthropic error 400: Your credit balance is too low to access the Anthropic API.")).toBe(true);
+    expect(isAnthropicCreditReason("Anthropic error 400: prompt is too long")).toBe(false);
   });
 
   it("fails an explicit --id tidy, but lets a scan persist failures and commit", () => {
