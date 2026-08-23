@@ -77,10 +77,10 @@ describe("Knowledge Hub rail", () => {
     expect(main).toContain("preview.el.querySelector");
     expect(main).not.toContain("mountGraphPreview(stage");
     expect(css).toContain(".floating-chat-button");
+    expect(css).toContain(".floating-chat-button svg");
     expect(css).toContain(".agent-picker__avatar");
     expect(css).toContain(".graph-preview__excerpt");
-    expect(css).not.toMatch(/\.floating-chat-button\s*\{[^}]*background:\s*var\(--navy\)/);
-    expect(css).toMatch(/\.floating-chat-button\s*\{[^}]*background:\s*var\(--paper\)/);
+    expect(css).toMatch(/\.floating-chat-button\s*\{[^}]*background:\s*var\(--wave\)/);
   });
 
   it("makes Knowledge Hub a home control", () => {

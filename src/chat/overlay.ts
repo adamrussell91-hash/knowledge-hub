@@ -277,8 +277,8 @@ function overlayHtml() {
 
 function fabHtml() {
   const who = currentPersonality();
-  return `<button class="floating-chat-button" type="button" data-toggle-overlay aria-label="${open ? "Close chat" : `Chat with ${who.name}`}" title="${escapeHtml(who.name)}">
-    <img src="${who.avatarSrc}" alt="" width="52" height="52" />
+  return `<button class="floating-chat-button" type="button" data-toggle-overlay aria-label="${open ? "Close chat" : `Chat with ${who.name}`}">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.2V16H7.5A2.5 2.5 0 0 1 5 13.5v-7Z"/></svg>
   </button>`;
 }
 
