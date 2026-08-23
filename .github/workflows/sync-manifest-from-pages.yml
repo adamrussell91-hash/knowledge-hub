@@ -1,8 +1,6 @@
 name: Sync list tags from page files
 
 on:
-  push:
-    branches: [cursor/sync-manifest-tags-06a4]
   workflow_dispatch:
 
 permissions:
