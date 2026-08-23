@@ -3,8 +3,13 @@ name: Tidy backfill
 on:
   workflow_dispatch:
     inputs:
+      full_run:
+        description: "Drain all remaining model-eligible pages and retry the two named stuck IDs once"
+        required: false
+        type: boolean
+        default: false
       model_limit:
-        description: "Exact maximum number of paid Claude calls"
+        description: "Exact maximum paid calls when full_run is false"
         required: true
         type: number
         default: 100
@@ -43,8 +48,14 @@ jobs:
       - name: Backfill tidy
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FULL_RUN: ${{ inputs.full_run }}
           MODEL_LIMIT: ${{ inputs.model_limit }}
-        run: npm run tidy:backfill -- --data-dir data-repo --model-limit "$MODEL_LIMIT" --batch-size 5
+        run: |
+          if [ "$FULL_RUN" = "true" ]; then
+            npm run tidy:backfill -- --data-dir data-repo --full --batch-size 5
+          else
+            npm run tidy:backfill -- --data-dir data-repo --model-limit "$MODEL_LIMIT" --batch-size 5
+          fi
 
       - name: Commit failure metadata
         if: always()
