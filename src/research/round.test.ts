@@ -25,7 +25,8 @@ describe("runRound", () => {
         retrieved.push(query);
         return [{ pageId: "p1", title: "P1", excerpt: "e", score: 1 }];
       },
-      fetchBodies: async () => new Map([["p1", { title: "P1", excerpt: "e", sourceUrl: "https://notion.so/p1" }]]),
+      fetchBodies: async () =>
+        new Map([["p1", { title: "P1", excerpt: "e", sourceUrl: "https://notion.so/p1", tags: ["Motivation and Self Regulation"] }]]),
       synthesize: async () => ({
         findings: [finding("p1")],
         gaps: ["need counterargument"],
@@ -38,6 +39,7 @@ describe("runRound", () => {
     expect(next.status).toBe("running");
     expect(next.followUpQueries).toEqual(["stoic critics"]);
     expect(next.findings).toHaveLength(1);
+    expect(next.findings[0]?.tags).toEqual(["Motivation and Self Regulation"]);
   });
 
   it("retrieves a negation query on round 1 when the hat asks for contested evidence", async () => {

@@ -3,8 +3,8 @@ import type { ResearchFinding, ResearchResult } from "../research/schema";
 
 export const SOURCE_TAKE_CHARS = 160;
 
-export function sourceTake(finding: Pick<ResearchFinding, "analysis" | "excerpt" | "stance">): string {
-  const take = (finding.analysis || finding.excerpt || "").replace(/\s+/g, " ").trim();
+export function sourceTake(finding: Pick<ResearchFinding, "analysis" | "excerpt" | "stance" | "keyFinding">): string {
+  const take = (finding.keyFinding || finding.analysis || finding.excerpt || "").replace(/\s+/g, " ").trim();
   if (!take) return finding.stance;
   if (take.length <= SOURCE_TAKE_CHARS) return take;
   return `${take.slice(0, SOURCE_TAKE_CHARS).trim()}…`;

@@ -1,6 +1,6 @@
 import { embedQuery } from "../lib/embed";
 import { loadCorpusCached } from "./corpusCache";
-import { excerptFromBody, fetchPageBody, type PageBody } from "./fetchPageBody";
+import { excerptFromBody, fetchPageBody, normalizePageBody, SYNTHESIS_EXCERPT_CHARS, type PageBody } from "./fetchPageBody";
 import { hybridRetrieve } from "./hybridRetrieve";
 import { initialSession, runRound, sessionToResult, type SessionState } from "./round";
 import { applyResearchScope } from "./scope";
@@ -48,8 +48,7 @@ async function githubPage(env: KernelEnv, pageId: string): Promise<PageBody | nu
     },
   });
   if (!response.ok) return null;
-  const page = (await response.json()) as PageBody;
-  return page.id ? page : null;
+  return normalizePageBody(await response.json());
 }
 
 function roundDeps(env: KernelEnv, search: Pick<KernelSearchInput, "k" | "tags"> = {}) {
@@ -79,7 +78,12 @@ function roundDeps(env: KernelEnv, search: Pick<KernelSearchInput, "k" | "tags">
           const page = await fetchPageBody(pageId, {
             fromR2: async id => {
               const raw = await r2Text(env, `research/pages/${id}.json`);
-              return raw ? (JSON.parse(raw) as PageBody) : null;
+              if (!raw) return null;
+              try {
+                return normalizePageBody(JSON.parse(raw));
+              } catch {
+                return null;
+              }
             },
             fromGitHub: id => githubPage(env, id),
           });
@@ -88,15 +92,20 @@ function roundDeps(env: KernelEnv, search: Pick<KernelSearchInput, "k" | "tags">
             pageId,
             {
               title: page.title,
-              excerpt: excerptFromBody(page.body),
+              excerpt: excerptFromBody(page.body, SYNTHESIS_EXCERPT_CHARS),
               sourceUrl: page.source_notion_url,
+              tags: page.tags,
             },
           ] as const;
         }),
       );
-      return new Map(entries.filter((entry): entry is readonly [string, { title: string; excerpt: string; sourceUrl: string }] => Boolean(entry)));
+      return new Map(
+        entries.filter((entry): entry is readonly [string, { title: string; excerpt: string; sourceUrl: string; tags?: string[] }] =>
+          Boolean(entry),
+        ),
+      );
     },
-    synthesize: async (input: { query: string; documentContext?: string; sources: { pageId: string; title: string; excerpt: string; sourceUrl: string }[] }) =>
+    synthesize: async (input: { query: string; documentContext?: string; sources: { pageId: string; title: string; excerpt: string; sourceUrl: string; tags?: string[] }[] }) =>
       synthesizeWithAnthropic({
         query: input.query,
         documentContext: input.documentContext,

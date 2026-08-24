@@ -23,6 +23,7 @@ export function researchFromDocs(input: {
       excerpt: hit.excerpt,
       stance: "related",
       analysis: "Live archive match — cite this page; do not invent another.",
+      tags: byId.get(hit.id)?.tags,
     })),
     gaps: hits.length ? [] : [`Nothing in the live archive matched “${query}”.`],
     followUpQueries: [],

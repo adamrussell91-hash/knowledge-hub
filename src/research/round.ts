@@ -9,6 +9,7 @@ export type PageSnippet = {
   title: string;
   excerpt: string;
   sourceUrl: string;
+  tags?: string[];
 };
 
 export type SessionState = {
@@ -134,6 +135,7 @@ export async function runRound(state: SessionState, deps: RoundDeps): Promise<Se
         title: body?.title ?? item.title,
         excerpt: body?.excerpt || item.excerpt,
         sourceUrl: body?.sourceUrl ?? "",
+        tags: body?.tags,
       };
     });
     const synthesis = await deps.synthesize({
@@ -147,6 +149,7 @@ export async function runRound(state: SessionState, deps: RoundDeps): Promise<Se
         ...finding,
         sourceUrl: finding.sourceUrl || source?.sourceUrl || finding.sourceUrl,
         title: finding.title || source?.title || finding.title,
+        tags: finding.tags?.length ? finding.tags : source?.tags,
       };
     });
     const next: SessionState = {

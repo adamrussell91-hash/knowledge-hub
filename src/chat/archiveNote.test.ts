@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactArchiveNote, compactSittingNote } from "./archiveNote";
+import { compactArchiveNote, compactSittingNote, compactSynthesisNote } from "./archiveNote";
 
 function finding(id: string, title = `Note ${id}`) {
   return {
@@ -32,6 +32,31 @@ describe("compactArchiveNote", () => {
     expect(note).toContain("p12");
     expect(note).not.toMatch(/long analysis/i);
     expect(note).not.toContain("A".repeat(400));
+  });
+
+  it("attaches evidence packets on a synthesis sitting", () => {
+    const note = compactSynthesisNote({
+      query: "q",
+      round: 2,
+      status: "done",
+      findings: [
+        {
+          ...finding("p1", "McGregor"),
+          sourceType: "empirical",
+          method: "person-centred profiles",
+          population: "high ability science students",
+          keyFinding: "Motivational profiles varied within the cohort",
+          claimRelationship: "direct",
+          confidence: "medium",
+        },
+      ],
+      gaps: [],
+      followUpQueries: [],
+    });
+    expect(note).toContain("type: empirical");
+    expect(note).toContain("person-centred profiles");
+    expect(note).toContain("Motivational profiles varied within the cohort");
+    expect(note).toContain("do not invent");
   });
 
   it("tells a follow-up to use the sitting notes first", () => {

@@ -12,6 +12,9 @@ describe("archive coverage", () => {
       distinctSources: 1,
       gapCount: 2,
       thin: true,
+      sourceTypeKnown: 0,
+      methodKnown: 0,
+      mappedClaims: 0,
     });
   });
 
@@ -21,6 +24,25 @@ describe("archive coverage", () => {
         findings: [{ pageId: "a" }, { pageId: "b" }, { pageId: "c" }],
         gaps: [],
       }),
-    ).toEqual({ distinctSources: 3, gapCount: 0, thin: false });
+    ).toEqual({
+      distinctSources: 3,
+      gapCount: 0,
+      thin: false,
+      sourceTypeKnown: 0,
+      methodKnown: 0,
+      mappedClaims: 0,
+    });
+  });
+
+  it("counts source metadata and mapped claims when the kernel filled them", () => {
+    expect(
+      coverageFromResearch({
+        findings: [
+          { pageId: "a", sourceType: "empirical", method: "survey", claimRelationship: "direct" },
+          { pageId: "b", sourceType: "unknown", claimRelationship: "interpretive" },
+        ],
+        gaps: [],
+      }),
+    ).toMatchObject({ sourceTypeKnown: 1, methodKnown: 1, mappedClaims: 1, thin: true });
   });
 });

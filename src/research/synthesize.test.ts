@@ -6,13 +6,17 @@ describe("buildSynthesisPrompt", () => {
     const prompt = buildSynthesisPrompt({
       query: "Is CBT stoic?",
       documentContext: "Thesis: CBT secularises stoicism.",
-      sources: [{ pageId: "p1", title: "Notes", excerpt: "Epictetus" }],
+      sources: [{ pageId: "p1", title: "Notes", excerpt: "Epictetus", tags: ["Motivation and Self Regulation"] }],
     });
     expect(prompt).toContain("Is CBT stoic?");
     expect(prompt).toContain("CBT secularises");
     expect(prompt).toContain("supports");
     expect(prompt).toContain("complicates");
     expect(prompt).toContain("p1");
+    expect(prompt).toContain("Motivation and Self Regulation");
+    expect(prompt).toContain("sourceType");
+    expect(prompt).toContain("claimRelationship");
+    expect(prompt).toContain("never invent method");
   });
 
   it("speaks as Clementine and still demands JSON only", () => {
@@ -39,6 +43,18 @@ describe("parseSynthesisJson", () => {
     expect(parsed.findings[0]?.pageId).toBe("p1");
     expect(parsed.gaps).toEqual(["g"]);
     expect(parsed.followUpQueries).toEqual(["q2"]);
+  });
+
+  it("keeps evidence packet fields on a finding", () => {
+    const parsed = parseSynthesisJson(`{"findings":[{"pageId":"p1","title":"T","sourceUrl":"https://notion.so/p1","excerpt":"e","stance":"supports","analysis":"why","sourceType":"empirical","method":"survey","population":"high ability adolescents","keyFinding":"Need satisfaction tracked wellbeing","claimRelationship":"direct","confidence":"medium","limitation":"correlational"}],"gaps":[],"followUpQueries":[]}`);
+    expect(parsed.findings[0]).toMatchObject({
+      sourceType: "empirical",
+      method: "survey",
+      population: "high ability adolescents",
+      keyFinding: "Need satisfaction tracked wellbeing",
+      claimRelationship: "direct",
+      confidence: "medium",
+    });
   });
 
   it("returns empty findings when the model does not emit JSON", () => {
