@@ -58,7 +58,7 @@ export function showAllGroupingLabel(grouping: ShowAllGrouping) {
 export function showAllGroupingMeta(grouping: ShowAllGrouping) {
   if (grouping === "notebooks") return "Notebooks · university notes hidden";
   if (grouping === "degrees") return "University degrees · notebook notes hidden";
-  return "Tagged notes · each colour is a topic · lines where notes share a second tag";
+  return "Tagged notes · no hubs · each colour is a topic · lines where notes share a tag";
 }
 
 function unique(values: string[]) {
