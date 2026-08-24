@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mountForceGraph } from "./forceGraph";
 import { SHOW_ALL_STRAND_WIDTH, resetShowAllTuning } from "./forceGraphBehavior";
 import type { ArchiveGraphModel, GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
+import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
+import { buildShowAllGraph } from "./showAllGraph";
 
 type StrokeRecord = {
   lineWidth: number;
@@ -13,6 +15,8 @@ type StrokeRecord = {
 
 function recordingContext() {
   const strokes: StrokeRecord[] = [];
+  const texts: string[] = [];
+  const paths: string[] = [];
   let dash: number[] = [];
   const ctx = {
     globalAlpha: 1,
@@ -41,10 +45,16 @@ function recordingContext() {
         strokeStyle: String(ctx.strokeStyle),
       });
     },
-    fillText() {},
+    fillText(text: string) {
+      texts.push(text);
+    },
     moveTo() {},
-    lineTo() {},
-    quadraticCurveTo() {},
+    lineTo() {
+      paths.push("line");
+    },
+    quadraticCurveTo() {
+      paths.push("curve");
+    },
     setLineDash(next: number[]) {
       dash = [...next];
     },
@@ -52,7 +62,7 @@ function recordingContext() {
       return [...dash];
     },
   };
-  return { ctx, strokes };
+  return { ctx, strokes, texts, paths };
 }
 
 function installCanvas() {
@@ -125,6 +135,34 @@ describe("Show All strand drawing", () => {
     expect(new Set(strands.map(stroke => stroke.lineWidth))).toEqual(new Set([expected]));
     expect(strands.every(stroke => stroke.dash.length === 0)).toBe(true);
     expect(strands.every(stroke => stroke.lineCap === "round")).toBe(true);
+
+    stop();
+  });
+
+  it("does not draw topic hubs or straight spokes in the tags view", () => {
+    stubFrame();
+    const recorded = installCanvas();
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 1100 });
+    document.body.appendChild(host);
+
+    const pages = TOPIC_VOCABULARY.slice(0, 3).flatMap((tag, cluster) =>
+      Array.from({ length: 40 }, (_, index) => ({
+        id: `${cluster}-${index}`,
+        title: `${tag} ${index}`,
+        area: "notes" as const,
+        tags: [tag],
+        excerpt: "",
+      })),
+    );
+    const graph = buildShowAllGraph(pages, "tags");
+    expect(graph.nodes.every(node => node.kind === "leaf")).toBe(true);
+    expect(graph.links.every(link => link.kind === "overlap")).toBe(true);
+
+    const stop = mountForceGraph(host, graph, {}, { variant: "showAll", search: "", excerptFor: () => "" });
+    expect(recorded.paths.length).toBeGreaterThan(0);
+    expect(recorded.paths.every(path => path === "curve")).toBe(true);
+    expect(recorded.texts).toEqual([]);
 
     stop();
   });
