@@ -21,8 +21,11 @@ describe("buildSynthesisPrompt", () => {
       sources: [{ pageId: "p1", title: "Notes", excerpt: "Epictetus" }],
     });
     expect(prompt).toContain("Professor Clementine Haig");
+    expect(prompt).toContain("research and knowledge synthesizer");
+    expect(prompt).toContain("Never the wrong office");
     expect(prompt).toContain("Return only JSON");
     expect(prompt).not.toContain("You are a research assistant");
+    expect(prompt).not.toMatch(/academic writing coach/i);
   });
 });
 

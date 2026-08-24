@@ -53,5 +53,7 @@ describe("chat hats", () => {
       k: 48,
       maxRounds: 5,
     });
+    expect(hatById("writing").plan).toMatch(/answer it from the archive/i);
+    expect(hatById("writing").plan).not.toMatch(/University writing-coach/i);
   });
 });

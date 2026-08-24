@@ -30,7 +30,7 @@ type ChatTurn = {
 
 const STORAGE_KEY = "knowledge-hub-chat-v1";
 
-let hat: ChatHatId = "scoping";
+let hat: ChatHatId = "synthesis";
 let scope: ChatScope | undefined;
 let depth: ChatDepth | undefined;
 let showDials = false;

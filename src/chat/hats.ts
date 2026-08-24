@@ -75,10 +75,10 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "writing",
     label: "Writing",
-    explain: "Coach the thesis or draft while keeping archive evidence attached.",
+    explain: "Help with a thesis or draft, and still answer from the archive if that is what he asked.",
     defaultScope: "standard",
     defaultDepth: "single",
-    plan: "University writing-coach conversation. Thesis and draft if present. Protocols in prose (reverse outline, stress test, editors). You may pull the archive; do not silently become Synthesis.",
+    plan: "Writing help when a thesis or draft is in play. Protocols in prose (reverse outline, stress test, editors) only then. If he asks a knowledge or practice question, answer it from the archive. Do not become a gatekeeper. Do not silently become Synthesis.",
   },
 ];
 
