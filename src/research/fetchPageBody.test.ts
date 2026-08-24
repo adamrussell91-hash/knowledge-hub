@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fetchPageBody } from "./fetchPageBody";
+import { excerptFromBody, fetchPageBody, normalizePageBody, SYNTHESIS_EXCERPT_CHARS } from "./fetchPageBody";
 
 describe("fetchPageBody", () => {
   it("prefers the R2 page mirror over GitHub", async () => {
@@ -31,5 +31,31 @@ describe("fetchPageBody", () => {
       }),
     });
     expect(page?.title).toBe("From GitHub");
+  });
+});
+
+describe("normalizePageBody", () => {
+  it("keeps topic tags from a full page record", () => {
+    expect(
+      normalizePageBody({
+        id: "p1",
+        title: "SDT",
+        body: "Need satisfaction",
+        source_notion_url: "https://notion.so/p1",
+        tags: ["Motivation and Self Regulation", ""],
+      })?.tags,
+    ).toEqual(["Motivation and Self Regulation"]);
+  });
+
+  it("rejects a record without an id", () => {
+    expect(normalizePageBody({ title: "No id" })).toBeNull();
+  });
+});
+
+describe("excerptFromBody", () => {
+  it("can keep a longer synthesis excerpt than the lexical snippet", () => {
+    const body = "x".repeat(1200);
+    expect(excerptFromBody(body).length).toBe(300);
+    expect(excerptFromBody(body, SYNTHESIS_EXCERPT_CHARS).length).toBe(900);
   });
 });

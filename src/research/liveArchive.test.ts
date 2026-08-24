@@ -25,6 +25,7 @@ describe("researchFromDocs", () => {
     });
     expect(result.findings[0]?.pageId).toBe("page_attr");
     expect(result.findings[0]?.title).toMatch(/attribution/i);
+    expect(result.findings[0]?.tags).toEqual(["psychology"]);
     expect(result.status).toBe("done");
   });
 

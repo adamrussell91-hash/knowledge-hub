@@ -15,6 +15,11 @@ describe("loadPromptFile", () => {
     expect(loadPromptFile("podcast-editor.md")).toMatch(/no ["']?Adam["']?/i);
   });
 
+  it("loads the thematic synthesis protocol from prompts/", () => {
+    expect(loadPromptFile("clementine-thematic-synthesis.md")).toContain("Theme evidence matrix");
+    expect(loadPromptFile("clementine-thematic-synthesis.md")).toContain("Method trace");
+  });
+
   it("throws when the file is absent", () => {
     expect(() => loadPromptFile("clementine-missing.md")).toThrow(/clementine-missing\.md/);
   });

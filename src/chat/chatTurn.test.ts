@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ANSWER_FROM_ARCHIVE, CITE_NOTES_AS_LINKS, runChatTurn, START_KERNEL_BUDGET_MS } from "./chatTurn";
+import { ANSWER_FROM_ARCHIVE, CITE_NOTES_AS_LINKS, runChatTurn, START_KERNEL_BUDGET_MS, writeMaxTokens } from "./chatTurn";
+import { SYNTHESIS_WRITE_TOKENS } from "./synthesisProtocol";
 
 const voice = readFileSync(join(process.cwd(), "prompts/clementine-voice.md"), "utf8");
 const universityJob = readFileSync(join(process.cwd(), "prompts/clementine-university.md"), "utf8");
@@ -76,6 +77,7 @@ describe("runChatTurn", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(system).toContain("Scoping");
     expect(system).toContain("Wide sweep");
+    expect(system).not.toContain("Theme evidence matrix");
     expect(system).toContain("Stoicism notes");
     expect(system).toContain("p1");
     expect(system).not.toContain("Links the thesis to the archive.");
@@ -106,6 +108,16 @@ describe("runChatTurn", () => {
     expect(system).toContain("note-edit");
     expect(system).toContain("Retrieval practice and spacing (p1)");
     expect(system).toContain("Interleaving in mixed practice sets (p2)");
+    expect(system).toContain("Theme evidence matrix");
+    expect(system).toContain("Corpus audit");
+    expect(system).toContain("Notes retrieved: 1");
+    expect(system).toContain("Direct finding");
+  });
+
+  it("gives thematic synthesis a larger write budget than a cheap scoping map", () => {
+    expect(writeMaxTokens({ hat: "synthesis", depth: "iterative" })).toBe(SYNTHESIS_WRITE_TOKENS);
+    expect(writeMaxTokens({ hat: "scoping" })).toBe(1200);
+    expect(writeMaxTokens({ hat: "evidence" })).toBe(2000);
   });
 
   it("tells her to answer a curriculum question from the archive instead of refusing it", async () => {
@@ -251,6 +263,42 @@ describe("runChatTurn", () => {
     if (result.status !== "done") return;
     expect(result.archiveFailed).toBeFalsy();
     expect(result.research?.findings[0]?.pageId).toBe("page_attr");
+  });
+
+  it("asks the Worker write for the synthesis token budget", async () => {
+    const write = {
+      start: vi.fn(async () => ({ writeSessionId: "w-syn", status: "writing" as const })),
+      poll: vi.fn(),
+    };
+    await runChatTurn({
+      voice,
+      universityJob,
+      hat: "synthesis",
+      depth: "iterative",
+      messages: [{ role: "user", content: "motivation and wellbeing" }],
+      compose: true,
+      priorResearch: researchResult({
+        findings: [
+          {
+            ...finding,
+            sourceType: "empirical",
+            method: "survey",
+            keyFinding: "Need satisfaction tracked wellbeing",
+            claimRelationship: "direct",
+          },
+        ],
+      }),
+      write,
+    });
+    expect(write.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxTokens: SYNTHESIS_WRITE_TOKENS,
+      }),
+    );
+    const system = write.start.mock.calls[0]?.[0]?.system ?? "";
+    expect(system).toContain("type: empirical");
+    expect(system).toContain("Need satisfaction tracked wellbeing");
+    expect(system).toContain("Method trace");
   });
 
   it("starts a Worker write after the archive pull and does not call Claude on Netlify", async () => {

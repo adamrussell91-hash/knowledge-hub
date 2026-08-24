@@ -35,10 +35,10 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "synthesis",
     label: "Thematic synthesis",
-    explain: "Build a structured brief from the strongest archive themes.",
+    explain: "Build an evidence-mapped thematic synthesis with a visible audit trail.",
     defaultScope: "standard",
     defaultDepth: "iterative",
-    plan: "Retrieve, read top bodies, write a structured brief. Every claim carries a markdown note link [Title](pageId). Never invent a page. Never write a raw page id.",
+    plan: "Retrieve, read note bodies, write an evidence-mapped thematic synthesis. Always produce a central claim (relationship + mechanism + implication, at most two sentences, confidence-rated). Cluster into 3 to 7 themes with source counts and confidence. Map major claims to sources. Label direct findings versus inferences. Separate explanatory levels. End with a ranked limitations table and an explicit answer to the question. Every claim carries a markdown note link [Title](pageId). Never invent a page. Never write a raw page id.",
   },
   {
     id: "evidence",

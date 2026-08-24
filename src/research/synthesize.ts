@@ -13,6 +13,7 @@ export type SynthesisSource = {
   title: string;
   excerpt: string;
   sourceUrl?: string;
+  tags?: string[];
 };
 
 export function buildSynthesisPrompt(input: {
@@ -21,10 +22,10 @@ export function buildSynthesisPrompt(input: {
   sources: SynthesisSource[];
 }) {
   const sources = input.sources
-    .map(
-      (source, index) =>
-        `[${index + 1}] "${source.title}" (id: ${source.pageId}${source.sourceUrl ? `; url: ${source.sourceUrl}` : ""})\n${source.excerpt}`,
-    )
+    .map((source, index) => {
+      const tags = source.tags?.length ? `; tags: ${source.tags.join(", ")}` : "";
+      return `[${index + 1}] "${source.title}" (id: ${source.pageId}${source.sourceUrl ? `; url: ${source.sourceUrl}` : ""}${tags})\n${source.excerpt}`;
+    })
     .join("\n\n");
   const context = input.documentContext?.trim()
     ? `\nDocument / working thesis:\n${input.documentContext.trim()}\n`
@@ -48,14 +49,21 @@ Return only JSON with this shape:
       "sourceUrl": "string — use the url from the source if given",
       "excerpt": "short quoted or paraphrased evidence",
       "stance": "supports" | "complicates" | "extends" | "related",
-      "analysis": "why this source matters for the query/document, specifically"
+      "analysis": "why this source matters for the query/document, specifically",
+      "sourceType": "empirical" | "conceptual" | "review" | "methods" | "practice" | "unknown",
+      "population": "who was studied, or omit if not in the note",
+      "method": "design or evidence type, or omit if not in the note",
+      "keyFinding": "one-sentence finding from this note",
+      "claimRelationship": "direct" | "indirect" | "interpretive",
+      "confidence": "high" | "medium" | "low",
+      "limitation": "sample, design, or measurement limit if stated"
     }
   ],
   "gaps": ["threads not yet covered"],
   "followUpQueries": ["1-3 targeted archive queries that would cover those gaps"]
 }
 
-Only cite sources listed above. Prefer supports / complicates / extends over related. If nothing is genuinely useful, return empty findings and explain the gaps.`,
+Only cite sources listed above. Prefer supports / complicates / extends over related. Fill sourceType, method, population, keyFinding, claimRelationship, confidence, and limitation from the note when the text supports them. If a field is not in the note, omit it or use "unknown" — never invent method, population, or a finding. If nothing is genuinely useful, return empty findings and explain the gaps.`,
   });
 }
 

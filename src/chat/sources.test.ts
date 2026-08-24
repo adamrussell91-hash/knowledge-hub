@@ -15,6 +15,9 @@ describe("sourceTake", () => {
     expect(sourceTake(finding)).toContain("three basic needs");
     expect(sourceTake({ ...finding, analysis: "A".repeat(400) }).endsWith("…")).toBe(true);
     expect(sourceTake({ ...finding, analysis: "", excerpt: "" })).toBe("supports");
+    expect(sourceTake({ ...finding, keyFinding: "Need satisfaction tracked wellbeing." })).toBe(
+      "Need satisfaction tracked wellbeing.",
+    );
   });
 });
 
