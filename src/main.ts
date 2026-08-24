@@ -1232,6 +1232,7 @@ function previewNote(pageId: string, title: string, excerpt: string): GraphPrevi
 function afterSignedInPaint() {
   ensureChatOverlay({
     visible: true,
+    onOpenPage: pageId => void openPage(pageId),
     onSavedPage: async saved => {
       entries = await listPages();
       await refreshVisible();

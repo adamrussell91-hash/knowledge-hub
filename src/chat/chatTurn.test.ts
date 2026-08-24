@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ANSWER_FROM_ARCHIVE, runChatTurn, START_KERNEL_BUDGET_MS } from "./chatTurn";
+import { ANSWER_FROM_ARCHIVE, CITE_NOTES_AS_LINKS, runChatTurn, START_KERNEL_BUDGET_MS } from "./chatTurn";
 
 const voice = readFileSync(join(process.cwd(), "prompts/clementine-voice.md"), "utf8");
 const universityJob = readFileSync(join(process.cwd(), "prompts/clementine-university.md"), "utf8");
@@ -125,6 +125,7 @@ describe("runChatTurn", () => {
       },
     });
     expect(system).toContain(ANSWER_FROM_ARCHIVE);
+    expect(system).toContain(CITE_NOTES_AS_LINKS);
     expect(system).toContain("Never the wrong office");
     expect(system).toContain("Differentiation and numeracy");
     expect(system).not.toMatch(/This is the university office/i);

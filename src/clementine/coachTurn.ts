@@ -88,7 +88,7 @@ export async function runCoachTurn(input: CoachTurnInput): Promise<CoachTurnResu
   const system = assembleClementinePrompt({
     voice: input.voice,
     job: input.universityJob,
-    surface: `This turn is a Knowledge Hub conversation, not a JSON card list. If he is writing, coach the writing: one primary observation, optionally one secondary. If he is asking a research or practice question, synthesise from the archive. Never refuse a question as the wrong office.\n${archive.note}`,
+    surface: `This turn is a Knowledge Hub conversation, not a JSON card list. If he is writing, coach the writing: one primary observation, optionally one secondary. If he is asking a research or practice question, synthesise from the archive. Never refuse a question as the wrong office. Cite notes as [Title](pageId). Never write a raw page id in the answer.\n${archive.note}`,
     payload: [
       thesis ? `Working thesis:\n${thesis}` : "",
       draft ? `Draft excerpt:\n${draft}` : "",

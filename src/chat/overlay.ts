@@ -1,6 +1,7 @@
 import { ChatWriteDroppedError, getPage, runChat, savePage, USE_LOCAL_DATA } from "../api/client";
 import { escapeHtml, showToast } from "../lib/dom";
-import { renderMarkdown } from "../lib/markdown";
+import { renderChatMarkdown } from "./noteLinks";
+import type { ResearchFinding } from "../research/schema";
 import { topicKeywords } from "../archive/keywordGraph";
 import type { Page } from "../domain/page";
 import type { ChatTurnResult } from "./chatTurn";
@@ -21,11 +22,13 @@ const ROOT_ID = "kh-chat-overlay";
 type OverlayTurn = {
   role: "user" | "assistant";
   content: string;
+  findings?: ResearchFinding[];
   edit?: RetagProposal;
 };
 
 export type ChatOverlayHost = {
   visible: boolean;
+  onOpenPage?: (pageId: string) => void;
   onSavedPage?: (page: Page) => Promise<void> | void;
   topicsFor?: (pageId: string) => string[];
 };
@@ -114,7 +117,10 @@ function applyResult(history: OverlayTurn[], result: ChatTurnResult) {
   researchSessionId = "";
   writeSessionId = "";
   const parsed = parseNoteEdit(result.reply);
-  turns = [...history, { role: "assistant", content: parsed.prose, edit: parsed.edit }];
+  turns = [
+    ...history,
+    { role: "assistant", content: parsed.prose, edit: parsed.edit, findings: result.research?.findings },
+  ];
 }
 
 async function send() {
@@ -242,7 +248,7 @@ function overlayHtml() {
                   }
                   return `<li class="chat-message chat-message--assistant" data-agent="${personality}">
                     <img class="chat-message__avatar" src="${who.avatarSrc}" alt="${escapeHtml(who.name)}" width="52" height="52" />
-                    <div class="chat-message__body">${renderMarkdown(turn.content)}</div>
+                    <div class="chat-message__body">${renderChatMarkdown(turn.content, turn.findings)}</div>
                     ${
                       turn.edit
                         ? `<section class="confirm-card" role="region" aria-label="Confirm change">
@@ -326,6 +332,12 @@ function bind(root: HTMLElement) {
       persist();
       paint();
     };
+  });
+  root.querySelectorAll<HTMLElement>("[data-open-page]").forEach(el => {
+    el.addEventListener("click", event => {
+      event.preventDefault();
+      currentHost?.onOpenPage?.(el.dataset.openPage!);
+    });
   });
   const form = root.querySelector<HTMLFormElement>(".chat-form");
   const field = root.querySelector<HTMLInputElement>("#overlay-chat-input");
