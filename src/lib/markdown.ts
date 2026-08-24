@@ -1,3 +1,13 @@
+import { pageHashForId, pageIdFromHash } from "../routing/pageHash";
+
+const ARCHIVE_HREF = /^(page_(?:notion|hub)_[^)\s]+|#page\/[^)\s]+)$/i;
+
+function noteAnchor(label: string, target: string): string {
+  const pageId = target.startsWith("#page/") ? pageIdFromHash(target) : target;
+  if (!pageId) return `<span class="md-link">${label}</span>`;
+  return `<a class="note-link" href="${pageHashForId(pageId)}" data-open-page="${pageId}">${label}</a>`;
+}
+
 /** Lightweight Markdown → HTML for Notion-export note bodies. */
 export function renderMarkdown(markdown: string): string {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
@@ -23,7 +33,9 @@ export function renderMarkdown(markdown: string): string {
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
       .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>")
       .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, "<span class=\"md-link\">$1</span>");
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, href) =>
+        ARCHIVE_HREF.test(href) ? noteAnchor(label, href) : `<span class="md-link">${label}</span>`,
+      );
 
   const isTableRow = (text: string) => /^\s*\|.+\|\s*$/.test(text);
   const isTableSep = (text: string) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(text);

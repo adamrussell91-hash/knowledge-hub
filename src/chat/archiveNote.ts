@@ -22,7 +22,7 @@ export function compactArchiveNote(research: ResearchResult): string {
         .map(item => `${item.title} (${item.pageId})`)
         .join("; ")}`
     : "";
-  return `Archive findings (${research.findings.length} notes — cite these ids, never invent pages):\n${lines.join("\n\n")}${more}`;
+  return `Archive findings (${research.findings.length} notes — cite as [Title](pageId) markdown links; never invent pages; never write a raw page id in the answer):\n${lines.join("\n\n")}${more}`;
 }
 
 /** Follow-up turns keep the sitting's searched notes as the first source pack. */

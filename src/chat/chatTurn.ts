@@ -55,6 +55,9 @@ export type ChatTurnInput = {
 export const ANSWER_FROM_ARCHIVE =
   "Answer the question from the archive. Do not refuse it as the wrong office, a curriculum question, or not academic writing.";
 
+export const CITE_NOTES_AS_LINKS =
+  "Cite archive notes as markdown links [Note title](pageId). Never write a raw page_notion_ or page_hub_ id in the reader-facing answer.";
+
 export const NOTE_EDIT_PROTOCOL = `You can edit archive notes when Adam asks in natural language (retag this, swap that tag, drop this tag). Never claim a write already happened. If you intend a tag change, append exactly one fenced block after your prose:
 
 \`\`\`note-edit
@@ -260,7 +263,7 @@ function assembledSystem(input: ChatTurnInput, archive: ArchivePack) {
     system: assembleClementinePrompt({
       voice: input.voice,
       job: input.universityJob,
-      surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}\n${ANSWER_FROM_ARCHIVE}\n${NOTE_EDIT_PROTOCOL}\n${archive.note}`,
+      surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}\n${ANSWER_FROM_ARCHIVE}\n${CITE_NOTES_AS_LINKS}\n${NOTE_EDIT_PROTOCOL}\n${archive.note}`,
       payload: [
         input.workingThesis?.trim() ? `Working thesis:\n${input.workingThesis.trim()}` : "",
         input.draft?.trim() ? `Draft excerpt:\n${input.draft.trim()}` : "",

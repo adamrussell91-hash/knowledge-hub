@@ -88,6 +88,36 @@ describe("Knowledge chat rail protocol affordances", () => {
     expect(host.app.querySelector(".chat__status")).toBeNull();
   });
 
+  it("turns a raw page id in the reply into a live note link", () => {
+    const pageId = "page_notion_1aaf794f84768020a2aec3db6939dedc";
+    const opened: string[] = [];
+    sessionStorage.setItem(
+      "knowledge-hub-chat-v1",
+      JSON.stringify({
+        hat: "synthesis",
+        input: "",
+        turns: [
+          {
+            role: "assistant",
+            content: `Motivation is a catalyst (${pageId}).`,
+            findings: [{ pageId, title: "Gagné DMGT 2.0", excerpt: "catalyst", stance: "supports", analysis: "" }],
+          },
+        ],
+      }),
+    );
+    const host = makeHost();
+    host.onOpenPage = id => {
+      opened.push(id);
+    };
+    host.render();
+    const link = host.app.querySelector<HTMLAnchorElement>(".note-link");
+    expect(link?.textContent).toBe("Gagné DMGT 2.0");
+    expect(link?.dataset.openPage).toBe(pageId);
+    expect(host.app.textContent).not.toContain(pageId);
+    link?.click();
+    expect(opened).toEqual([pageId]);
+  });
+
   it("starts a new sitting from New chat", () => {
     sessionStorage.setItem(
       "knowledge-hub-chat-v1",

@@ -38,7 +38,7 @@ export const CHAT_HATS: ChatHat[] = [
     explain: "Build a structured brief from the strongest archive themes.",
     defaultScope: "standard",
     defaultDepth: "iterative",
-    plan: "Retrieve, read top bodies, write a structured brief. Every claim carries an archive page id. Never invent a page.",
+    plan: "Retrieve, read top bodies, write a structured brief. Every claim carries a markdown note link [Title](pageId). Never invent a page. Never write a raw page id.",
   },
   {
     id: "evidence",

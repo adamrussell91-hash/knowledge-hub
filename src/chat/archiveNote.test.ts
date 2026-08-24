@@ -24,6 +24,8 @@ describe("compactArchiveNote", () => {
       followUpQueries: [],
     });
     expect(note).toContain("12 notes");
+    expect(note).toContain("[Title](pageId)");
+    expect(note).toMatch(/never write a raw page id/i);
     expect(note).toContain("p1");
     expect(note).toContain("p8");
     expect(note).toContain("4 further notes");

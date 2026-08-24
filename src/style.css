@@ -393,6 +393,17 @@
   color: var(--wave);
 }
 
+.note-link {
+  color: var(--wave);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.note-link:hover {
+  color: var(--navy);
+}
+
 .md-link {
   color: var(--muted);
 }

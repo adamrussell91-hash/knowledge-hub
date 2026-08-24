@@ -35,4 +35,12 @@ A **bold** and *italic* line.
     expect(html).toContain('href="https://example.com/a.pdf"');
     expect(html).toContain('<span class="md-link">Local</span>');
   });
+
+  it("turns archive page markdown into a live note link", () => {
+    const html = renderMarkdown(`[Gagné DMGT 2.0](page_notion_1aaf794f84768020a2aec3db6939dedc)`);
+    expect(html).toContain('class="note-link"');
+    expect(html).toContain('data-open-page="page_notion_1aaf794f84768020a2aec3db6939dedc"');
+    expect(html).toContain("Gagné DMGT 2.0");
+    expect(html).not.toContain('class="md-link"');
+  });
 });

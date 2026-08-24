@@ -55,5 +55,7 @@ describe("chat hats", () => {
     });
     expect(hatById("writing").plan).toMatch(/answer it from the archive/i);
     expect(hatById("writing").plan).not.toMatch(/University writing-coach/i);
+    expect(hatById("synthesis").plan).toMatch(/\[Title\]\(pageId\)/);
+    expect(hatById("synthesis").plan).not.toMatch(/archive page id/i);
   });
 });

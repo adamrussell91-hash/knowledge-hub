@@ -2,8 +2,8 @@ import { ChatWriteDroppedError, runChat, savePage, tidyPage, USE_LOCAL_DATA } fr
 import { newHubPageId } from "../domain/page";
 import type { Page } from "../domain/page";
 import { escapeHtml, showToast } from "../lib/dom";
-import { renderMarkdown } from "../lib/markdown";
 import { CHAT_HATS, DEPTHS, SCOPES, hatById, isChatHatId, resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
+import { renderChatMarkdown } from "./noteLinks";
 import { researchFromFindings, searchedNotesHtml, thinkingHistoryHtml } from "./sources";
 import { CLEMENTINE_WAIT_LINES, appendTick, chatTick, pickClementineWaitLine } from "./ticker";
 import { briefIsSavable, briefToPage, type SavableFinding } from "./saveBrief";
@@ -373,7 +373,7 @@ export function renderChatRail(host: ChatRailHost) {
                 .map((turn, index) => {
                   const body =
                     turn.role === "assistant"
-                      ? `<div class="coach-msg__body">${renderMarkdown(turn.content)}</div>`
+                      ? `<div class="coach-msg__body">${renderChatMarkdown(turn.content, turn.findings)}</div>`
                       : `<div class="coach-msg__body coach-msg__body--plain">${escapeHtml(turn.content)}</div>`;
                   return `<article class="coach-msg coach-msg--${turn.role} glass-panel">
                     <p class="coach-msg__who">${turn.role === "user" ? "You" : "Clementine"}</p>
@@ -460,8 +460,11 @@ export function renderChatRail(host: ChatRailHost) {
   host.app.querySelector<HTMLButtonElement>("[data-search-outside]")?.addEventListener("click", () => {
     void send(host, { searchOutside: true });
   });
-  host.app.querySelectorAll<HTMLButtonElement>("[data-open-page]").forEach(button => {
-    button.onclick = () => host.onOpenPage?.(button.dataset.openPage!);
+  host.app.querySelectorAll<HTMLElement>("[data-open-page]").forEach(el => {
+    el.addEventListener("click", event => {
+      event.preventDefault();
+      host.onOpenPage?.(el.dataset.openPage!);
+    });
   });
   host.app.querySelectorAll<HTMLDetailsElement>("[data-thinking-history]").forEach(el => {
     el.ontoggle = () => {

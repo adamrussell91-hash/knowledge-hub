@@ -28,6 +28,38 @@ describe("chat overlay", () => {
     expect(document.querySelector(".floating-chat-button")).toBeNull();
   });
 
+  it("turns a raw page id in the reply into a live note link", () => {
+    const pageId = "page_notion_1aaf794f84768020a2aec3db6939dedc";
+    const opened: string[] = [];
+    sessionStorage.setItem(
+      "knowledge-hub-overlay-chat-v1",
+      JSON.stringify({
+        personality: "clementine",
+        open: true,
+        input: "",
+        turns: [
+          {
+            role: "assistant",
+            content: `Motivation is a catalyst (${pageId}).`,
+            findings: [{ pageId, title: "Gagné DMGT 2.0", excerpt: "catalyst", stance: "supports", analysis: "" }],
+          },
+        ],
+      }),
+    );
+    ensureChatOverlay({
+      visible: true,
+      onOpenPage: id => {
+        opened.push(id);
+      },
+    });
+    const link = document.querySelector<HTMLAnchorElement>(".note-link");
+    expect(link?.textContent).toBe("Gagné DMGT 2.0");
+    expect(link?.dataset.openPage).toBe(pageId);
+    expect(document.body.textContent).not.toContain(pageId);
+    link?.click();
+    expect(opened).toEqual([pageId]);
+  });
+
   it("starts a new overlay sitting from New chat", () => {
     sessionStorage.setItem(
       "knowledge-hub-overlay-chat-v1",
