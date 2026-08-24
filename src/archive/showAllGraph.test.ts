@@ -19,7 +19,7 @@ function page(
 const V = TOPIC_VOCABULARY;
 
 describe("buildShowAllGraph", () => {
-  it("emits one node per note, a spoke to every topic hub, and overlap edges for shared tags", () => {
+  it("emits one node per note and overlap edges, with no topic hubs or spokes", () => {
     const model = buildShowAllGraph([
       page("p1", "Alpha", [V[0], V[2]]),
       page("p2", "Beta", [V[0], V[2]]),
@@ -29,15 +29,14 @@ describe("buildShowAllGraph", () => {
     const leaves = model.nodes.filter(node => node.kind === "leaf");
     expect(leaves.map(node => node.pageId).sort()).toEqual(["p1", "p2", "p3"]);
     expect(new Set(leaves.map(node => node.id)).size).toBe(3);
-
-    const spokes = model.links.filter(link => link.kind === "spoke");
-    expect(spokes.filter(link => String(link.target) === "leaf:p1" || String(link.source) === "leaf:p1").length).toBe(2);
+    expect(model.nodes.every(node => node.kind === "leaf")).toBe(true);
+    expect(model.links.filter(link => link.kind === "spoke")).toEqual([]);
     expect(leaves.find(node => node.pageId === "p1")?.hubLabels).toEqual([V[0], V[2]]);
+    expect(model.majorCount).toBe(3);
 
     const overlaps = model.links.filter(link => link.kind === "overlap");
     expect(overlaps.length).toBeGreaterThanOrEqual(2);
     expect(leaves.every(leaf => leaf.r < 10)).toBe(true);
-    expect(model.nodes.filter(node => node.kind === "major").every(node => node.r < 22)).toBe(true);
   });
 
   it("gives every note at least two overlap ties, including a single shared tag", () => {
@@ -58,19 +57,30 @@ describe("buildShowAllGraph", () => {
     expect(degree.get("leaf:p3") ?? 0).toBeGreaterThanOrEqual(2);
   });
 
-  it("separates major anchors by their cluster footprints", () => {
+  it("separates topic clusters by their footprints without drawing hubs", () => {
     const majors = V.slice(0, 8);
     const pages = majors.flatMap((tag, index) =>
       Array.from({ length: (index + 1) * 4 }, (_, note) => page(`${index}-${note}`, `${tag} ${note}`, [tag])),
     );
     const model = buildShowAllGraph(pages);
-    const majorsPlaced = model.nodes.filter(node => node.kind === "major");
-    expect(majorsPlaced).toHaveLength(8);
-    for (let i = 0; i < majorsPlaced.length; i++) {
-      for (let j = i + 1; j < majorsPlaced.length; j++) {
-        const left = majorsPlaced[i]!;
-        const right = majorsPlaced[j]!;
-        const distance = Math.hypot((left.x ?? 0) - (right.x ?? 0), (left.y ?? 0) - (right.y ?? 0));
+    expect(model.nodes.filter(node => node.kind === "major")).toEqual([]);
+    const homes = new Map<string, { x: number; y: number; count: number }>();
+    for (const node of model.nodes) {
+      const key = node.parentKeyword ?? "";
+      const existing = homes.get(key);
+      if (existing) {
+        existing.count += 1;
+        continue;
+      }
+      homes.set(key, { x: node.homeX ?? 0, y: node.homeY ?? 0, count: 1 });
+    }
+    const placed = [...homes.values()];
+    expect(placed).toHaveLength(8);
+    for (let i = 0; i < placed.length; i++) {
+      for (let j = i + 1; j < placed.length; j++) {
+        const left = placed[i]!;
+        const right = placed[j]!;
+        const distance = Math.hypot(left.x - right.x, left.y - right.y);
         expect(distance).toBeGreaterThanOrEqual(
           showAllClusterRadius(left.count) + showAllClusterRadius(right.count) + SHOW_ALL_CLUSTER_GAP,
         );
@@ -83,25 +93,16 @@ describe("buildShowAllGraph", () => {
     expect(showAllClusterRadius(25)).toBeGreaterThan(showAllClusterRadius(1));
   });
 
-  it("draws a spoke from a note to each of its topic hubs", () => {
+  it("keeps topic colour on a multi-tag note without drawing hubs or spokes", () => {
     const model = buildShowAllGraph([
       page("p1", "Zimmerman's Component Skills of Self-Regulated Learning", [V[1], V[0]]),
     ]);
-    const leafId = "leaf:p1";
-    const spokes = model.links.filter(
-      link => link.kind === "spoke" && (String(link.source) === leafId || String(link.target) === leafId),
-    );
-    expect(spokes).toHaveLength(2);
-    const hubs = spokes
-      .map(link => (String(link.source) === leafId ? String(link.target) : String(link.source)))
-      .sort();
-    expect(hubs).toEqual([`major:${V[0]}`, `major:${V[1]}`].sort());
-    expect(spokes.map(link => link.color).sort()).toEqual(
-      [
-        model.nodes.find(node => node.id === `major:${V[0]}`)!.color,
-        model.nodes.find(node => node.id === `major:${V[1]}`)!.color,
-      ].sort(),
-    );
+    const leaf = model.nodes.find(node => node.pageId === "p1")!;
+    expect(model.nodes.filter(node => node.kind === "major")).toEqual([]);
+    expect(model.links.filter(link => link.kind === "spoke")).toEqual([]);
+    expect(leaf.hubLabels).toEqual([V[1], V[0]]);
+    expect(leaf.color).toBeTruthy();
+    expect(model.majorCount).toBe(2);
   });
 
   it("walks each topic in turn so the first tag cannot consume the edge budget", () => {
@@ -140,14 +141,14 @@ describe("buildShowAllGraph", () => {
     expect(pair?.weight).toBe(2);
   });
 
-  it("seeds notes at distinct organic positions inside their hub cluster", () => {
+  it("seeds notes at distinct organic positions inside their topic cluster", () => {
     const pages = Array.from({ length: 40 }, (_, index) =>
       page(`n${index}`, `Note ${index}`, [V[0]]),
     );
     const model = buildShowAllGraph(pages);
-    const hub = model.nodes.find(node => node.kind === "major")!;
     const leaves = model.nodes.filter(node => node.kind === "leaf");
-    const radii = leaves.map(node => Math.hypot((node.x ?? 0) - (hub.x ?? 0), (node.y ?? 0) - (hub.y ?? 0)));
+    const origin = { x: leaves[0]!.homeX ?? 0, y: leaves[0]!.homeY ?? 0 };
+    const radii = leaves.map(node => Math.hypot((node.x ?? 0) - origin.x, (node.y ?? 0) - origin.y));
     const positions = new Set(leaves.map(node => `${node.x?.toFixed(3)},${node.y?.toFixed(3)}`));
     expect(positions.size).toBe(leaves.length);
     expect(new Set(radii.map(radius => Math.round(radius))).size).toBeGreaterThan(10);
@@ -166,6 +167,7 @@ describe("buildShowAllGraph", () => {
     const notebooks = buildShowAllGraph(pages, "notebooks");
     expect(notebooks.nodes.filter(node => node.kind === "major").map(node => node.label)).toEqual(["Brown 2022"]);
     expect(notebooks.nodes.filter(node => node.kind === "leaf").map(node => node.pageId).sort()).toEqual(["n1", "n2"]);
+    expect(notebooks.links.some(link => link.kind === "spoke")).toBe(true);
 
     const degrees = buildShowAllGraph(pages, "degrees");
     expect(degrees.nodes.filter(node => node.kind === "major").map(node => node.label)).toEqual([

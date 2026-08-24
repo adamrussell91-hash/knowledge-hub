@@ -95,7 +95,7 @@ export type GraphNodeDatum = {
   pageId?: string;
   /** Owning major keyword label (minors + leaves). */
   parentKeyword?: string;
-  /** Every topic hub this note belongs to (Show All multi-tag spokes). */
+  /** Every topic this note belongs to (Show All colouring and notebook/degree spokes). */
   hubLabels?: string[];
   color: string;
   soft: string;

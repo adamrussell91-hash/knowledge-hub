@@ -73,6 +73,7 @@ describe("show all grouping scope", () => {
   it("names the exclusive views in the toolbar copy", () => {
     expect(showAllGroupingMeta("notebooks")).toContain("university notes hidden");
     expect(showAllGroupingMeta("degrees")).toContain("notebook notes hidden");
+    expect(showAllGroupingMeta("tags")).toContain("no hubs");
     expect(showAllGroupingMeta("tags")).toContain("each colour is a topic");
   });
 });

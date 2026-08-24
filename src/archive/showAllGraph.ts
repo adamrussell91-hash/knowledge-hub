@@ -209,7 +209,8 @@ export function buildShowAllGraph(
   const hubNodes = buildHubs(counts);
   placeHubs(hubNodes);
   const hubByLabel = new Map(hubNodes.map(node => [node.label, node]));
-  const nodes: GraphNodeDatum[] = [...hubNodes];
+  const showHubs = grouping !== "tags";
+  const nodes: GraphNodeDatum[] = showHubs ? [...hubNodes] : [];
   const links: GraphLinkDatum[] = [];
   const primaryHub: string[] = [];
 
@@ -249,16 +250,18 @@ export function buildShowAllGraph(
         homeX: origin.x ?? LAYOUT_CENTRE.x,
         homeY: origin.y ?? LAYOUT_CENTRE.y,
       });
-      for (const label of hubLabels) {
-        const hub = hubByLabel.get(label);
-        if (!hub) continue;
-        links.push({
-          source: `leaf:${entry.id}`,
-          target: hub.id,
-          kind: "spoke",
-          weight: 1,
-          color: hub.color,
-        });
+      if (showHubs) {
+        for (const label of hubLabels) {
+          const hub = hubByLabel.get(label);
+          if (!hub) continue;
+          links.push({
+            source: `leaf:${entry.id}`,
+            target: hub.id,
+            kind: "spoke",
+            weight: 1,
+            color: hub.color,
+          });
+        }
       }
     });
   }
