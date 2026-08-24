@@ -32,7 +32,7 @@ export function buildAlchemistPrompt(input: { lessonText: string; retrieved: Ret
   return assembleClementinePrompt({
     voice: loadPromptFile("clementine-voice.md"),
     job: loadPromptFile("clementine-university.md"),
-    surface: `This turn is the Alchemist rail: the school–university bridge. Paste-lesson in, archive out. Write summary and whyNonObvious in your own voice — not as a generic tool. Return only a JSON array. Do not break JSON to make a joke. Do not run draft-review protocols on this turn.`,
+    surface: `This turn is the Alchemist rail: the school–archive bridge. Paste-lesson in, archive out. Write summary and whyNonObvious in your own voice — not as a generic tool. Return only a JSON array. Do not break JSON to make a joke. Do not run draft-review protocols on this turn.`,
     payload: `Lesson:
 ${input.lessonText}
 

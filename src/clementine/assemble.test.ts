@@ -15,11 +15,16 @@ describe("assembleClementinePrompt", () => {
     });
     expect(assembled).toContain("Professor Clementine Haig");
     expect(assembled).toContain("diagnose before she prescribes");
+    expect(assembled).toContain("research and knowledge synthesizer");
     expect(assembled).toContain("UNSW Master of Education");
     expect(assembled).toContain("APA 7th");
     expect(assembled).toContain("Reverse Outline");
+    expect(assembled).toContain("Never the wrong office");
     expect(assembled).toContain("Return JSON only");
     expect(assembled).toContain("Query: stoicism");
+    expect(assembled).not.toMatch(/academic writing coach/i);
+    expect(assembled).not.toMatch(/This is the university office/i);
+    expect(assembled).not.toMatch(/classroom practitioner voice wait/i);
     expect(assembled).not.toMatch(/Central Node/i);
     expect(assembled).not.toMatch(/University Reading Protocol/i);
     expect(assembled).not.toMatch(/search the Knowledge Hub Notion/i);

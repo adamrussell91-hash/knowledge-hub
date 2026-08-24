@@ -43,8 +43,12 @@ describe("runCoachTurn", () => {
     });
     expect(result.reply).toContain("Name the claim");
     expect(system).toContain("Professor Clementine Haig");
+    expect(system).toContain("research and knowledge synthesizer");
     expect(system).toContain("CBT secularises stoicism.");
     expect(system).toContain("Does the warrant hold?");
+    expect(system).toContain("Never refuse a question as the wrong office");
+    expect(system).not.toMatch(/university writing-coach/i);
+    expect(system).not.toMatch(/academic writing coach/i);
     expect(system).not.toMatch(/Central Node/i);
   });
 

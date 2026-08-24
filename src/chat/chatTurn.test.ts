@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runChatTurn, START_KERNEL_BUDGET_MS } from "./chatTurn";
+import { ANSWER_FROM_ARCHIVE, runChatTurn, START_KERNEL_BUDGET_MS } from "./chatTurn";
 
 const voice = readFileSync(join(process.cwd(), "prompts/clementine-voice.md"), "utf8");
 const universityJob = readFileSync(join(process.cwd(), "prompts/clementine-university.md"), "utf8");
@@ -106,6 +106,30 @@ describe("runChatTurn", () => {
     expect(system).toContain("note-edit");
     expect(system).toContain("Retrieval practice and spacing (p1)");
     expect(system).toContain("Interleaving in mixed practice sets (p2)");
+  });
+
+  it("tells her to answer a curriculum question from the archive instead of refusing it", async () => {
+    let system = "";
+    await runChatTurn({
+      voice,
+      universityJob,
+      hat: "synthesis",
+      messages: [{ role: "user", content: "what are some strategies for teaching numeracy to low ability classes" }],
+      compose: true,
+      priorResearch: researchResult({
+        findings: [{ ...finding, pageId: "n1", title: "Differentiation and numeracy", excerpt: "Concrete-pictorial-abstract" }],
+      }),
+      complete: async assembled => {
+        system = assembled;
+        return "Start with CPA and keep the load small.";
+      },
+    });
+    expect(system).toContain(ANSWER_FROM_ARCHIVE);
+    expect(system).toContain("Never the wrong office");
+    expect(system).toContain("Differentiation and numeracy");
+    expect(system).not.toMatch(/This is the university office/i);
+    expect(system).not.toMatch(/academic writing coach/i);
+    expect(system).not.toMatch(/classroom practitioner voice wait/i);
   });
 
   it("starts a deep Worker session and does not call Claude yet", async () => {
