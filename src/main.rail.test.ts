@@ -84,6 +84,15 @@ describe("Knowledge Hub rail", () => {
     expect(css).toMatch(/\.chat-overlay\s*\{[^}]*width:\s*min\(24rem, calc\(100vw - 3rem\)\)/);
     expect(css).toMatch(/\.graph-stage\s*\{[^}]*min-height:\s*560px/);
     expect(css).toContain(".universe-zoom");
+    expect(css).toContain(".graph-wrap.is-universe-dark");
+    expect(css).toContain(".graph-wrap.is-universe-fullscreen");
+    expect(css).toContain("body.is-universe-fullscreen");
+    expect(css).toContain(".universe-exit");
+    expect(main).toContain("universeViewToolsHtml");
+    expect(main).toContain("universeExitHtml");
+    expect(main).toContain("shouldExitUniverseFullscreen");
+    expect(main).toContain("applyUniverseViewState");
+    expect(main).not.toContain('class="graph-wrap is-universe-dark"');
     expect(css).toContain("body:has(.chat-overlay) .floating-chat-button");
     expect(css).toContain("body:has(.coach.chat) #kh-chat-overlay");
   });

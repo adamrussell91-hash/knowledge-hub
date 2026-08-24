@@ -1,7 +1,7 @@
 import { attachGraphSearch, type GraphMount } from "./forceGraphBehavior";
 import { hashUnit, worldPositions, type Body, type BodyKind, type SolarModel } from "./solarModel";
 
-export const UNIVERSE_BUILD = 19;
+export const UNIVERSE_BUILD = 20;
 
 export type SolarNotePayload = { pageId: string; title: string; excerpt: string };
 
@@ -90,6 +90,41 @@ export function solarZoomClamp(k: number, kMin: number, kMax: number) {
 
 export function solarCamera(focus: { x: number; y: number }, k: number, width: number, height: number) {
   return { k, x: width / 2 - focus.x * k, y: height / 2 - focus.y * k };
+}
+
+export type SolarStageCamera = {
+  width: number;
+  height: number;
+  fitK: number;
+  kMin: number;
+  kMax: number;
+  k: number;
+  x: number;
+  y: number;
+};
+
+/** Keep the same world focus and relative zoom when the stage is resized (fullscreen). */
+export function applySolarStageResize(
+  prev: SolarStageCamera,
+  nextSize: { width: number; height: number },
+  reach: number,
+  tightest: number,
+): SolarStageCamera {
+  if (nextSize.width < 32 || nextSize.height < 32) return prev;
+  if (nextSize.width === prev.width && nextSize.height === prev.height) return prev;
+  const z = prev.k / Math.max(prev.fitK, 1e-9);
+  const focusX = (prev.width / 2 - prev.x) / Math.max(prev.k, 1e-9);
+  const focusY = (prev.height / 2 - prev.y) / Math.max(prev.k, 1e-9);
+  const scales = solarScales(reach, tightest, nextSize.width, nextSize.height);
+  const k = solarZoomClamp(z * scales.fitK, scales.kMin, scales.kMax);
+  return {
+    width: nextSize.width,
+    height: nextSize.height,
+    ...scales,
+    k,
+    x: nextSize.width / 2 - focusX * k,
+    y: nextSize.height / 2 - focusY * k,
+  };
 }
 
 const NARROW_VIEWPORT_PX = 720;
@@ -241,7 +276,9 @@ export function fillDots(
 }
 
 export function mountSolarView(host: HTMLElement, model: SolarModel, options: SolarViewOptions): GraphMount {
-  const { width, height } = solarStageSize(host, window);
+  const firstSize = solarStageSize(host, window);
+  let width = firstSize.width;
+  let height = firstSize.height;
   host.innerHTML = "";
   host.style.height = `${height}px`;
   const onNoteSelect = options.onNoteSelect;
@@ -252,7 +289,7 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
   const Y = new Float64Array(n);
   const VIS = new Uint8Array(n);
   const maxTag = Math.max(1, ...model.planets.map(planet => planet.count));
-  const { fitK, kMin, kMax } = solarScales(model.reach, model.tightest, width, height);
+  let { fitK, kMin, kMax } = solarScales(model.reach, model.tightest, width, height);
   const view = { k: fitK, x: width / 2, y: height / 2 };
   const dpr = typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
 
@@ -658,12 +695,43 @@ export function mountSolarView(host: HTMLElement, model: SolarModel, options: So
     tip.hidden = true;
   });
 
+  function applyHostSize() {
+    const next = applySolarStageResize(
+      { width, height, fitK, kMin, kMax, k: view.k, x: view.x, y: view.y },
+      { width: host.clientWidth, height: host.clientHeight },
+      model.reach,
+      model.tightest,
+    );
+    if (next.width === width && next.height === height) return;
+    width = next.width;
+    height = next.height;
+    fitK = next.fitK;
+    kMin = next.kMin;
+    kMax = next.kMax;
+    view.k = next.k;
+    view.x = next.x;
+    view.y = next.y;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+  }
+
+  const resizeObserver =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => {
+          applyHostSize();
+        })
+      : null;
+  resizeObserver?.observe(host);
+
   raf = requestAnimationFrame(loop);
 
   return attachGraphSearch(
     () => {
       stopped = true;
       cancelAnimationFrame(raf);
+      resizeObserver?.disconnect();
       host.innerHTML = "";
     },
     query => {

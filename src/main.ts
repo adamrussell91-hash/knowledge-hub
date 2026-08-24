@@ -63,6 +63,16 @@ import {
 } from "./archive/showAllScope";
 import { buildSolarModel, type SolarModel } from "./archive/solarModel";
 import { UNIVERSE_BUILD, mountSolarView, resolveSearchHits } from "./archive/solarView";
+import {
+  applyUniverseViewState,
+  bindUniverseView,
+  readUniverseDark,
+  shouldExitUniverseFullscreen,
+  universeExitHtml,
+  universeViewToolsHtml,
+  universeWrapClass,
+  writeUniverseDark,
+} from "./archive/universeChrome";
 import { bindUniverseKey, universeKeyHtml } from "./archive/universeKey";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
@@ -112,6 +122,8 @@ let showAllGrouping: ShowAllGrouping = "tags";
 let graphSearch = "";
 let orbitSpeed = 0.5;
 let universeKeyOpen = false;
+let universeDark = readUniverseDark(typeof localStorage === "undefined" ? null : localStorage);
+let universeFullscreen = false;
 let solarModelCache: { source: PageManifestEntry[]; model: SolarModel } | null = null;
 
 function getSolarModel() {
@@ -619,7 +631,7 @@ function renderGraph() {
         <button class="viewbar__btn is-active" type="button">Graph</button>
       </div>`,
     )}
-    <div class="graph-wrap">
+    <div class="${graphMode === "universe" ? universeWrapClass(universeDark, universeFullscreen) : "graph-wrap"}">
       <div class="graph-toolbar glass-panel">
         <div class="graph-modes" role="group" aria-label="Graph mode">
           <button type="button" data-graph-mode="constellation" class="${graphMode === "constellation" ? "is-active" : ""}">Constellation</button>
@@ -644,17 +656,21 @@ function renderGraph() {
                 <span class="graph-speed__label">Orbit speed</span>
                 <input type="range" min="0" max="1" step="0.05" value="${orbitSpeed}" data-orbit-speed />
                 <output class="graph-speed__value" data-orbit-speed-value>${orbitSpeedLabel(orbitSpeed)}</output>
-              </label>`
+              </label>
+              ${universeViewToolsHtml(universeDark, universeFullscreen)}`
             : ""
         }
         <p class="graph-toolbar__meta">${escapeHtml(graphMetaText())}</p>
       </div>
       <div class="graph-stage"></div>
       ${graphMode === "universe" ? universeKeyHtml(universeKeyOpen) : ""}
+      ${graphMode === "universe" ? universeExitHtml(universeFullscreen) : ""}
     </div>
   `);
 
   app.querySelector<HTMLButtonElement>("[data-jump-list]")!.onclick = () => {
+    universeFullscreen = false;
+    document.body.classList.remove("is-universe-fullscreen");
     view = "list";
     render();
   };
@@ -663,6 +679,7 @@ function renderGraph() {
     button.onclick = () => {
       const next = button.dataset.graphMode as GraphMode;
       if (next === graphMode) return;
+      if (next !== "universe") universeFullscreen = false;
       graphMode = next;
       render();
     };
@@ -700,9 +717,25 @@ function renderGraph() {
   const wrap = app.querySelector<HTMLElement>(".graph-wrap")!;
   const stage = app.querySelector<HTMLElement>(".graph-stage")!;
   if (graphMode === "universe") {
+    applyUniverseViewState(wrap, document.body, universeDark, universeFullscreen);
     bindUniverseKey(app, open => {
       universeKeyOpen = open;
     });
+    bindUniverseView(app, {
+      getDark: () => universeDark,
+      getFullscreen: () => universeFullscreen,
+      setDark: on => {
+        universeDark = on;
+        writeUniverseDark(on, typeof localStorage === "undefined" ? null : localStorage);
+        applyUniverseViewState(wrap, document.body, universeDark, universeFullscreen);
+      },
+      setFullscreen: on => {
+        universeFullscreen = on;
+        applyUniverseViewState(wrap, document.body, universeDark, universeFullscreen);
+      },
+    });
+  } else {
+    document.body.classList.remove("is-universe-fullscreen");
   }
   const preview = mountGraphPreview(wrap, { onOpen: openPageInNewTab });
   const onNoteSelect = (note: { pageId: string; title: string; excerpt: string } | null) => {
@@ -716,6 +749,12 @@ function renderGraph() {
   };
 
   document.onkeydown = event => {
+    if (shouldExitUniverseFullscreen(event.key, universeFullscreen && graphMode === "universe")) {
+      event.preventDefault();
+      universeFullscreen = false;
+      applyUniverseViewState(wrap, document.body, universeDark, false);
+      return;
+    }
     if (event.key !== "Enter") return;
     const open = preview.el.querySelector<HTMLButtonElement>("[data-open-note]");
     if (open && !preview.el.hidden) open.click();
@@ -749,6 +788,7 @@ function renderGraph() {
   graphMount = mounted;
   graphTeardown = () => {
     document.onkeydown = null;
+    document.body.classList.remove("is-universe-fullscreen");
     graphMount = null;
     mounted();
   };
