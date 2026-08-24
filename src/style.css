@@ -1028,6 +1028,51 @@
     rgba(251, 248, 242, 0.72);
 }
 
+.graph-wrap.is-universe-dark {
+  background:
+    radial-gradient(720px 420px at 20% 10%, color-mix(in srgb, var(--navy-2) 42%, transparent), transparent 70%),
+    var(--depth);
+}
+
+.graph-wrap.is-universe-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  border-radius: 0;
+  border: 0;
+}
+
+.graph-wrap.is-universe-fullscreen .graph-stage {
+  width: 100%;
+  height: 100% !important;
+  min-height: 100%;
+}
+
+body.is-universe-fullscreen {
+  overflow: hidden;
+}
+
+body.is-universe-fullscreen .hub-rail,
+body.is-universe-fullscreen .page-header,
+body.is-universe-fullscreen .local-banner {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.universe-exit {
+  position: absolute;
+  z-index: 6;
+  top: var(--space-4);
+  right: var(--space-4);
+}
+
+.universe-exit[hidden] {
+  display: none;
+}
+
 .graph-toolbar {
   position: absolute;
   top: var(--space-4);
@@ -1711,6 +1756,13 @@
     top: var(--space-2);
     right: var(--space-2);
     bottom: auto;
+  }
+
+  .universe-exit {
+    top: auto;
+    right: auto;
+    left: var(--space-2);
+    bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   }
 
   .universe-zoom {

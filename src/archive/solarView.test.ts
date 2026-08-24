@@ -7,6 +7,7 @@ import {
   UNIVERSE_BUILD,
   KIND_DEPTH,
   advanceOrbitClock,
+  applySolarStageResize,
   cameraFromWorld,
   fillDots,
   glowSpread,
@@ -168,7 +169,7 @@ function worldPos(body: Body, model: ReturnType<typeof buildSolarModel>) {
 
 describe("presence and bands", () => {
   it("exposes a build number so a stale Universe bundle is obvious", () => {
-    expect(UNIVERSE_BUILD).toBe(19);
+    expect(UNIVERSE_BUILD).toBe(20);
   });
 
   it("maps band thresholds onto KIND_DEPTH cutoffs", () => {
@@ -294,6 +295,21 @@ describe("zoom ladder", () => {
     const camera = solarCamera({ x: 0, y: 0 }, 0.2, 800, 720);
     expect(camera.x).toBeCloseTo(400);
     expect(camera.y).toBeCloseTo(360);
+  });
+
+  it("keeps the same world focus and relative zoom when the stage grows", () => {
+    const scales = solarScales(3400, 8, 800, 720);
+    const prev = { width: 800, height: 720, ...scales, k: scales.fitK * 2, x: 100, y: 80 };
+    const focusX = (prev.width / 2 - prev.x) / prev.k;
+    const focusY = (prev.height / 2 - prev.y) / prev.k;
+    const next = applySolarStageResize(prev, { width: 1400, height: 900 }, 3400, 8);
+    expect(next.width).toBe(1400);
+    expect(next.height).toBe(900);
+    expect(next.k / next.fitK).toBeCloseTo(2);
+    expect((next.width / 2 - next.x) / next.k).toBeCloseTo(focusX);
+    expect((next.height / 2 - next.y) / next.k).toBeCloseTo(focusY);
+    expect(applySolarStageResize(prev, { width: 0, height: 0 }, 3400, 8)).toBe(prev);
+    expect(applySolarStageResize(prev, { width: 800, height: 720 }, 3400, 8)).toBe(prev);
   });
 
   it("advances the orbit clock from the speed control without jumping", () => {
@@ -481,6 +497,35 @@ describe("mountSolarView", () => {
     stop();
   });
 
+  it("resizes the existing canvas when the host grows and disconnects the observer on teardown", () => {
+    const callbacks: Array<() => void> = [];
+    const disconnect = vi.fn();
+    class FakeResizeObserver {
+      constructor(cb: () => void) {
+        callbacks.push(cb);
+      }
+      observe() {}
+      disconnect() {
+        disconnect();
+      }
+    }
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 800, configurable: true, writable: true });
+    Object.defineProperty(host, "clientHeight", { value: 720, configurable: true, writable: true });
+    const stop = mountSolarView(host, buildSolarModel([]), { search: "", onNoteSelect() {} });
+    const canvas = host.querySelector("canvas")!;
+    expect(canvas.style.width).toBe("800px");
+    Object.defineProperty(host, "clientWidth", { value: 1400, configurable: true });
+    Object.defineProperty(host, "clientHeight", { value: 900, configurable: true });
+    callbacks.at(-1)?.();
+    expect(host.querySelector("canvas")).toBe(canvas);
+    expect(canvas.style.width).toBe("1400px");
+    expect(canvas.style.height).toBe("900px");
+    stop();
+    expect(disconnect).toHaveBeenCalled();
+  });
+
   it("mounts pinch-safe zoom buttons only on a narrow window", () => {
     vi.stubGlobal("innerWidth", 390);
     const host = document.createElement("div");
@@ -488,6 +533,72 @@ describe("mountSolarView", () => {
     const stop = mountSolarView(host, buildSolarModel([]), { search: "", onNoteSelect() {} });
     expect(host.querySelector(".universe-zoom")).toBeTruthy();
     expect(host.querySelectorAll("[data-universe-zoom]")).toHaveLength(2);
+    stop();
+  });
+
+  it("still selects a searched page after the stage is resized", () => {
+    const callbacks: Array<() => void> = [];
+    class FakeResizeObserver {
+      constructor(cb: () => void) {
+        callbacks.push(cb);
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    const frames = stubFrame();
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 800, configurable: true });
+    Object.defineProperty(host, "clientHeight", { value: 720, configurable: true });
+    const entries = tagged("g", V0, 12, i => (i === 0 ? "Zebra Unique Page" : `Note ${i}`));
+    entries[0]!.excerpt = "zebra excerpt";
+    const model = buildSolarModel(entries);
+    const onNoteSelect = vi.fn();
+    const stop = mountSolarView(host, model, { search: "Zebra Unique", onNoteSelect });
+    Object.defineProperty(host, "clientWidth", { value: 1400, configurable: true });
+    Object.defineProperty(host, "clientHeight", { value: 900, configurable: true });
+    callbacks.at(-1)?.();
+    frames.pump(16);
+    const target = model.bodies.find(body => body.pageId === "g0")!;
+    const world = worldPos(target, model);
+    const width = 1400;
+    const height = 900;
+    const { fitK } = solarScales(model.reach, model.tightest, width, height);
+    const next = applySolarStageResize(
+      {
+        width: 800,
+        height: 720,
+        ...solarScales(model.reach, model.tightest, 800, 720),
+        k: solarScales(model.reach, model.tightest, 800, 720).fitK,
+        x: 400,
+        y: 360,
+      },
+      { width, height },
+      model.reach,
+      model.tightest,
+    );
+    const sx = next.x + world.x * next.k;
+    const sy = next.y + world.y * next.k;
+    const canvas = host.querySelector("canvas")!;
+    canvas.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width,
+      height,
+      right: width,
+      bottom: height,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    });
+    canvas.dispatchEvent(new MouseEvent("pointerdown", { clientX: sx, clientY: sy, bubbles: true }));
+    window.dispatchEvent(new MouseEvent("pointerup", { clientX: sx, clientY: sy, bubbles: true }));
+    expect(onNoteSelect).toHaveBeenCalledWith({
+      pageId: "g0",
+      title: "Zebra Unique Page",
+      excerpt: "zebra excerpt",
+    });
+    expect(fitK).toBeGreaterThan(0);
     stop();
   });
 
