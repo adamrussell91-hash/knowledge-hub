@@ -1,6 +1,6 @@
 import { ChatWriteDroppedError, getPage, runChat, savePage, USE_LOCAL_DATA } from "../api/client";
 import { escapeHtml, showToast } from "../lib/dom";
-import { renderChatMarkdown } from "./noteLinks";
+import { renderChatMarkdown, type NoteTitle } from "./noteLinks";
 import type { ResearchFinding } from "../research/schema";
 import { topicKeywords } from "../archive/keywordGraph";
 import type { Page } from "../domain/page";
@@ -28,9 +28,10 @@ type OverlayTurn = {
 
 export type ChatOverlayHost = {
   visible: boolean;
-  onOpenPage?: (pageId: string) => void;
+  onOpenPage?: (pageId: string, title?: string) => void;
   onSavedPage?: (page: Page) => Promise<void> | void;
   topicsFor?: (pageId: string) => string[];
+  archiveNotes?: NoteTitle[];
 };
 
 let personality: ChatPersonalityId = DEFAULT_CHAT_PERSONALITY;
@@ -248,7 +249,7 @@ function overlayHtml() {
                   }
                   return `<li class="chat-message chat-message--assistant" data-agent="${personality}">
                     <img class="chat-message__avatar" src="${who.avatarSrc}" alt="${escapeHtml(who.name)}" width="52" height="52" />
-                    <div class="chat-message__body">${renderChatMarkdown(turn.content, turn.findings)}</div>
+                    <div class="chat-message__body">${renderChatMarkdown(turn.content, turn.findings, notes, currentHost?.archiveNotes)}</div>
                     ${
                       turn.edit
                         ? `<section class="confirm-card" role="region" aria-label="Confirm change">
@@ -336,7 +337,7 @@ function bind(root: HTMLElement) {
   root.querySelectorAll<HTMLElement>("[data-open-page]").forEach(el => {
     el.addEventListener("click", event => {
       event.preventDefault();
-      currentHost?.onOpenPage?.(el.dataset.openPage!);
+      currentHost?.onOpenPage?.(el.dataset.openPage!, el.textContent?.trim());
     });
   });
   const form = root.querySelector<HTMLFormElement>(".chat-form");

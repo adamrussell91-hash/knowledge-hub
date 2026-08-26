@@ -118,6 +118,36 @@ describe("Knowledge chat rail protocol affordances", () => {
     expect(opened).toEqual([pageId]);
   });
 
+  it("rewrites a mistyped citation id to the real archive note", () => {
+    const realId = "page_notion_ac75845b67ab4b91b110a416d8eca9bb";
+    const mistyped = "page_notion_ac75845b67ab4b91b110a416d8aca9bb";
+    const opened: string[] = [];
+    sessionStorage.setItem(
+      "knowledge-hub-chat-v1",
+      JSON.stringify({
+        hat: "synthesis",
+        input: "",
+        turns: [
+          {
+            role: "assistant",
+            content: `[Four quarters marking](${mistyped}) captures Wiliam's position.`,
+          },
+        ],
+      }),
+    );
+    const host = makeHost();
+    host.archiveNotes = [{ pageId: realId, title: "Four quarters marking" }];
+    host.onOpenPage = id => {
+      opened.push(id);
+    };
+    host.render();
+    const link = host.app.querySelector<HTMLAnchorElement>(".note-link");
+    expect(link?.dataset.openPage).toBe(realId);
+    expect(host.app.textContent).not.toContain(mistyped);
+    link?.click();
+    expect(opened).toEqual([realId]);
+  });
+
   it("starts a new sitting from New chat", () => {
     sessionStorage.setItem(
       "knowledge-hub-chat-v1",

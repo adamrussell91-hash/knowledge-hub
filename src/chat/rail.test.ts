@@ -13,7 +13,7 @@ describe("Chat rail layout", () => {
     expect(css).toContain("grid-template-columns: minmax(0, 1fr)");
     expect(css).toContain(".coach.chat .coach__thread");
     expect(css).toContain("order: -1");
-    expect(rail).toContain("renderChatMarkdown(turn.content, turn.findings)");
+    expect(rail).toContain("renderChatMarkdown(turn.content, turn.findings, host.archiveNotes)");
     expect(rail).toContain("thinkingHistoryHtml");
     expect(rail).toContain("searchedNotesHtml");
     expect(rail).toContain("sittingLibrary");

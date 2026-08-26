@@ -60,6 +60,38 @@ describe("chat overlay", () => {
     expect(opened).toEqual([pageId]);
   });
 
+  it("rewrites a mistyped citation id to the real archive note", () => {
+    const realId = "page_notion_ac75845b67ab4b91b110a416d8eca9bb";
+    const mistyped = "page_notion_ac75845b67ab4b91b110a416d8aca9bb";
+    const opened: string[] = [];
+    sessionStorage.setItem(
+      "knowledge-hub-overlay-chat-v1",
+      JSON.stringify({
+        personality: "clementine",
+        open: true,
+        input: "",
+        turns: [
+          {
+            role: "assistant",
+            content: `[Four quarters marking](${mistyped}) captures Wiliam's position.`,
+          },
+        ],
+      }),
+    );
+    ensureChatOverlay({
+      visible: true,
+      archiveNotes: [{ pageId: realId, title: "Four quarters marking" }],
+      onOpenPage: id => {
+        opened.push(id);
+      },
+    });
+    const link = document.querySelector<HTMLAnchorElement>(".note-link");
+    expect(link?.dataset.openPage).toBe(realId);
+    expect(document.body.textContent).not.toContain(mistyped);
+    link?.click();
+    expect(opened).toEqual([realId]);
+  });
+
   it("starts a new overlay sitting from New chat", () => {
     sessionStorage.setItem(
       "knowledge-hub-overlay-chat-v1",

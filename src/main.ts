@@ -29,6 +29,7 @@ import type { ResearchFinding } from "./research/schema";
 import { escapeHtml, showToast } from "./lib/dom";
 import { hubUtilitiesHtml } from "./lib/hubChrome";
 import { renderMarkdown } from "./lib/markdown";
+import { resolveArchivePageId } from "./chat/noteLinks";
 import { cardSupportingText } from "./archive/cardText";
 import { archiveEmptyHtml } from "./archive/emptyList";
 import { goHome } from "./archive/goHome";
@@ -794,15 +795,30 @@ function renderGraph() {
   };
 }
 
-async function openPage(id: string) {
+function archiveNotes() {
+  return entries.map(entry => ({ pageId: entry.id, title: entry.title }));
+}
+
+async function openPage(id: string, title?: string) {
+  const resolved = resolveArchivePageId(id, title, archiveNotes());
   try {
-    activePage = await getPage(id);
+    activePage = await getPage(resolved);
   } catch {
-    showToast("That note isn't in the archive.");
-    return;
+    const hits = title ? await searchPages(title).catch(() => []) : [];
+    const fallback = resolveArchivePageId(resolved, title, hits);
+    if (fallback === resolved) {
+      showToast("That note isn't in the archive.");
+      return;
+    }
+    try {
+      activePage = await getPage(fallback);
+    } catch {
+      showToast("That note isn't in the archive.");
+      return;
+    }
   }
   view = "page";
-  const next = pageHashForId(id);
+  const next = pageHashForId(activePage.id);
   if (location.hash !== next) location.hash = next;
   render();
 }
@@ -1232,7 +1248,7 @@ function previewNote(pageId: string, title: string, excerpt: string): GraphPrevi
 function afterSignedInPaint() {
   ensureChatOverlay({
     visible: true,
-    onOpenPage: pageId => void openPage(pageId),
+    onOpenPage: (pageId, title) => void openPage(pageId, title),
     onSavedPage: async saved => {
       entries = await listPages();
       await refreshVisible();
@@ -1243,6 +1259,7 @@ function afterSignedInPaint() {
       const entry = entries.find(item => item.id === pageId);
       return entry ? topicKeywords(entry.tags) : [];
     },
+    archiveNotes: archiveNotes(),
   });
 }
 
@@ -1255,13 +1272,14 @@ function render() {
       app,
       shell,
       render,
-      onOpenPage: pageId => void openPage(pageId),
+      onOpenPage: (pageId, title) => void openPage(pageId, title),
       onSavedPage: async saved => {
         entries = await listPages();
         await refreshVisible();
         await openPage(saved.id);
       },
       pageHeader,
+      archiveNotes: archiveNotes(),
     });
   } else if (view === "podcast") {
     renderPodcastRail({
