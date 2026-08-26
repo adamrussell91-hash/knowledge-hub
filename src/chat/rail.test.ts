@@ -19,6 +19,8 @@ describe("Chat rail layout", () => {
     expect(rail).toContain("sittingLibrary");
     expect(rail).toContain("data-new-chat");
     expect(rail).toContain("New chat");
+    expect(rail).toContain("data-open-visualiser");
+    expect(rail).toContain("Portrait ideas");
     expect(rail).not.toContain("host.findingCards");
     expect(rail).not.toContain("<p class=\"coach-msg__body\">${escapeHtml(turn.content)}</p>");
   });

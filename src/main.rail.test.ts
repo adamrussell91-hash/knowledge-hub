@@ -95,6 +95,10 @@ describe("Knowledge Hub rail", () => {
     expect(main).not.toContain('class="graph-wrap is-universe-dark"');
     expect(css).toContain("body:has(.chat-overlay) .floating-chat-button");
     expect(css).toContain("body:has(.coach.chat) #kh-chat-overlay");
+    expect(css).toContain("body:has(.chat-visualiser) #kh-chat-overlay");
+    expect(css).toContain(".chat-presence__portrait");
+    expect(main).toContain("openChatVisualiser");
+    expect(main).toContain("onOpenVisualiser");
   });
 
   it("makes Knowledge Hub a home control", () => {

@@ -170,4 +170,13 @@ describe("Knowledge chat rail protocol affordances", () => {
     expect(host.app.textContent).not.toContain("Retrieval practice");
     expect(host.app.querySelector("[data-new-chat]")).toBeTruthy();
   });
+
+  it("opens the portrait visualiser from Chat", () => {
+    const opened: string[] = [];
+    const host = makeHost();
+    host.onOpenVisualiser = () => opened.push("visualiser");
+    host.render();
+    host.app.querySelector<HTMLButtonElement>("[data-open-visualiser]")!.click();
+    expect(opened).toEqual(["visualiser"]);
+  });
 });

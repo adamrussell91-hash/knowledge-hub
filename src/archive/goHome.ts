@@ -1,6 +1,6 @@
 import { emptyOriginFilter, type OriginFilterState } from "./originFilter";
 
-export type HubView = "list" | "graph" | "page" | "compose" | "chat" | "podcast" | "quiz";
+export type HubView = "list" | "graph" | "page" | "compose" | "chat" | "visualiser" | "podcast" | "quiz";
 
 export type HubHomeState<PageT = unknown, ComposeT = unknown> = {
   view: HubView;
