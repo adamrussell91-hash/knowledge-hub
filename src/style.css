@@ -650,6 +650,57 @@
   min-width: 0;
 }
 
+.chat__sitting {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.chat .graph-modes.chat__hats,
+.chat__hats {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--space-1);
+}
+
+.chat__hats [data-hat] {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+}
+
+.chat__book {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.chat__book-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.chat__book-add input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  min-height: 2.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+  font: inherit;
+}
+
+.chat__composer {
+  gap: var(--space-3);
+}
+
+.chat__save-row {
+  margin-top: var(--space-3);
+}
+
 .chat__picker-label,
 .chat__dials-toggle {
   margin: 0;
@@ -1867,17 +1918,63 @@ body.is-universe-fullscreen .local-banner {
     display: flex;
     flex-direction: column;
     min-width: 0;
+    min-height: calc(100dvh - 8.5rem);
+  }
+
+  .coach.chat .chat__sitting {
+    order: -2;
+    padding: var(--space-3);
+  }
+
+  .chat__book-add {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chat__book-add input,
+  .chat__book-add .btn {
+    width: 100%;
+    min-height: 44px;
   }
 
   .coach.chat .coach__thread {
     order: -1;
+    flex: 1 1 auto;
   }
 
-  .coach.chat .coach__form {
+  .coach.chat .chat__composer {
     position: sticky;
     bottom: 0;
     z-index: 3;
-    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom, 0px));
+    padding: var(--space-3);
+    padding-bottom: max(var(--space-3), calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px)));
+  }
+
+  .coach.chat .chat__composer textarea,
+  .compose input,
+  .compose select,
+  .compose textarea,
+  .chat-overlay .chat-form textarea,
+  .chat-overlay .chat-form input,
+  .chat-overlay__book input {
+    font-size: 16px;
+  }
+
+  .coach.chat .chat__composer textarea {
+    min-height: 5.5rem;
+  }
+
+  .coach.chat .alchemist__actions .btn,
+  .compose__capture .btn,
+  .compose__save,
+  .origin-add .btn,
+  .origin-add select,
+  .origin-add input {
+    min-height: 44px;
+  }
+
+  .page-header__actions {
+    flex-wrap: wrap;
   }
 
   .chat__source {
@@ -2567,6 +2664,15 @@ body.is-universe-fullscreen .local-banner {
   border-bottom: 1px solid var(--line);
 }
 
+.compose__savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: auto;
+  padding: var(--space-3) 0 max(var(--space-3), calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px)));
+  background: linear-gradient(180deg, transparent, var(--paper) 1.25rem);
+}
+
 .compose__save[disabled] {
   opacity: 0.55;
   cursor: not-allowed;
@@ -2839,18 +2945,69 @@ body.is-universe-fullscreen .local-banner {
 }
 
 .chat-overlay .chat-form {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: var(--space-2);
+  align-items: end;
 }
 
-.chat-overlay .chat-form input {
-  flex: 1;
-  min-height: 2.5rem;
+.chat-form__label {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chat-overlay .chat-form textarea,
+.chat-overlay .chat-form input,
+.chat-overlay__book input {
+  min-height: 2.75rem;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--warm-white);
   color: var(--ink);
+  font: inherit;
+}
+
+.chat-overlay .agent-protocol-pills .hub-pills {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--space-1);
+}
+
+.chat-overlay .agent-protocol-pills .hub-pills__btn {
+  flex: 0 0 auto;
+  min-height: 2.75rem;
+}
+
+.chat-overlay__book {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.chat-overlay__book .compose__hint,
+.chat-overlay__book .alchemist__mode {
+  margin: 0;
+}
+
+.chat-overlay .chat-form textarea {
+  grid-column: 1;
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.chat-overlay__save {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.chat-overlay__save .btn {
+  min-height: 44px;
 }
 
 @media (max-width: 720px) {
@@ -2868,8 +3025,19 @@ body.is-universe-fullscreen .local-banner {
     max-height: none;
     border-radius: 0;
     padding-top: max(var(--space-4), env(safe-area-inset-top, 0px));
-    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom, 0px));
+    padding-bottom: max(var(--space-4), calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px)));
     overscroll-behavior: contain;
+  }
+
+  .chat-overlay .chat-form {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-overlay .chat-form .btn,
+  .chat-overlay__book input,
+  .chat-overlay__book .btn,
+  .chat-overlay .confirm-card .btn {
+    min-height: 44px;
   }
 
   .chat-overlay .chat-messages {

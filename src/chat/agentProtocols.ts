@@ -113,6 +113,6 @@ export function protocolSteerBlock(personalityId: ChatPersonalityId, protocolId:
 export function normalizeProtocolId(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
-  if (!trimmed || trimmed.length > 64 || !/^[a-z0-9-]+$/.test(trimmed)) return undefined;
+  if (!trimmed || trimmed.length > 64 || !/^[a-zA-Z][a-zA-Z0-9-]*$/.test(trimmed)) return undefined;
   return trimmed;
 }

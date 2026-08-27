@@ -20,6 +20,11 @@ describe("loadPromptFile", () => {
     expect(loadPromptFile("clementine-thematic-synthesis.md")).toContain("Method trace");
   });
 
+  it("loads the from-a-book protocol from prompts/", () => {
+    expect(loadPromptFile("clementine-book-note.md")).toContain("From a book protocol");
+    expect(loadPromptFile("clementine-book-note.md")).toContain("How this bears on the book");
+  });
+
   it("throws when the file is absent", () => {
     expect(() => loadPromptFile("clementine-missing.md")).toThrow(/clementine-missing\.md/);
   });

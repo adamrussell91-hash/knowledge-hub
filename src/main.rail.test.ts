@@ -47,6 +47,17 @@ describe("Knowledge Hub rail", () => {
     expect(css).not.toMatch(/\.reader__tidy\s*\{[^}]*font-size:/);
   });
 
+  it("opens a From a book sitting from the archive and seeds compose origins", () => {
+    expect(main).toContain('data-from-book');
+    expect(main).toContain("Note from this book");
+    expect(main).toContain("function openBookNote");
+    expect(main).toContain("function openCompose");
+    expect(main).toContain("compose__savebar");
+    expect(css).toContain(".chat__composer");
+    expect(css).toContain("--keyboard-inset");
+    expect(css).toContain(".chat__hats");
+  });
+
   it("filters the archive by origin pills already on notes", () => {
     expect(main).toContain("originFilterHtml");
     expect(main).toContain("pageMatchesOriginFilter");
@@ -71,6 +82,7 @@ describe("Knowledge Hub rail", () => {
   it("keeps graph note previews and a portrait chat overlay", () => {
     expect(main).toContain("openPageInNewTab");
     expect(main).toContain("ensureChatOverlay");
+    expect(main).toContain("bookLabels: originLabelsForKind(entries, \"book\")");
     expect(main).toContain("pinChatOverlayNote");
     expect(main).toContain('querySelector<HTMLElement>(".graph-wrap")');
     expect(main).toContain("mountGraphPreview(wrap");

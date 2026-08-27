@@ -217,4 +217,51 @@ describe("clementine-chat handler", () => {
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
     expect(response.body).not.toContain(kernelSecret);
   });
+
+  it("writes a from-a-book page with the book in the brief", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes("/chat/write/start")) {
+        return { ok: true, json: async () => ({ writeSessionId: "w-book", status: "writing" }) };
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const response = await handler(
+      event({
+        body: JSON.stringify({
+          hat: "fromBook",
+          compose: true,
+          bookContext: { label: "Make It Stick", locus: "p. 142" },
+          messages: [{ role: "user", content: "desirable difficulties" }],
+          priorResearch: {
+            query: "desirable difficulties",
+            round: 1,
+            status: "done",
+            findings: [
+              {
+                pageId: "page_bjork",
+                title: "Bjork on retrieval effort",
+                sourceUrl: "https://example.test/b",
+                excerpt: "Effortful retrieval strengthens later recall",
+                stance: "supports",
+                analysis: "Supports the book.",
+                confidence: "high",
+                claimRelationship: "direct",
+              },
+            ],
+            gaps: [],
+            followUpQueries: [],
+          },
+        }),
+      }) as never,
+      {} as never,
+    );
+    expect(response.statusCode).toBe(200);
+    const start = fetchImpl.mock.calls.find(([url]) => String(url).includes("/chat/write/start"));
+    const body = JSON.parse(String((start?.[1] as RequestInit).body));
+    expect(body.system).toContain("From a book protocol");
+    expect(body.system).toContain("Reading: Make It Stick (p. 142)");
+    expect(body.system).toContain("How this bears on the book");
+    expect(body.maxTokens).toBeGreaterThan(2000);
+  });
 });

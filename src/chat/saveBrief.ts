@@ -1,4 +1,5 @@
-import type { Page } from "../domain/page";
+import type { Origin, Page } from "../domain/page";
+import { normalizeOrigins } from "../origin/normalize";
 import type { ResearchFinding } from "../research/schema";
 
 export type SavableFinding = ResearchFinding & { external?: boolean };
@@ -28,6 +29,7 @@ export function briefToPage(input: {
   findings: SavableFinding[];
   now: string;
   id: string;
+  origins?: Origin[];
 }): Page {
   const archive = archiveFindings(input.findings);
   const cites = archive
@@ -36,11 +38,13 @@ export function briefToPage(input: {
   const body = cites
     ? `${input.reply.trim()}\n\n## Archive citations\n\n${cites}\n`
     : input.reply.trim();
+  const origins = input.origins?.length ? normalizeOrigins(input.origins) : undefined;
   return {
     id: input.id,
     title: titleFrom(input.reply),
     area: "notes",
     tags: [],
+    ...(origins?.length ? { origins } : {}),
     body,
     connected: [...new Set(archive.map(item => item.pageId))],
     attachments: [],

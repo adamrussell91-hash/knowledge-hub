@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { CHAT_HATS, hatById, resolveChatPlan } from "./hats";
 
 describe("chat hats", () => {
-  it("ships seven hats and no Consolidation", () => {
+  it("ships eight hats including From a book and no Consolidation", () => {
     expect(CHAT_HATS.map(hat => hat.id)).toEqual([
+      "fromBook",
       "scoping",
       "synthesis",
       "evidence",
@@ -60,5 +61,14 @@ describe("chat hats", () => {
     expect(hatById("synthesis").plan).toMatch(/explanatory levels/i);
     expect(hatById("synthesis").plan).not.toMatch(/archive page id/i);
     expect(hatById("synthesis").explain).toMatch(/audit trail/);
+    expect(resolveChatPlan("fromBook")).toMatchObject({
+      scope: "standard",
+      depth: "iterative",
+      kernel: "deep",
+      k: 16,
+      maxRounds: 5,
+    });
+    expect(hatById("fromBook").plan).toMatch(/bears on the book/i);
+    expect(hatById("fromBook").plan).toMatch(/strongest notes/i);
   });
 });

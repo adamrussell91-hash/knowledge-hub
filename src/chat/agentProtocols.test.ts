@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_PROTOCOLS, findProtocol, protocolHat, protocolSteerBlock, protocolsForPersonality } from "./agentProtocols";
+import { AGENT_PROTOCOLS, findProtocol, normalizeProtocolId, protocolHat, protocolSteerBlock, protocolsForPersonality } from "./agentProtocols";
 import { CHAT_HATS } from "./hats";
 
 describe("agentProtocols", () => {
@@ -34,5 +34,12 @@ describe("agentProtocols", () => {
     expect(protocolHat("clementine", "methods")).toBe("methods");
     expect(protocolHat("ann", "close-read")).toBe("synthesis");
     expect(protocolHat("clementine", null)).toBe("synthesis");
+  });
+
+  it("keeps camelCase hat protocol ids", () => {
+    expect(normalizeProtocolId("fromBook")).toBe("fromBook");
+    expect(normalizeProtocolId("internalExternal")).toBe("internalExternal");
+    expect(normalizeProtocolId("close-read")).toBe("close-read");
+    expect(normalizeProtocolId("not a protocol")).toBeUndefined();
   });
 });

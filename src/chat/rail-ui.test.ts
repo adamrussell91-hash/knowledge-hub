@@ -43,7 +43,7 @@ describe("Knowledge chat rail protocol affordances", () => {
     host.render();
 
     const hats = [...host.app.querySelectorAll<HTMLButtonElement>("[data-hat]")];
-    expect(hats).toHaveLength(7);
+    expect(hats).toHaveLength(8);
     for (const hat of hats) {
       const tip = hat.querySelector<HTMLElement>(".agent-protocol-pills__tip");
       expect(tip?.getAttribute("role")).toBe("tooltip");
@@ -178,5 +178,65 @@ describe("Knowledge chat rail protocol affordances", () => {
     host.render();
     host.app.querySelector<HTMLButtonElement>("[data-open-visualiser]")!.click();
     expect(opened).toEqual(["visualiser"]);
+  });
+
+  it("asks for the book before researching a from-a-book sitting", () => {
+    enterChatRail({ fresh: true, hat: "fromBook" });
+    const host = makeHost();
+    host.bookLabels = ["Make It Stick"];
+    host.render();
+    expect(host.app.textContent).toContain("From a book");
+    expect(host.app.textContent).toContain("The one in your hand");
+    const field = host.app.querySelector<HTMLTextAreaElement>("#chat-input")!;
+    field.value = "desirable difficulties";
+    host.app.querySelector<HTMLFormElement>("form")!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    expect(host.app.textContent).toContain("Pick the book first.");
+    expect(runChatMock).not.toHaveBeenCalled();
+  });
+
+  it("files a researched page under the book with a confirm card", async () => {
+    const { savePage } = await import("../api/client");
+    const savePageMock = vi.mocked(savePage);
+    savePageMock.mockResolvedValue({
+      id: "page_hub_saved",
+      title: "Desirable difficulties",
+      area: "notes",
+      tags: [],
+      origins: [{ kind: "book", label: "Make It Stick" }],
+      body: "x",
+      connected: [],
+      attachments: [],
+      source: "hub",
+      created_at: "2026-08-27T00:00:00.000Z",
+      updated_at: "2026-08-27T00:00:00.000Z",
+      schema_version: 1,
+    });
+    sessionStorage.setItem(
+      "knowledge-hub-chat-v1",
+      JSON.stringify({
+        hat: "fromBook",
+        bookContext: { label: "Make It Stick", locus: "p. 142" },
+        input: "",
+        turns: [
+          { role: "user", content: "desirable difficulties" },
+          {
+            role: "assistant",
+            content: `## Desirable difficulties
+
+Effortful retrieval is the load-bearing claim. The archive supports Bjork here and turns that back onto Make It Stick. The notes that earn a citation are the ones that change what a careful reader would believe.`,
+          },
+        ],
+      }),
+    );
+    const host = makeHost();
+    host.render();
+    expect(host.app.textContent).toContain("Reading: Make It Stick (p. 142)");
+    expect(host.app.textContent).toContain("Add to archive");
+    expect(host.app.textContent).toContain("stamped under Make It Stick");
+    host.app.querySelector<HTMLButtonElement>("[data-save-brief]")!.click();
+    await vi.waitFor(() => expect(savePageMock).toHaveBeenCalled());
+    expect(savePageMock.mock.calls[0]?.[0]?.origins).toEqual([{ kind: "book", label: "Make It Stick" }]);
   });
 });

@@ -48,6 +48,18 @@ describe("save brief as page", () => {
     expect(page.body).toContain("Stoicism notes");
     expect(page.body).not.toContain("A web hit");
     expect(page.connected).toEqual(["page_hub_abc"]);
+    expect(page.origins).toBeUndefined();
     expect(page.schema_version).toBe(1);
+  });
+
+  it("stamps a book origin when the sitting came from a book", () => {
+    const page = briefToPage({
+      reply: developed,
+      findings: [finding],
+      now: "2026-08-27T07:00:00.000Z",
+      id: "page_hub_book",
+      origins: [{ kind: "book", label: "  Make It Stick  " }],
+    });
+    expect(page.origins).toEqual([{ kind: "book", label: "Make It Stick" }]);
   });
 });
