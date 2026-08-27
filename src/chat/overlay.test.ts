@@ -184,6 +184,21 @@ Effortful retrieval is the load-bearing claim. The archive supports Bjork here a
     expect(runChatMock).not.toHaveBeenCalled();
   });
 
+  it("keeps the overlay book after Use this book", () => {
+    ensureChatOverlay({
+      visible: true,
+      bookLabels: ["Make It Stick"],
+    });
+    openChatOverlay({ protocolId: "fromBook" });
+    const field = document.querySelector<HTMLInputElement>("#overlay-chat-book")!;
+    field.value = "Make It Stick";
+    field.dispatchEvent(new Event("input"));
+    document.querySelector<HTMLButtonElement>("[data-set-book]")!.click();
+    expect(document.body.textContent).toContain("Reading: Make It Stick");
+    expect(document.querySelector("#overlay-chat-locus")).toBeTruthy();
+    expect(document.querySelector("[data-set-book]")).toBeNull();
+  });
+
   it("files a researched overlay page under the book", async () => {
     savePageMock.mockResolvedValue({
       id: "page_hub_saved",
