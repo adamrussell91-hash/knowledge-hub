@@ -287,6 +287,8 @@
   position: absolute;
   inset: 0 auto auto 0;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .card {
@@ -295,6 +297,7 @@
   gap: var(--space-3) var(--space-5);
   align-items: center;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   text-align: left;
   border: 0;
@@ -306,6 +309,7 @@
   background: transparent;
   box-shadow: none;
   transition: background 0.12s ease;
+  overflow: hidden;
 }
 
 .card:last-child {
@@ -325,23 +329,33 @@
 
 .card__meta {
   margin: 0;
+  min-width: 0;
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   color: var(--muted);
   line-height: 1.35;
 }
 
+.card__body {
+  min-width: 0;
+}
+
 .card__title {
   margin: 0;
+  min-width: 0;
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
   color: var(--depth);
   line-height: 1.3;
   overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card__excerpt {
   margin: 0.15rem 0 0;
+  min-width: 0;
   font-size: var(--text-sm);
   color: var(--orca);
   line-height: 1.4;
@@ -439,13 +453,36 @@
   .card {
     grid-template-columns: 1fr;
     gap: 0.15rem;
-    align-content: center;
+    align-content: start;
+    align-items: stretch;
     padding: 0.55rem 1rem;
     overflow: hidden;
   }
 
   .card__meta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     overflow-wrap: anywhere;
+  }
+
+  .card__title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card__excerpt {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: unset;
   }
 }
 
