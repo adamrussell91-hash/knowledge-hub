@@ -2,8 +2,10 @@ import { ChatWriteDroppedError, getPage, runChat, savePage, tidyPage, USE_LOCAL_
 import { newHubPageId } from "../domain/page";
 import { escapeHtml, showToast } from "../lib/dom";
 import { bindKeyboardInset } from "../lib/keyboardInset";
+import { findProtocol, protocolHat } from "./agentProtocols";
 import { briefIsSavable, briefToPage } from "./saveBrief";
 import { renderChatMarkdown, type NoteTitle } from "./noteLinks";
+import { protocolPillsHtml } from "./protocolPills";
 import type { ResearchFinding } from "../research/schema";
 import { topicKeywords } from "../archive/keywordGraph";
 import type { Page } from "../domain/page";
@@ -38,6 +40,7 @@ export type ChatOverlayHost = {
 };
 
 let personality: ChatPersonalityId = DEFAULT_CHAT_PERSONALITY;
+let selectedProtocolId: string | null = null;
 let open = false;
 let input = "";
 let turns: OverlayTurn[] = [];
@@ -56,7 +59,7 @@ function persist() {
   try {
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ personality, open, input, turns, notes, writeSessionId, researchSessionId }),
+      JSON.stringify({ personality, selectedProtocolId, open, input, turns, notes, writeSessionId, researchSessionId }),
     );
   } catch {
     /* private mode */
@@ -69,6 +72,7 @@ function restore() {
     if (!raw) return;
     const saved = JSON.parse(raw) as Partial<{
       personality: string;
+      selectedProtocolId: string | null;
       open: boolean;
       input: string;
       turns: OverlayTurn[];
@@ -77,6 +81,7 @@ function restore() {
       researchSessionId: string;
     }>;
     if (saved.personality && isChatPersonalityId(saved.personality)) personality = saved.personality;
+    selectedProtocolId = typeof saved.selectedProtocolId === "string" ? saved.selectedProtocolId : null;
     open = Boolean(saved.open);
     input = saved.input ?? "";
     turns = saved.turns ?? [];
@@ -93,6 +98,7 @@ function resetSitting() {
   turns = [];
   writeSessionId = "";
   researchSessionId = "";
+  selectedProtocolId = null;
   error = "";
   savedBrief = false;
 }
@@ -131,9 +137,10 @@ function applyResult(history: OverlayTurn[], result: ChatTurnResult) {
   ];
 }
 
-async function send() {
+async function send(outgoingOverride?: string) {
   if (busy || !currentHost) return;
-  const outgoing = input.trim();
+  const pill = findProtocol(personality, selectedProtocolId);
+  const outgoing = outgoingOverride ?? input.trim();
   if (!outgoing && !researchSessionId && !writeSessionId) return;
   const history: OverlayTurn[] = researchSessionId || writeSessionId ? turns : [...turns, { role: "user", content: outgoing }];
   if (!researchSessionId && !writeSessionId) {
@@ -146,8 +153,9 @@ async function send() {
   paint();
   try {
     const result = await runChat({
-      hat: "synthesis",
+      hat: protocolHat(personality, selectedProtocolId),
       personality,
+      protocolId: pill ? selectedProtocolId ?? undefined : undefined,
       messages: history.map(({ role, content }) => ({ role, content })),
       noteContext: notes[0],
       notesInPlay: notes,
@@ -266,6 +274,7 @@ function overlayHtml() {
         </div>
       </div>
       ${pickerHtml()}
+      ${protocolPillsHtml(personality, selectedProtocolId)}
       ${
         notes.length
           ? `<div class="using-notes" aria-label="Notes in play">${notes
@@ -367,9 +376,35 @@ function bind(root: HTMLElement) {
       const next = button.dataset.personality;
       if (!next || !isChatPersonalityId(next) || next === personality) return;
       personality = next;
+      selectedProtocolId = null;
       resetSitting();
       persist();
       paint();
+    };
+  });
+  root.querySelectorAll<HTMLButtonElement>("[data-protocol]").forEach(button => {
+    button.onclick = () => {
+      const next = button.dataset.protocol;
+      if (!next || !findProtocol(personality, next)) return;
+      if (selectedProtocolId === next) {
+        selectedProtocolId = null;
+        persist();
+        paint();
+        return;
+      }
+      selectedProtocolId = next;
+      persist();
+      paint();
+      if (busy || writeSessionId || researchSessionId) return;
+      const field = root.querySelector<HTMLInputElement>("#overlay-chat-input");
+      const typed = field?.value.trim() ?? "";
+      if (field && typed) field.value = "";
+      input = "";
+      if (USE_LOCAL_DATA) {
+        showToast("Chat needs the live API.");
+        return;
+      }
+      void send(typed || findProtocol(personality, next)!.label);
     };
   });
   root.querySelectorAll<HTMLButtonElement>("[data-unpin]").forEach(button => {

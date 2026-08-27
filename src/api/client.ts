@@ -111,6 +111,7 @@ export type ChatRequest = {
   notesInPlay?: { pageId: string; title: string }[];
   bookContext?: { label: string; locus?: string };
   personality?: string;
+  protocolId?: string;
   searchOutside?: boolean;
   researchSessionId?: string;
   writeSessionId?: string;

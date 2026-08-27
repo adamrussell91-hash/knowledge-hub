@@ -90,6 +90,8 @@ describe("Knowledge Hub rail", () => {
     expect(css).toContain(".floating-chat-button");
     expect(css).toContain(".floating-chat-button svg");
     expect(css).toContain(".agent-picker__avatar");
+    expect(css).toContain(".agent-protocol-pills");
+    expect(css).toContain(".hub-pills__btn");
     expect(css).toContain(".graph-preview__excerpt");
     expect(css).toMatch(/\.floating-chat-button\s*\{[^}]*background:\s*var\(--wave\)/);
     expect(css).toMatch(/\.chat-overlay\s*\{[^}]*width:\s*min\(24rem, calc\(100vw - 3rem\)\)/);

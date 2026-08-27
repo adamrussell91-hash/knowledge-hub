@@ -6,6 +6,7 @@ import { runChatTurn, type ChatMessage } from "../../src/chat/chatTurn";
 import { isChatHatId, type ChatDepth, type ChatScope } from "../../src/chat/hats";
 import { normalizeBookContext } from "../../src/chat/bookNote";
 import { isChatPersonalityId, personalityById } from "../../src/chat/personalities";
+import { normalizeProtocolId } from "../../src/chat/agentProtocols";
 import { ResearchResultSchema } from "../../src/research/schema";
 import { pullLiveArchive } from "./_lib/liveArchive";
 
@@ -24,6 +25,7 @@ function parseBody(raw: string | null) {
       notesInPlay?: unknown;
       bookContext?: unknown;
       personality?: unknown;
+      protocolId?: unknown;
       searchOutside?: unknown;
       researchSessionId?: unknown;
       writeSessionId?: unknown;
@@ -65,6 +67,7 @@ function parseBody(raw: string | null) {
       notesInPlay,
       bookContext,
       personality: typeof parsed.personality === "string" && isChatPersonalityId(parsed.personality) ? parsed.personality : undefined,
+      protocolId: normalizeProtocolId(parsed.protocolId),
       searchOutside: parsed.searchOutside === true,
       researchSessionId: typeof parsed.researchSessionId === "string" ? parsed.researchSessionId : undefined,
       writeSessionId: typeof parsed.writeSessionId === "string" ? parsed.writeSessionId : undefined,
@@ -110,6 +113,8 @@ export const handler: Handler = async event => {
       noteContext: body.noteContext,
       notesInPlay: body.notesInPlay,
       bookContext: body.bookContext,
+      personality: who.id,
+      protocolId: body.protocolId,
       searchOutside: body.searchOutside,
       researchSessionId: body.researchSessionId,
       writeSessionId: body.writeSessionId,
