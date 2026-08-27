@@ -101,8 +101,13 @@ type View =
 type GraphMode = "constellation" | "showAll" | "universe";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
-const ROW_HEIGHT = 68;
+const DESKTOP_ROW_HEIGHT = 68;
+const MOBILE_ROW_HEIGHT = 104;
 const OVERSCAN = 8;
+
+function listRowHeight() {
+  return window.matchMedia("(max-width: 720px)").matches ? MOBILE_ROW_HEIGHT : DESKTOP_ROW_HEIGHT;
+}
 
 let entries: PageManifestEntry[] = [];
 let visible: PageManifestEntry[] = [];
@@ -396,9 +401,10 @@ async function refreshVisible() {
 function rowHtml(item: PageManifestEntry) {
   const meta = cardMeta(item);
   const supporting = cardSupportingText(item.title, item.excerpt);
-  return `<button class="card" type="button" data-id="${escapeHtml(item.id)}" style="height:${ROW_HEIGHT}px">
+  const rowHeight = listRowHeight();
+  return `<button class="card" type="button" data-id="${escapeHtml(item.id)}" style="height:${rowHeight}px">
     <p class="card__meta">${meta ? escapeHtml(meta) : "—"}</p>
-    <div>
+    <div class="card__body">
       <h2 class="card__title">${escapeHtml(item.title)}</h2>
       ${supporting ? `<p class="card__excerpt">${escapeHtml(supporting)}</p>` : ""}
     </div>
@@ -414,12 +420,13 @@ function bindListRows(root: ParentNode) {
 function renderVirtualList(viewport: HTMLElement) {
   const total = visible.length;
   const viewportHeight = viewport.clientHeight || 560;
-  const start = Math.max(0, Math.floor(listScrollTop / ROW_HEIGHT) - OVERSCAN);
-  const end = Math.min(total, Math.ceil((listScrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN);
-  const offset = start * ROW_HEIGHT;
+  const rowHeight = listRowHeight();
+  const start = Math.max(0, Math.floor(listScrollTop / rowHeight) - OVERSCAN);
+  const end = Math.min(total, Math.ceil((listScrollTop + viewportHeight) / rowHeight) + OVERSCAN);
+  const offset = start * rowHeight;
   const windowItems = visible.slice(start, end);
 
-  viewport.innerHTML = `<div class="list-spacer" style="height:${Math.max(total * ROW_HEIGHT, total ? 0 : 120)}px">
+  viewport.innerHTML = `<div class="list-spacer" style="height:${Math.max(total * rowHeight, total ? 0 : 120)}px">
     <div class="list-window" style="transform:translateY(${offset}px)">
       ${
         windowItems.map(rowHtml).join("") ||
