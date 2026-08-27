@@ -274,7 +274,8 @@
 
 .list-viewport {
   height: min(70dvh, 760px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .list-spacer {
@@ -317,6 +318,11 @@
   outline: none;
 }
 
+.card__meta,
+.card > div {
+  min-width: 0;
+}
+
 .card__meta {
   margin: 0;
   font-size: var(--text-sm);
@@ -331,6 +337,7 @@
   font-weight: var(--weight-semibold);
   color: var(--depth);
   line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .card__excerpt {
@@ -338,6 +345,7 @@
   font-size: var(--text-sm);
   color: var(--orca);
   line-height: 1.4;
+  overflow-wrap: anywhere;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -433,6 +441,11 @@
     gap: 0.15rem;
     align-content: center;
     padding: 0.55rem 1rem;
+    overflow: hidden;
+  }
+
+  .card__meta {
+    overflow-wrap: anywhere;
   }
 }
 
