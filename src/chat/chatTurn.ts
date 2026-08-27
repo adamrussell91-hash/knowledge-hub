@@ -3,7 +3,9 @@ import { topicQuery } from "../research/topicQuery";
 import { ResearchResultSchema, type ResearchResult } from "../research/schema";
 import { compactArchiveNote, compactSittingNote, compactSynthesisNote } from "./archiveNote";
 import { coverageFromResearch, type CoverageRead } from "./coverage";
+import { protocolSteerBlock } from "./agentProtocols";
 import { resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
+import type { ChatPersonalityId } from "./personalities";
 import { corpusAuditFromResearch, formatCorpusAudit, SYNTHESIS_WRITE_TOKENS, thematicSynthesisProtocol } from "./synthesisProtocol";
 import type { ChatMessage } from "./messages";
 import type { ChatWriteState } from "./writeHttp";
@@ -51,6 +53,8 @@ export type ChatTurnInput = {
   archivePull?: ArchivePull;
   write?: ChatWriteClock;
   complete?: (system: string, messages: ChatMessage[]) => Promise<string>;
+  personality?: ChatPersonalityId;
+  protocolId?: string;
 };
 
 export const ANSWER_FROM_ARCHIVE =
@@ -276,12 +280,14 @@ function assembledSystem(input: ChatTurnInput, archive: ArchivePack) {
   const coverage = archive.research ? coverageFromResearch(archive.research) : undefined;
   const audit = archive.research && isSynthesis(input) ? formatCorpusAudit(corpusAuditFromResearch(archive.research)) : "";
   const protocol = isSynthesis(input) ? `\n${thematicSynthesisProtocol()}` : "";
+  const steer =
+    input.personality && input.protocolId ? `\n${protocolSteerBlock(input.personality, input.protocolId)}` : "";
   return {
     coverage,
     system: assembleClementinePrompt({
       voice: input.voice,
       job: input.universityJob,
-      surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}${protocol}\n${ANSWER_FROM_ARCHIVE}\n${CITE_NOTES_AS_LINKS}\n${NOTE_EDIT_PROTOCOL}\n${writeArchiveNote(input, archive)}`,
+      surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}${protocol}${steer}\n${ANSWER_FROM_ARCHIVE}\n${CITE_NOTES_AS_LINKS}\n${NOTE_EDIT_PROTOCOL}\n${writeArchiveNote(input, archive)}`,
       payload: [
         input.workingThesis?.trim() ? `Working thesis:\n${input.workingThesis.trim()}` : "",
         input.draft?.trim() ? `Draft excerpt:\n${input.draft.trim()}` : "",

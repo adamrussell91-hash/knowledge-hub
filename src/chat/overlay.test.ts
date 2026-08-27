@@ -20,6 +20,18 @@ describe("chat overlay", () => {
     expect(document.querySelector(".chat-overlay")).toBeTruthy();
   });
 
+  it("renders protocol bubbles for the active agent", () => {
+    ensureChatOverlay({ visible: true });
+    openChatOverlay();
+    expect(document.body.textContent).toContain("Clementine can");
+    expect(document.querySelector('[data-protocol="synthesis"]')).toBeTruthy();
+    expect(document.querySelector('[data-protocol="evidence"]')).toBeTruthy();
+    document.querySelector<HTMLButtonElement>('[data-personality="ann"]')!.click();
+    expect(document.body.textContent).toContain("Ann can");
+    expect(document.querySelector('[data-protocol="close-read"]')).toBeTruthy();
+    expect(document.querySelector('[data-protocol="synthesis"]')).toBeNull();
+  });
+
   it("pins a graph note as a chip and hides on sign-in", () => {
     ensureChatOverlay({ visible: true });
     openChatOverlay({ note: { pageId: "p1", title: "Retrieval practice and spacing" } });
