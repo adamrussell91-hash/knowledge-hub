@@ -6,6 +6,8 @@ describe("protocolPillsHtml", () => {
   it("renders Clementine protocol bubbles with hover cards", () => {
     const html = protocolPillsHtml("clementine", "synthesis");
     expect(html).toContain("Clementine can");
+    expect(html).toContain("From a book");
+    expect(html).toContain('data-protocol="fromBook"');
     expect(html).toContain("Thematic synthesis");
     expect(html).toContain('data-protocol="synthesis"');
     expect(html).toContain('aria-pressed="true"');

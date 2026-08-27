@@ -1363,6 +1363,7 @@ function afterSignedInPaint() {
       return entry ? topicKeywords(entry.tags) : [];
     },
     archiveNotes: archiveNotes(),
+    bookLabels: originLabelsForKind(entries, "book").map(item => item.label),
   });
 }
 

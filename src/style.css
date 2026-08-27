@@ -1954,7 +1954,9 @@ body.is-universe-fullscreen .local-banner {
   .compose input,
   .compose select,
   .compose textarea,
-  .chat-overlay .chat-form textarea {
+  .chat-overlay .chat-form textarea,
+  .chat-overlay .chat-form input,
+  .chat-overlay__book input {
     font-size: 16px;
   }
 
@@ -2960,7 +2962,8 @@ body.is-universe-fullscreen .local-banner {
 }
 
 .chat-overlay .chat-form textarea,
-.chat-overlay .chat-form input {
+.chat-overlay .chat-form input,
+.chat-overlay__book input {
   min-height: 2.75rem;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--line);
@@ -2968,6 +2971,28 @@ body.is-universe-fullscreen .local-banner {
   background: var(--warm-white);
   color: var(--ink);
   font: inherit;
+}
+
+.chat-overlay .agent-protocol-pills .hub-pills {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--space-1);
+}
+
+.chat-overlay .agent-protocol-pills .hub-pills__btn {
+  flex: 0 0 auto;
+  min-height: 2.75rem;
+}
+
+.chat-overlay__book {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.chat-overlay__book .compose__hint,
+.chat-overlay__book .alchemist__mode {
+  margin: 0;
 }
 
 .chat-overlay .chat-form textarea {
@@ -3008,7 +3033,10 @@ body.is-universe-fullscreen .local-banner {
     grid-template-columns: 1fr;
   }
 
-  .chat-overlay .chat-form .btn {
+  .chat-overlay .chat-form .btn,
+  .chat-overlay__book input,
+  .chat-overlay__book .btn,
+  .chat-overlay .confirm-card .btn {
     min-height: 44px;
   }
 

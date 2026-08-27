@@ -3,6 +3,13 @@ import { newHubPageId } from "../domain/page";
 import { escapeHtml, showToast } from "../lib/dom";
 import { bindKeyboardInset } from "../lib/keyboardInset";
 import { findProtocol, protocolHat } from "./agentProtocols";
+import {
+  bookContextLine,
+  bookOrigin,
+  normalizeBookContext,
+  resolveBookLabel,
+  type BookContext,
+} from "./bookNote";
 import { briefIsSavable, briefToPage } from "./saveBrief";
 import { renderChatMarkdown, type NoteTitle } from "./noteLinks";
 import { protocolPillsHtml } from "./protocolPills";
@@ -37,10 +44,13 @@ export type ChatOverlayHost = {
   onSavedPage?: (page: Page) => Promise<void> | void;
   topicsFor?: (pageId: string) => string[];
   archiveNotes?: NoteTitle[];
+  bookLabels?: string[];
 };
 
 let personality: ChatPersonalityId = DEFAULT_CHAT_PERSONALITY;
 let selectedProtocolId: string | null = null;
+let bookContext: BookContext | undefined;
+let bookQuery = "";
 let open = false;
 let input = "";
 let turns: OverlayTurn[] = [];
@@ -59,7 +69,17 @@ function persist() {
   try {
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ personality, selectedProtocolId, open, input, turns, notes, writeSessionId, researchSessionId }),
+      JSON.stringify({
+        personality,
+        selectedProtocolId,
+        bookContext,
+        open,
+        input,
+        turns,
+        notes,
+        writeSessionId,
+        researchSessionId,
+      }),
     );
   } catch {
     /* private mode */
@@ -73,6 +93,7 @@ function restore() {
     const saved = JSON.parse(raw) as Partial<{
       personality: string;
       selectedProtocolId: string | null;
+      bookContext: BookContext;
       open: boolean;
       input: string;
       turns: OverlayTurn[];
@@ -82,6 +103,7 @@ function restore() {
     }>;
     if (saved.personality && isChatPersonalityId(saved.personality)) personality = saved.personality;
     selectedProtocolId = typeof saved.selectedProtocolId === "string" ? saved.selectedProtocolId : null;
+    bookContext = normalizeBookContext(saved.bookContext);
     open = Boolean(saved.open);
     input = saved.input ?? "";
     turns = saved.turns ?? [];
@@ -105,6 +127,19 @@ function resetSitting() {
 
 function currentPersonality() {
   return personalityById(personality)!;
+}
+
+function fromBookSelected() {
+  return personality === "clementine" && selectedProtocolId === "fromBook";
+}
+
+function setBook(label: string, locus = bookContext?.locus ?? "") {
+  bookContext = normalizeBookContext({
+    label: resolveBookLabel(label, currentHost?.bookLabels ?? []),
+    locus,
+  });
+  bookQuery = "";
+  if (bookContext && error === "Pick the book first.") error = "";
 }
 
 function lastAssistant(): OverlayTurn | undefined {
@@ -142,6 +177,12 @@ async function send(outgoingOverride?: string) {
   const pill = findProtocol(personality, selectedProtocolId);
   const outgoing = outgoingOverride ?? input.trim();
   if (!outgoing && !researchSessionId && !writeSessionId) return;
+  if (fromBookSelected() && !bookContext && !researchSessionId && !writeSessionId) {
+    error = "Pick the book first.";
+    persist();
+    paint();
+    return;
+  }
   const history: OverlayTurn[] = researchSessionId || writeSessionId ? turns : [...turns, { role: "user", content: outgoing }];
   if (!researchSessionId && !writeSessionId) {
     turns = history;
@@ -156,6 +197,7 @@ async function send(outgoingOverride?: string) {
       hat: protocolHat(personality, selectedProtocolId),
       personality,
       protocolId: pill ? selectedProtocolId ?? undefined : undefined,
+      bookContext,
       messages: history.map(({ role, content }) => ({ role, content })),
       noteContext: notes[0],
       notesInPlay: notes,
@@ -217,11 +259,13 @@ async function saveBrief() {
   saveBusy = true;
   paint();
   try {
+    const origin = bookOrigin(bookContext);
     const page = briefToPage({
       reply: last.content,
       findings: last.findings ?? [],
       now: new Date().toISOString(),
       id: newHubPageId(),
+      origins: origin ? [origin] : undefined,
     });
     const saved = await savePage(page);
     try {
@@ -230,7 +274,7 @@ async function saveBrief() {
       /* page exists; tags can wait */
     }
     savedBrief = true;
-    showToast("Saved as a new page");
+    showToast(fromBookSelected() ? "Added to the archive" : "Saved as a new page");
     await currentHost.onSavedPage?.(saved);
   } catch (caught) {
     showToast(caught instanceof Error ? caught.message : "Save failed");
@@ -247,6 +291,46 @@ function discardEdit(edit: RetagProposal) {
   paint();
 }
 
+function bookFieldHtml() {
+  if (!fromBookSelected()) return "";
+  const bookLabels = currentHost?.bookLabels ?? [];
+  if (bookContext) {
+    return `<div class="chat__book chat-overlay__book">
+      <p class="alchemist__mode">${escapeHtml(bookContextLine(bookContext))} <button type="button" data-clear-book class="chat__text-btn">Change</button></p>
+      <label class="chat-form__label" for="overlay-chat-locus">Page or passage</label>
+      <input id="overlay-chat-locus" value="${escapeHtml(bookContext.locus ?? "")}" placeholder="p. 142, or a short quote" autocomplete="off" />
+    </div>`;
+  }
+  return `<div class="chat__book chat-overlay__book">
+    <label class="chat-form__label" for="overlay-chat-book">Book</label>
+    <p class="compose__hint">The one in your hand. Pick a title you already use, or type a new one.</p>
+    <div class="chat__book-add">
+      <input id="overlay-chat-book" value="${escapeHtml(bookQuery)}" placeholder="Make It Stick…" autocomplete="off" list="overlay-book-list" />
+      <datalist id="overlay-book-list">${bookLabels.map(item => `<option value="${escapeHtml(item)}"></option>`).join("")}</datalist>
+      <button type="button" class="btn btn--ghost" data-set-book>Use this book</button>
+    </div>
+  </div>`;
+}
+
+function saveCardHtml() {
+  const last = lastAssistant();
+  if (!last || !briefIsSavable(last.content) || savedBrief) return "";
+  if (fromBookSelected()) {
+    const book = bookContext?.label ? escapeHtml(bookContext.label) : "this book";
+    return `<section class="confirm-card" role="region" aria-label="Add to archive">
+      <p class="page-header__eyebrow">Add to archive</p>
+      <h2 class="page-header__title" style="font-size: var(--text-lg)">File this page</h2>
+      <p class="page-header__supporting">Referenced, and stamped under ${book}.</p>
+      <div class="confirm-card__actions">
+        <button class="btn btn--primary" type="button" data-save-brief ${saveBusy || busy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Add to archive"}</button>
+      </div>
+    </section>`;
+  }
+  return `<div class="chat-overlay__save">
+    <button class="btn btn--secondary" type="button" data-save-brief ${saveBusy || busy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>
+  </div>`;
+}
+
 function pickerHtml() {
   return `<div class="agent-picker" role="listbox" aria-label="Choose who to talk to">
     ${CHAT_PERSONALITIES.map(item => {
@@ -260,6 +344,10 @@ function pickerHtml() {
 
 function overlayHtml() {
   const who = currentPersonality();
+  const fromBook = fromBookSelected();
+  const empty = fromBook
+    ? "Pick the book in your hand, then type the idea, term, or question from the page."
+    : "Ask about the archive, or pin a graph note and I’ll work from that.";
   return `
     <section class="chat-overlay" aria-label="Chat">
       <div class="chat-overlay__top">
@@ -315,22 +403,17 @@ function overlayHtml() {
                 .join("")
             : `<li class="chat-message chat-message--assistant" data-agent="${personality}">
                 <img class="chat-message__avatar" src="${who.avatarSrc}" alt="${escapeHtml(who.name)}" width="52" height="52" />
-                <div class="chat-message__body">Ask about the archive, or pin a graph note and I’ll work from that.</div>
+                <div class="chat-message__body">${empty}</div>
               </li>`
         }
       </ul>
       ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
-      ${
-        lastAssistant() && briefIsSavable(lastAssistant()!.content) && !savedBrief
-          ? `<div class="chat-overlay__save">
-              <button class="btn btn--secondary" type="button" data-save-brief ${saveBusy || busy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>
-            </div>`
-          : ""
-      }
+      ${saveCardHtml()}
+      ${bookFieldHtml()}
       <form class="chat-form">
-        <label class="chat-form__label" for="overlay-chat-input">Message</label>
-        <textarea id="overlay-chat-input" rows="3" placeholder="Ask ${escapeHtml(who.shortName)}…" ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>${escapeHtml(input)}</textarea>
-        <button class="btn btn--primary" type="submit" ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>${busy || writeSessionId || researchSessionId ? "…" : "Send"}</button>
+        <label class="chat-form__label" for="overlay-chat-input">${fromBook ? "From the page" : "Message"}</label>
+        <textarea id="overlay-chat-input" rows="3" placeholder="${fromBook ? "The idea, term, or question from the page…" : `Ask ${escapeHtml(who.shortName)}…`}" ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>${escapeHtml(input)}</textarea>
+        <button class="btn btn--primary" type="submit" ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>${busy || writeSessionId || researchSessionId ? "…" : fromBook ? "Research this" : "Send"}</button>
       </form>
     </section>
   `;
@@ -396,8 +479,16 @@ function bind(root: HTMLElement) {
       persist();
       paint();
       if (busy || writeSessionId || researchSessionId) return;
-      const field = root.querySelector<HTMLInputElement>("#overlay-chat-input");
+      const field = root.querySelector<HTMLTextAreaElement>("#overlay-chat-input");
       const typed = field?.value.trim() ?? "";
+      if (next === "fromBook") {
+        if (!bookContext && typed) {
+          error = "Pick the book first.";
+          persist();
+          paint();
+        }
+        return;
+      }
       if (field && typed) field.value = "";
       input = "";
       if (USE_LOCAL_DATA) {
@@ -407,6 +498,41 @@ function bind(root: HTMLElement) {
       void send(typed || findProtocol(personality, next)!.label);
     };
   });
+  const bookField = root.querySelector<HTMLInputElement>("#overlay-chat-book");
+  if (bookField) {
+    bookField.oninput = () => {
+      bookQuery = bookField.value;
+    };
+    bookField.onkeydown = event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      setBook(bookField.value);
+      persist();
+      paint();
+    };
+  }
+  root.querySelector<HTMLButtonElement>("[data-set-book]")?.addEventListener("click", () => {
+    const field = root.querySelector<HTMLInputElement>("#overlay-chat-book");
+    setBook(field?.value ?? bookQuery);
+    persist();
+    paint();
+  });
+  root.querySelector<HTMLButtonElement>("[data-clear-book]")?.addEventListener("click", () => {
+    bookContext = undefined;
+    bookQuery = "";
+    persist();
+    paint();
+  });
+  const locusField = root.querySelector<HTMLInputElement>("#overlay-chat-locus");
+  if (locusField) {
+    locusField.oninput = () => {
+      if (!bookContext) return;
+      bookContext = normalizeBookContext({ label: bookContext.label, locus: locusField.value });
+    };
+    locusField.onchange = () => {
+      persist();
+    };
+  }
   root.querySelectorAll<HTMLButtonElement>("[data-unpin]").forEach(button => {
     button.onclick = () => {
       notes = notes.filter(note => note.pageId !== button.dataset.unpin);
@@ -482,9 +608,11 @@ export function pinChatOverlayNote(note: OverlayNote) {
   if (currentHost) paint();
 }
 
-export function openChatOverlay(opts?: { note?: OverlayNote }) {
+export function openChatOverlay(opts?: { note?: OverlayNote; protocolId?: string; bookContext?: BookContext }) {
   restore();
   if (opts?.note) notes = pinOverlayNote(notes, opts.note);
+  if (opts?.protocolId && findProtocol(personality, opts.protocolId)) selectedProtocolId = opts.protocolId;
+  if (opts?.bookContext) bookContext = normalizeBookContext(opts.bookContext);
   open = true;
   persist();
   if (currentHost) paint();

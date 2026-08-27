@@ -82,6 +82,7 @@ describe("Knowledge Hub rail", () => {
   it("keeps graph note previews and a portrait chat overlay", () => {
     expect(main).toContain("openPageInNewTab");
     expect(main).toContain("ensureChatOverlay");
+    expect(main).toContain("bookLabels: originLabelsForKind(entries, \"book\")");
     expect(main).toContain("pinChatOverlayNote");
     expect(main).toContain('querySelector<HTMLElement>(".graph-wrap")');
     expect(main).toContain("mountGraphPreview(wrap");
