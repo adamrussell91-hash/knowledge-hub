@@ -1,4 +1,5 @@
 export type ChatHatId =
+  | "fromBook"
   | "scoping"
   | "synthesis"
   | "evidence"
@@ -24,6 +25,14 @@ export const SCOPES: ChatScope[] = ["narrow", "standard", "wide"];
 export const DEPTHS: ChatDepth[] = ["single", "verified", "iterative", "exhaustive"];
 
 export const CHAT_HATS: ChatHat[] = [
+  {
+    id: "fromBook",
+    label: "From a book",
+    explain: "Research a passage from a book and file a referenced page that turns back to the book.",
+    defaultScope: "standard",
+    defaultDepth: "iterative",
+    plan: "Pick the book. Capture the idea, term, or question from the page. Deep-retrieve the archive, keep only the strongest notes, and write a referenced information page that says how this bears on the book.",
+  },
   {
     id: "scoping",
     label: "Scoping",

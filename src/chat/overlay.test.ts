@@ -115,4 +115,26 @@ describe("chat overlay", () => {
     expect(document.body.textContent).not.toContain("Retrieval practice");
     expect(document.querySelector("[data-new-chat]")).toBeTruthy();
   });
+
+  it("uses a textarea composer and offers save on a developed reply", () => {
+    sessionStorage.setItem(
+      "knowledge-hub-overlay-chat-v1",
+      JSON.stringify({
+        personality: "clementine",
+        open: true,
+        input: "",
+        turns: [
+          {
+            role: "assistant",
+            content: `## Desirable difficulties
+
+Effortful retrieval is the load-bearing claim. The archive supports Bjork here and turns that back onto the book. The notes that earn a citation are the ones that change what a careful reader would believe.`,
+          },
+        ],
+      }),
+    );
+    ensureChatOverlay({ visible: true });
+    expect(document.querySelector("textarea#overlay-chat-input")).toBeTruthy();
+    expect(document.querySelector("[data-save-brief]")?.textContent).toBe("Save as new page");
+  });
 });

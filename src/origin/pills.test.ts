@@ -24,6 +24,13 @@ describe("origin pills", () => {
     expect(html).toContain("compose-origin-kind");
     expect(html).toContain("Tap a pill to change it");
     expect(html).toContain("data-origin-edit");
+    expect(html).toContain("compose-origin-suggestions");
+  });
+
+  it("lists known book titles on the origin field", () => {
+    const html = originComposeFieldHtml([], null, ["Make It Stick", "Atomic Habits"]);
+    expect(html).toContain('value="Make It Stick"');
+    expect(html).toContain('value="Atomic Habits"');
   });
 
   it("parses a remove value back into an origin", () => {

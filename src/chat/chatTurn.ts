@@ -5,6 +5,7 @@ import { compactArchiveNote, compactSittingNote, compactSynthesisNote } from "./
 import { coverageFromResearch, type CoverageRead } from "./coverage";
 import { resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
 import { corpusAuditFromResearch, formatCorpusAudit, SYNTHESIS_WRITE_TOKENS, thematicSynthesisProtocol } from "./synthesisProtocol";
+import { BOOK_NOTE_WRITE_TOKENS, bookContextLine, bookNoteProtocol, selectBestFindings, type BookContext } from "./bookNote";
 import type { ChatMessage } from "./messages";
 import type { ChatWriteState } from "./writeHttp";
 
@@ -40,6 +41,7 @@ export type ChatTurnInput = {
   draft?: string;
   noteContext?: { pageId: string; title: string };
   notesInPlay?: { pageId: string; title: string }[];
+  bookContext?: BookContext;
   searchOutside?: boolean;
   researchSessionId?: string;
   writeSessionId?: string;
@@ -122,6 +124,7 @@ function notesLine(input: ChatTurnInput, prefix: string) {
 
 function documentContext(input: ChatTurnInput): string | undefined {
   const parts = [
+    bookContextLine(input.bookContext),
     input.workingThesis?.trim(),
     input.draft?.trim(),
     notesLine(input, "Open note: "),
@@ -259,12 +262,26 @@ function isSynthesis(input: Pick<ChatTurnInput, "hat">) {
   return input.hat === "synthesis";
 }
 
+function isBookNote(input: Pick<ChatTurnInput, "hat">) {
+  return input.hat === "fromBook";
+}
+
+function researchForWrite(input: ChatTurnInput, archive: ArchivePack): ArchivePack {
+  if (!isBookNote(input) || !archive.research?.findings.length) return archive;
+  const findings = selectBestFindings(archive.research.findings);
+  return {
+    ...archive,
+    research: { ...archive.research, findings },
+  };
+}
+
 function writeArchiveNote(input: ChatTurnInput, archive: ArchivePack): string {
   if (archive.archiveFailed && !archive.research?.findings.length) return archive.note;
   if (!archive.research) return archive.note;
+  const rich = isSynthesis(input) || isBookNote(input);
   const packed = archive.sitting
-    ? compactSittingNote(archive.research, isSynthesis(input))
-    : isSynthesis(input)
+    ? compactSittingNote(archive.research, rich)
+    : rich
       ? compactSynthesisNote(archive.research)
       : compactArchiveNote(archive.research);
   return archive.archiveFailed ? `${ARCHIVE_FAILED_NOTE}\n${packed}` : packed;
@@ -275,7 +292,11 @@ function assembledSystem(input: ChatTurnInput, archive: ArchivePack) {
   const query = lastUserQuery(input.messages);
   const coverage = archive.research ? coverageFromResearch(archive.research) : undefined;
   const audit = archive.research && isSynthesis(input) ? formatCorpusAudit(corpusAuditFromResearch(archive.research)) : "";
-  const protocol = isSynthesis(input) ? `\n${thematicSynthesisProtocol()}` : "";
+  const protocol = isSynthesis(input)
+    ? `\n${thematicSynthesisProtocol()}`
+    : isBookNote(input)
+      ? `\n${bookNoteProtocol()}`
+      : "";
   return {
     coverage,
     system: assembleClementinePrompt({
@@ -283,6 +304,7 @@ function assembledSystem(input: ChatTurnInput, archive: ArchivePack) {
       job: input.universityJob,
       surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}${protocol}\n${ANSWER_FROM_ARCHIVE}\n${CITE_NOTES_AS_LINKS}\n${NOTE_EDIT_PROTOCOL}\n${writeArchiveNote(input, archive)}`,
       payload: [
+        bookContextLine(input.bookContext),
         input.workingThesis?.trim() ? `Working thesis:\n${input.workingThesis.trim()}` : "",
         input.draft?.trim() ? `Draft excerpt:\n${input.draft.trim()}` : "",
         notesLine(input, "Notes in play: "),
@@ -300,25 +322,27 @@ function assembledSystem(input: ChatTurnInput, archive: ArchivePack) {
 
 export function writeMaxTokens(input: Pick<ChatTurnInput, "hat" | "scope" | "depth">) {
   if (input.hat === "synthesis") return SYNTHESIS_WRITE_TOKENS;
+  if (input.hat === "fromBook") return BOOK_NOTE_WRITE_TOKENS;
   const plan = resolveChatPlan(input.hat, { scope: input.scope, depth: input.depth });
   return plan.kernel === "deep" ? 2000 : 1200;
 }
 
 async function startWrite(input: ChatTurnInput, archive: ArchivePack): Promise<ChatTurnResult> {
-  const { system, coverage } = assembledSystem(input, archive);
+  const prepared = researchForWrite(input, archive);
+  const { system, coverage } = assembledSystem(input, prepared);
   if (input.write) {
     const started = await input.write.start({
       system,
       messages: input.messages,
       maxTokens: writeMaxTokens(input),
-      research: archive.research,
-      archiveFailed: archive.archiveFailed,
+      research: prepared.research,
+      archiveFailed: prepared.archiveFailed,
     });
     return {
       status: "writing",
       writeSessionId: started.writeSessionId,
-      research: archive.research ?? started.research,
-      archiveFailed: archive.archiveFailed,
+      research: prepared.research ?? started.research,
+      archiveFailed: prepared.archiveFailed,
       coverage,
     };
   }
@@ -329,8 +353,8 @@ async function startWrite(input: ChatTurnInput, archive: ArchivePack): Promise<C
   return {
     status: "done",
     reply,
-    research: archive.research,
-    archiveFailed: archive.archiveFailed,
+    research: prepared.research,
+    archiveFailed: prepared.archiveFailed,
     coverage,
     canSearchOutside: input.hat === "internalExternal" && Boolean(coverage?.thin),
   };

@@ -28,6 +28,7 @@ import {
 import type { ResearchFinding } from "./research/schema";
 import { escapeHtml, showToast } from "./lib/dom";
 import { hubUtilitiesHtml } from "./lib/hubChrome";
+import { bindKeyboardInset } from "./lib/keyboardInset";
 import { renderMarkdown } from "./lib/markdown";
 import { resolveArchivePageId } from "./chat/noteLinks";
 import { cardSupportingText } from "./archive/cardText";
@@ -115,6 +116,7 @@ let originLabelOpen = false;
 let composeTagQuery = "";
 let composeTagOpen = false;
 let composeOriginDraft: Origin | null = null;
+let composeOriginKind: Origin["kind"] = "degree";
 let activePage: Page | null = null;
 let tidyBusy = false;
 let listScrollTop = 0;
@@ -154,13 +156,13 @@ type ComposeState = {
 let compose: ComposeState | null = null;
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
-function blankCompose(): ComposeState {
+function blankCompose(origins: Origin[] = []): ComposeState {
   return {
     id: newHubPageId(),
     title: "",
     area: "notes",
     tags: [],
-    origins: [],
+    origins,
     body: "",
     existing: [],
     pending: [],
@@ -288,7 +290,38 @@ function openChatWorkplace() {
   enterChatRail();
   view = "chat";
   activePage = null;
+  compose = null;
   if (isVisualiserHash(location.hash)) {
+    history.replaceState(null, "", `${location.pathname}${location.search}`);
+  }
+  render();
+}
+
+function filteredOrigin(): Origin | undefined {
+  if (!originFilter.kind || !originFilter.label) return undefined;
+  return { kind: originFilter.kind, label: originFilter.label };
+}
+
+function openCompose(origins: Origin[] = []) {
+  const seeded = origins.length ? origins : filteredOrigin() ? [filteredOrigin()!] : [];
+  compose = blankCompose(seeded);
+  resetComposeTagChrome();
+  if (seeded[0]) composeOriginKind = seeded[0].kind;
+  view = "compose";
+  render();
+}
+
+function openBookNote(book?: string) {
+  leaveSpecialRails();
+  compose = null;
+  activePage = null;
+  enterChatRail({
+    fresh: true,
+    hat: "fromBook",
+    bookContext: book ? { label: book } : undefined,
+  });
+  view = "chat";
+  if (isVisualiserHash(location.hash) || isPageHash(location.hash)) {
     history.replaceState(null, "", `${location.pathname}${location.search}`);
   }
   render();
@@ -303,6 +336,7 @@ function resetComposeTagChrome() {
   composeTagQuery = "";
   composeTagOpen = false;
   composeOriginDraft = null;
+  composeOriginKind = "degree";
 }
 
 function goToHome() {
@@ -438,7 +472,13 @@ function renderList() {
     ${pageHeader(
       `Private archive${originFilter.kind ? " · origin" : keywordFilter ? " · keyword" : ""}`,
       escapeHtml(listTitle()),
-      `<button class="btn" data-new-note type="button">New note</button>
+      `${
+        originFilter.kind === "book" && originFilter.label
+          ? `<button class="btn" data-from-book type="button">Note from this book</button>
+             <button class="btn btn--ghost" data-new-note type="button">New note</button>`
+          : `<button class="btn" data-new-note type="button">New note</button>
+             <button class="btn btn--ghost" data-from-book type="button">From a book</button>`
+      }
         <div class="viewbar">
           <button class="viewbar__btn is-active" type="button">List</button>
           <button class="viewbar__btn" data-jump-graph type="button">Graph</button>
@@ -464,10 +504,10 @@ function renderList() {
     render();
   };
   app.querySelector<HTMLButtonElement>("[data-new-note]")!.onclick = () => {
-    compose = blankCompose();
-    resetComposeTagChrome();
-    view = "compose";
-    render();
+    openCompose();
+  };
+  app.querySelector<HTMLButtonElement>("[data-from-book]")!.onclick = () => {
+    openBookNote(originFilter.kind === "book" ? originFilter.label : undefined);
   };
   app.querySelector<HTMLButtonElement>("[data-clear-keyword]")?.addEventListener("click", () => {
     keywordFilter = "";
@@ -899,7 +939,12 @@ function renderPage(page: Page) {
       `<button class="btn btn--ghost reader__back" data-back type="button">← Archive</button>
         <button class="btn btn--ghost" data-edit type="button">Edit</button>
         <button class="btn btn--ghost reader__tidy" data-tidy type="button" ${tidyBusy ? "disabled" : ""}>${tidyBusy ? "Cleaning up…" : "Clean up"}</button>
-        <button class="btn btn--ghost" data-open-chat type="button">Chat</button>`,
+        <button class="btn btn--ghost" data-open-chat type="button">Chat</button>
+        ${
+          resolvedOrigins(page).find(origin => origin.kind === "book")
+            ? `<button class="btn btn--ghost" data-from-book type="button">Note from this book</button>`
+            : ""
+        }`,
     )}
     <article class="reader">
       ${originPillsHtml(resolvedOrigins(page), { openEdit: true })}
@@ -922,6 +967,10 @@ function renderPage(page: Page) {
   app.querySelector<HTMLButtonElement>("[data-open-chat]")!.onclick = () => {
     openChatOverlay({ note: { pageId: page.id, title: page.title } });
   };
+  app.querySelector<HTMLButtonElement>("[data-from-book]")?.addEventListener("click", () => {
+    const book = resolvedOrigins(page).find(origin => origin.kind === "book");
+    openBookNote(book?.label);
+  });
   app.querySelector<HTMLButtonElement>("[data-tidy]")!.onclick = async () => {
     if (tidyBusy) return;
     tidyBusy = true;
@@ -954,6 +1003,7 @@ function renderPage(page: Page) {
 }
 
 function renderCompose(state: ComposeState) {
+  bindKeyboardInset();
   const files = [
     ...state.existing.map(
       (item, index) =>
@@ -987,7 +1037,12 @@ function renderCompose(state: ComposeState) {
           ${topicTagPickerHtml(state.tags, composeTagQuery, composeTagOpen)}
         </div>
       </div>
-      ${originComposeFieldHtml(state.origins, composeOriginDraft)}
+      ${originComposeFieldHtml(
+        state.origins,
+        composeOriginDraft,
+        originLabelsForKind(entries, composeOriginDraft?.kind ?? composeOriginKind).map(item => item.label),
+        composeOriginKind,
+      )}
       <div class="compose__field compose__field--body">
         <label for="compose-body">Body (markdown)</label>
         <textarea id="compose-body">${escapeHtml(state.body)}</textarea>
@@ -1003,9 +1058,11 @@ function renderCompose(state: ComposeState) {
         <ul class="compose__files">${files || "<li>None</li>"}</ul>
         <input id="compose-files" type="file" multiple />
       </div>
-      <button class="btn btn--primary compose__save" data-compose-save type="button" ${
-        USE_LOCAL_DATA || state.busy || captureBusy ? "disabled" : ""
-      }>${state.busy ? "Saving…" : "Save"}</button>
+      <div class="compose__savebar">
+        <button class="btn btn--primary compose__save" data-compose-save type="button" ${
+          USE_LOCAL_DATA || state.busy || captureBusy ? "disabled" : ""
+        }>${state.busy ? "Saving…" : "Save"}</button>
+      </div>
     </section>
   `);
 
@@ -1144,6 +1201,14 @@ function renderCompose(state: ComposeState) {
     composeOriginDraft = null;
     render();
   };
+  app.querySelector<HTMLSelectElement>("#compose-origin-kind")?.addEventListener("change", event => {
+    if (!compose) return;
+    syncFields();
+    const kind = (event.target as HTMLSelectElement).value;
+    if (!isOriginKind(kind)) return;
+    composeOriginKind = kind;
+    render();
+  });
   app.querySelector<HTMLButtonElement>("[data-origin-add]")?.addEventListener("click", addOriginFromFields);
   app.querySelector<HTMLInputElement>("#compose-origin-label")?.addEventListener("keydown", event => {
     if (event.key === "Enter") {
@@ -1169,6 +1234,7 @@ function renderCompose(state: ComposeState) {
       if (!compose) return;
       syncFields();
       composeOriginDraft = parseOriginRemoveValue(button.dataset.originEdit ?? "");
+      if (composeOriginDraft) composeOriginKind = composeOriginDraft.kind;
       render();
     };
   });
@@ -1275,6 +1341,7 @@ function previewNote(pageId: string, title: string, excerpt: string): GraphPrevi
 }
 
 function afterSignedInPaint() {
+  bindKeyboardInset();
   ensureChatOverlay({
     visible: true,
     onOpenPage: (pageId, title) => void openPage(pageId, title),
@@ -1310,6 +1377,7 @@ function render() {
       onOpenVisualiser: () => openChatVisualiser(),
       pageHeader,
       archiveNotes: archiveNotes(),
+      bookLabels: originLabelsForKind(entries, "book").map(item => item.label),
     });
   } else if (view === "visualiser") {
     renderChatVisualiser({

@@ -4,6 +4,7 @@ import { requireSession } from "./_lib/requireSession";
 import { loadPromptFile } from "../../src/clementine/loadFromDisk";
 import { runChatTurn, type ChatMessage } from "../../src/chat/chatTurn";
 import { isChatHatId, type ChatDepth, type ChatScope } from "../../src/chat/hats";
+import { normalizeBookContext } from "../../src/chat/bookNote";
 import { isChatPersonalityId, personalityById } from "../../src/chat/personalities";
 import { ResearchResultSchema } from "../../src/research/schema";
 import { pullLiveArchive } from "./_lib/liveArchive";
@@ -21,6 +22,7 @@ function parseBody(raw: string | null) {
       draft?: unknown;
       noteContext?: unknown;
       notesInPlay?: unknown;
+      bookContext?: unknown;
       personality?: unknown;
       searchOutside?: unknown;
       researchSessionId?: unknown;
@@ -51,6 +53,7 @@ function parseBody(raw: string | null) {
     const notesInPlay = Array.isArray(parsed.notesInPlay)
       ? parsed.notesInPlay.map(asNote).filter((item): item is { pageId: string; title: string } => Boolean(item))
       : undefined;
+    const bookContext = normalizeBookContext(parsed.bookContext);
     return {
       messages,
       hat: parsed.hat,
@@ -60,6 +63,7 @@ function parseBody(raw: string | null) {
       draft: typeof parsed.draft === "string" ? parsed.draft : undefined,
       noteContext: note,
       notesInPlay,
+      bookContext,
       personality: typeof parsed.personality === "string" && isChatPersonalityId(parsed.personality) ? parsed.personality : undefined,
       searchOutside: parsed.searchOutside === true,
       researchSessionId: typeof parsed.researchSessionId === "string" ? parsed.researchSessionId : undefined,
@@ -105,6 +109,7 @@ export const handler: Handler = async event => {
       draft: body.draft,
       noteContext: body.noteContext,
       notesInPlay: body.notesInPlay,
+      bookContext: body.bookContext,
       searchOutside: body.searchOutside,
       researchSessionId: body.researchSessionId,
       writeSessionId: body.writeSessionId,

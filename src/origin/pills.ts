@@ -36,18 +36,28 @@ export function originPillsHtml(origins: Origin[], options: OriginPillsOptions =
   return `<div class="origin-pills" role="list" aria-label="Origin">${pills}</div>`;
 }
 
-export function originComposeFieldHtml(origins: Origin[], editing: Origin | null = null) {
+export function originComposeFieldHtml(
+  origins: Origin[],
+  editing: Origin | null = null,
+  suggestions: string[] = [],
+  selectedKind?: Origin["kind"],
+) {
+  const currentKind = editing?.kind ?? selectedKind;
   const options = ORIGIN_KINDS.map(kind => {
-    const selected = editing?.kind === kind ? " selected" : "";
+    const selected = currentKind === kind ? " selected" : "";
     return `<option value="${kind}"${selected}>${escapeHtml(ORIGIN_KIND_LABELS[kind])}</option>`;
   }).join("");
+  const list = suggestions
+    .map(item => `<option value="${escapeHtml(item)}"></option>`)
+    .join("");
   return `<div class="compose__field">
         <label id="compose-origins-label">Origin</label>
         <p class="compose__hint">Tap a pill to change it. Degree, unit, notebook, book, or PD session.</p>
         ${originPillsHtml(pageOrigins({ origins }), { removable: true, editable: true, editing }) || `<p class="compose__hint">None yet.</p>`}
         <div class="origin-add">
           <select id="compose-origin-kind" aria-label="Origin kind">${options}</select>
-          <input id="compose-origin-label" aria-label="Origin label" placeholder="EDST5805, MEd, notebook name…" value="${escapeHtml(editing?.label ?? "")}" />
+          <input id="compose-origin-label" aria-label="Origin label" placeholder="EDST5805, MEd, notebook name…" value="${escapeHtml(editing?.label ?? "")}" list="compose-origin-suggestions" autocomplete="off" />
+          <datalist id="compose-origin-suggestions">${list}</datalist>
           <button type="button" class="btn btn--ghost" data-origin-add>${editing ? "Save" : "Add"}</button>
         </div>
       </div>`;

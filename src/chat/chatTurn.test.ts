@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ANSWER_FROM_ARCHIVE, CITE_NOTES_AS_LINKS, runChatTurn, START_KERNEL_BUDGET_MS, writeMaxTokens } from "./chatTurn";
 import { SYNTHESIS_WRITE_TOKENS } from "./synthesisProtocol";
+import { BOOK_NOTE_WRITE_TOKENS } from "./bookNote";
 
 const voice = readFileSync(join(process.cwd(), "prompts/clementine-voice.md"), "utf8");
 const universityJob = readFileSync(join(process.cwd(), "prompts/clementine-university.md"), "utf8");
@@ -116,8 +117,55 @@ describe("runChatTurn", () => {
 
   it("gives thematic synthesis a larger write budget than a cheap scoping map", () => {
     expect(writeMaxTokens({ hat: "synthesis", depth: "iterative" })).toBe(SYNTHESIS_WRITE_TOKENS);
+    expect(writeMaxTokens({ hat: "fromBook" })).toBe(BOOK_NOTE_WRITE_TOKENS);
     expect(writeMaxTokens({ hat: "scoping" })).toBe(1200);
     expect(writeMaxTokens({ hat: "evidence" })).toBe(2000);
+  });
+
+  it("writes a book note from only the strongest findings and names the book", async () => {
+    let system = "";
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "fromBook",
+      messages: [{ role: "user", content: "desirable difficulties" }],
+      bookContext: { label: "Make It Stick", locus: "p. 142" },
+      compose: true,
+      priorResearch: researchResult({
+        findings: [
+          {
+            ...finding,
+            pageId: "weak",
+            title: "A nearby anecdote",
+            stance: "related",
+            confidence: "low",
+            claimRelationship: "interpretive",
+          },
+          {
+            ...finding,
+            pageId: "strong",
+            title: "Bjork on retrieval effort",
+            stance: "supports",
+            confidence: "high",
+            claimRelationship: "direct",
+            keyFinding: "Effortful retrieval strengthens later recall",
+          },
+        ],
+      }),
+      complete: async assembled => {
+        system = assembled;
+        return "## Desirable difficulties\n\n### How this bears on the book\nThe archive supports Bjork.";
+      },
+    });
+    expect(system).toContain("From a book protocol");
+    expect(system).toContain("How this bears on the book");
+    expect(system).toContain("Reading: Make It Stick (p. 142)");
+    expect(system).toContain("Bjork on retrieval effort");
+    expect(system).not.toContain("A nearby anecdote");
+    expect(system).not.toContain("Theme evidence matrix");
+    expect(result.status).toBe("done");
+    if (result.status !== "done") return;
+    expect(result.research?.findings.map(item => item.pageId)).toEqual(["strong"]);
   });
 
   it("tells her to answer a curriculum question from the archive instead of refusing it", async () => {

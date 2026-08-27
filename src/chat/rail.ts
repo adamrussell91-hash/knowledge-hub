@@ -2,6 +2,9 @@ import { ChatWriteDroppedError, runChat, savePage, tidyPage, USE_LOCAL_DATA } fr
 import { newHubPageId } from "../domain/page";
 import type { Page } from "../domain/page";
 import { escapeHtml, showToast } from "../lib/dom";
+import { bindKeyboardInset } from "../lib/keyboardInset";
+import { filterPickerOptions, optionPickerListHtml } from "../ui/optionPicker";
+import { bookContextLine, bookOrigin, normalizeBookContext, type BookContext } from "./bookNote";
 import { CHAT_HATS, DEPTHS, SCOPES, hatById, isChatHatId, resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
 import { renderChatMarkdown, type NoteTitle } from "./noteLinks";
 import { researchFromFindings, searchedNotesHtml, thinkingHistoryHtml } from "./sources";
@@ -18,6 +21,7 @@ export type ChatRailHost = {
   onOpenVisualiser?: () => void;
   pageHeader: (eyebrow: string, title: string, actionsInner?: string) => string;
   archiveNotes?: NoteTitle[];
+  bookLabels?: string[];
 };
 
 type ChatTurn = {
@@ -41,6 +45,9 @@ let draft = "";
 let input = "";
 let turns: ChatTurn[] = [];
 let noteContext: { pageId: string; title: string } | undefined;
+let bookContext: BookContext | undefined;
+let bookQuery = "";
+let bookOpen = false;
 let researchSessionId = "";
 let writeSessionId = "";
 let busy = false;
@@ -50,13 +57,30 @@ let waitLine = CLEMENTINE_WAIT_LINES[0]!;
 let thinkingOpen = false;
 const sourcesOpen = new Set<number>();
 let saveBusy = false;
+let savedBrief = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
 function persist() {
   try {
     sessionStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ hat, scope, depth, showDials, thesis, draft, input, turns, noteContext, researchSessionId, writeSessionId, ticks, waitLine }),
+      JSON.stringify({
+        hat,
+        scope,
+        depth,
+        showDials,
+        thesis,
+        draft,
+        input,
+        turns,
+        noteContext,
+        bookContext,
+        researchSessionId,
+        writeSessionId,
+        ticks,
+        waitLine,
+        savedBrief,
+      }),
     );
   } catch {
     /* private mode / SSR */
@@ -77,10 +101,12 @@ function restore() {
       input: string;
       turns: ChatTurn[];
       noteContext: { pageId: string; title: string };
+      bookContext: BookContext;
       researchSessionId: string;
       writeSessionId: string;
       ticks: string[];
       waitLine: string;
+      savedBrief: boolean;
     }>;
     if (saved.hat && isChatHatId(saved.hat)) hat = saved.hat;
     scope = saved.scope;
@@ -91,6 +117,8 @@ function restore() {
     input = saved.input ?? "";
     turns = saved.turns ?? [];
     noteContext = saved.noteContext;
+    bookContext = normalizeBookContext(saved.bookContext);
+    savedBrief = Boolean(saved.savedBrief);
     researchSessionId = saved.researchSessionId ?? "";
     writeSessionId = saved.writeSessionId ?? "";
     ticks = Array.isArray(saved.ticks) ? saved.ticks.filter((line): line is string => typeof line === "string") : ticks;
@@ -113,10 +141,22 @@ function resetSitting() {
   persist();
 }
 
-export function enterChatRail(opts?: { noteContext?: { pageId: string; title: string }; fresh?: boolean }) {
+export function enterChatRail(
+  opts?: { noteContext?: { pageId: string; title: string }; fresh?: boolean; hat?: ChatHatId; bookContext?: BookContext },
+) {
   restore();
   if (opts?.fresh) resetSitting();
+  if (opts?.hat && isChatHatId(opts.hat)) {
+    hat = opts.hat;
+    scope = undefined;
+    depth = undefined;
+  }
   if (opts?.noteContext) noteContext = opts.noteContext;
+  if (opts?.bookContext) {
+    bookContext = normalizeBookContext(opts.bookContext);
+    bookQuery = "";
+    bookOpen = false;
+  }
   persist();
 }
 
@@ -128,6 +168,8 @@ export function leaveChatRail() {
   if (!busy && !researchSessionId && !writeSessionId) {
     resetSitting();
     noteContext = undefined;
+    bookContext = undefined;
+    hat = "synthesis";
   }
   persist();
 }
@@ -191,6 +233,7 @@ function applyResult(history: ChatTurn[], result: ChatTurnResult) {
   researchSessionId = "";
   writeSessionId = "";
   waitLine = CLEMENTINE_WAIT_LINES[0]!;
+  savedBrief = false;
   turns = [
     ...history,
     {
@@ -209,6 +252,12 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
   if (busy) return;
   const outgoing = extras.searchOutside ? "Search outside" : input.trim();
   if (!outgoing && !researchSessionId && !writeSessionId) return;
+  if (hat === "fromBook" && !bookContext && !researchSessionId && !writeSessionId && !extras.searchOutside) {
+    error = "Pick the book first.";
+    persist();
+    host.render();
+    return;
+  }
   const history: ChatTurn[] =
     extras.searchOutside || researchSessionId || writeSessionId
       ? turns
@@ -237,6 +286,7 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
         workingThesis: thesis || undefined,
         draft: draft || undefined,
         noteContext,
+        bookContext,
         searchOutside: extras.searchOutside,
         researchSessionId: researchSessionId || undefined,
         writeSessionId: writeSessionId || undefined,
@@ -285,11 +335,13 @@ async function saveBrief(host: ChatRailHost) {
   saveBusy = true;
   host.render();
   try {
+    const origin = bookOrigin(bookContext);
     const page = briefToPage({
       reply: last.content,
       findings: last.findings ?? [],
       now: new Date().toISOString(),
       id: newHubPageId(),
+      origins: origin ? [origin] : undefined,
     });
     const saved = await savePage(page);
     try {
@@ -297,7 +349,8 @@ async function saveBrief(host: ChatRailHost) {
     } catch {
       /* page exists; tags can wait */
     }
-    showToast("Saved as a new page");
+    savedBrief = true;
+    showToast(origin ? `Added to the archive under ${origin.label}` : "Saved as a new page");
     await host.onSavedPage?.(saved);
   } catch (caught) {
     showToast(caught instanceof Error ? caught.message : "Save failed");
@@ -307,25 +360,88 @@ async function saveBrief(host: ChatRailHost) {
   }
 }
 
+function setBook(label: string, locus = bookContext?.locus ?? "") {
+  bookContext = normalizeBookContext({ label, locus });
+  bookQuery = "";
+  bookOpen = false;
+  if (bookContext && error === "Pick the book first.") error = "";
+}
+
+function bookFieldHtml(bookLabels: string[]) {
+  if (hat !== "fromBook") return "";
+  if (bookContext) {
+    return `<div class="chat__book">
+      <p class="alchemist__mode">${escapeHtml(bookContextLine(bookContext))} <button type="button" data-clear-book class="chat__text-btn">Change</button></p>
+      <label for="chat-book-locus">Page or passage</label>
+      <input id="chat-book-locus" value="${escapeHtml(bookContext.locus ?? "")}" placeholder="p. 142, or a short quote" autocomplete="off" />
+    </div>`;
+  }
+  const matches = filterPickerOptions(bookLabels, bookQuery);
+  return `<div class="chat__book">
+    <label for="chat-book">Book</label>
+    <p class="compose__hint">The one in your hand. Pick a title you already use, or type a new one.</p>
+    <div class="chat__book-add">
+      <input id="chat-book" value="${escapeHtml(bookQuery)}" placeholder="Make It Stick…" autocomplete="off" list="chat-book-list" />
+      <datalist id="chat-book-list">${bookLabels.map(item => `<option value="${escapeHtml(item)}"></option>`).join("")}</datalist>
+      <button type="button" class="btn btn--ghost" data-set-book>Use this book</button>
+    </div>
+    ${
+      bookOpen || bookQuery
+        ? `<div data-book-list>${optionPickerListHtml({
+            options: matches,
+            optionAttr: "data-book-option",
+            emptyLabel: bookQuery.trim() ? "No matching title. Use this book to add it." : "No books on file yet.",
+          })}</div>`
+        : bookLabels.length
+          ? `<button type="button" class="tag-pill option-picker__add" data-open-books>Choose from the archive</button>`
+          : ""
+    }
+  </div>`;
+}
+
+function saveCardHtml(canSave: boolean) {
+  if (!canSave || savedBrief) return "";
+  if (hat === "fromBook") {
+    const book = bookContext?.label ? escapeHtml(bookContext.label) : "this book";
+    return `<section class="confirm-card" role="region" aria-label="Add to archive">
+      <p class="page-header__eyebrow">Add to archive</p>
+      <h2 class="page-header__title" style="font-size: var(--text-lg)">File this page</h2>
+      <p class="page-header__supporting">Referenced, and stamped under ${book}.</p>
+      <div class="confirm-card__actions">
+        <button class="btn btn--primary" type="button" data-save-brief ${saveBusy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Add to archive"}</button>
+      </div>
+    </section>`;
+  }
+  return `<div class="alchemist__actions chat__save-row">
+    <button class="btn btn--secondary" type="button" data-save-brief ${saveBusy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>
+  </div>`;
+}
+
 export function renderChatRail(host: ChatRailHost) {
   restore();
+  bindKeyboardInset();
   if ((researchSessionId || writeSessionId) && !pollTimer) pollTimer = setTimeout(() => void send(host), 400);
   const current = hatById(hat);
   const last = lastAssistant();
   const canSave = Boolean(last && briefIsSavable(last.content));
   const writing = hat === "writing";
+  const fromBook = hat === "fromBook";
+  const placeholder = fromBook
+    ? "The idea, term, or question from the page…"
+    : "Ask about the archive…";
+  const bookLabels = host.bookLabels ?? [];
   host.shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · Chat needs the Netlify API (session + Anthropic). The browser never talks to the research kernel.</p>` : ""}
     ${host.pageHeader(
       "Professor Clementine Haig",
-      "Chat",
+      fromBook ? "From a book" : "Chat",
       `<button class="btn btn--ghost" data-open-visualiser type="button">Portrait ideas</button>
       <button class="btn btn--ghost" data-new-chat type="button" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>New chat</button>`,
     )}
     <section class="coach chat">
-      <form class="coach__form glass-panel">
+      <div class="chat__sitting glass-panel">
         <p class="chat__picker-label">How should she work</p>
-        <div class="graph-modes" role="group" aria-label="Chat hats">
+        <div class="graph-modes chat__hats" role="group" aria-label="Chat hats">
           ${CHAT_HATS.map(
             item =>
               `<button type="button" data-hat="${item.id}" class="${hat === item.id ? "is-active" : ""}" aria-describedby="chat-hat-tip-${item.id}"><span>${escapeHtml(item.label)}</span><span class="agent-protocol-pills__tip" id="chat-hat-tip-${item.id}" role="tooltip">${escapeHtml(item.explain)}</span></button>`,
@@ -336,6 +452,7 @@ export function renderChatRail(host: ChatRailHost) {
             ? `<p class="alchemist__mode">Using: ${escapeHtml(noteContext.title)} <button type="button" data-clear-note class="chat__text-btn">Clear</button></p>`
             : ""
         }
+        ${bookFieldHtml(bookLabels)}
         <button type="button" class="chat__dials-toggle" data-toggle-dials>${showDials ? "Hide scope and depth" : "Adjust scope and depth"}</button>
         ${
           showDials
@@ -359,21 +476,13 @@ export function renderChatRail(host: ChatRailHost) {
                <textarea id="chat-draft" rows="6" placeholder="Paste a section…">${escapeHtml(draft)}</textarea>`
             : ""
         }
-        <label for="chat-input">Message</label>
-        <textarea id="chat-input" rows="3" placeholder="Ask about the archive…">${escapeHtml(input)}</textarea>
-        <div class="alchemist__actions">
-          <button type="submit" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${busy || researchSessionId || writeSessionId ? escapeHtml(waitLine) : "Send"}</button>
-          ${canSave ? `<button type="button" data-save-brief ${saveBusy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>` : ""}
-        </div>
-        ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
-        ${busy || researchSessionId || writeSessionId ? `<p class="chat__status" aria-live="polite">${escapeHtml(waitLine)}</p>` : ""}
-        ${busy || researchSessionId || writeSessionId ? thinkingHistoryHtml(ticks, thinkingOpen) : ""}
-      </form>
+      </div>
       <div class="coach__thread" aria-live="polite">
         ${
           turns.length
             ? turns
                 .map((turn, index) => {
+                  const lastTurn = index === turns.length - 1;
                   const body =
                     turn.role === "assistant"
                       ? `<div class="coach-msg__body">${renderChatMarkdown(turn.content, turn.findings, host.archiveNotes)}</div>`
@@ -388,14 +497,25 @@ export function renderChatRail(host: ChatRailHost) {
                         ? `<button type="button" data-search-outside ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>Search outside</button>`
                         : ""
                     }
-                    ${turn.role === "assistant" && turn.ticks?.length ? thinkingHistoryHtml(turn.ticks, thinkingOpen && index === turns.length - 1) : ""}
+                    ${turn.role === "assistant" && turn.ticks?.length ? thinkingHistoryHtml(turn.ticks, thinkingOpen && lastTurn) : ""}
                     ${turn.findings?.length ? searchedNotesHtml(turn.findings, sourcesOpen.has(index), index) : ""}
+                    ${lastTurn && turn.role === "assistant" ? saveCardHtml(canSave) : ""}
                   </article>`;
                 })
                 .join("")
             : `<p class="empty">${current.plan}</p>`
         }
       </div>
+      <form class="coach__form glass-panel chat__composer">
+        <label for="chat-input">${fromBook ? "From the page" : "Message"}</label>
+        <textarea id="chat-input" rows="3" placeholder="${escapeHtml(placeholder)}" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${escapeHtml(input)}</textarea>
+        <div class="alchemist__actions">
+          <button class="btn btn--primary" type="submit" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${busy || researchSessionId || writeSessionId ? escapeHtml(waitLine) : fromBook ? "Research this" : "Send"}</button>
+        </div>
+        ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
+        ${busy || researchSessionId || writeSessionId ? `<p class="chat__status" aria-live="polite">${escapeHtml(waitLine)}</p>` : ""}
+        ${busy || researchSessionId || writeSessionId ? thinkingHistoryHtml(ticks, thinkingOpen) : ""}
+      </form>
     </section>
   `);
 
@@ -433,6 +553,60 @@ export function renderChatRail(host: ChatRailHost) {
     persist();
     host.render();
   });
+  host.app.querySelector<HTMLButtonElement>("[data-clear-book]")?.addEventListener("click", () => {
+    bookContext = undefined;
+    bookQuery = "";
+    bookOpen = true;
+    persist();
+    host.render();
+  });
+  host.app.querySelector<HTMLButtonElement>("[data-open-books]")?.addEventListener("click", () => {
+    bookOpen = true;
+    persist();
+    host.render();
+  });
+  const applyBook = (label: string) => {
+    setBook(label);
+    persist();
+    host.render();
+  };
+  host.app.querySelector<HTMLButtonElement>("[data-set-book]")?.addEventListener("click", () => {
+    const field = host.app.querySelector<HTMLInputElement>("#chat-book");
+    applyBook(field?.value ?? bookQuery);
+  });
+  host.app.querySelectorAll<HTMLButtonElement>("[data-book-option]").forEach(button => {
+    button.onclick = () => applyBook(button.dataset.bookOption ?? "");
+  });
+  const bookEl = host.app.querySelector<HTMLInputElement>("#chat-book");
+  if (bookEl) {
+    bookEl.oninput = () => {
+      bookQuery = bookEl.value;
+      bookOpen = true;
+      const list = host.app.querySelector("[data-book-list]");
+      if (!list) return;
+      list.innerHTML = optionPickerListHtml({
+        options: filterPickerOptions(host.bookLabels ?? [], bookQuery),
+        optionAttr: "data-book-option",
+        emptyLabel: bookQuery.trim() ? "No matching title. Use this book to add it." : "No books on file yet.",
+      });
+      host.app.querySelectorAll<HTMLButtonElement>("[data-book-option]").forEach(button => {
+        button.onclick = () => applyBook(button.dataset.bookOption ?? "");
+      });
+    };
+    bookEl.onkeydown = event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      applyBook(bookEl.value);
+    };
+  }
+  const locusEl = host.app.querySelector<HTMLInputElement>("#chat-book-locus");
+  if (locusEl) {
+    locusEl.oninput = () => {
+      if (!bookContext) return;
+      bookContext = normalizeBookContext({ label: bookContext.label, locus: locusEl.value }) ?? bookContext;
+      persist();
+    };
+  }
   const scopeEl = host.app.querySelector<HTMLSelectElement>("#chat-scope");
   const depthEl = host.app.querySelector<HTMLSelectElement>("#chat-depth");
   if (scopeEl) {

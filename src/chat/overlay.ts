@@ -1,5 +1,8 @@
-import { ChatWriteDroppedError, getPage, runChat, savePage, USE_LOCAL_DATA } from "../api/client";
+import { ChatWriteDroppedError, getPage, runChat, savePage, tidyPage, USE_LOCAL_DATA } from "../api/client";
+import { newHubPageId } from "../domain/page";
 import { escapeHtml, showToast } from "../lib/dom";
+import { bindKeyboardInset } from "../lib/keyboardInset";
+import { briefIsSavable, briefToPage } from "./saveBrief";
 import { renderChatMarkdown, type NoteTitle } from "./noteLinks";
 import type { ResearchFinding } from "../research/schema";
 import { topicKeywords } from "../archive/keywordGraph";
@@ -44,6 +47,8 @@ let researchSessionId = "";
 let busy = false;
 let error = "";
 let confirmBusy = false;
+let saveBusy = false;
+let savedBrief = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let currentHost: ChatOverlayHost | null = null;
 
@@ -89,6 +94,7 @@ function resetSitting() {
   writeSessionId = "";
   researchSessionId = "";
   error = "";
+  savedBrief = false;
 }
 
 function currentPersonality() {
@@ -117,6 +123,7 @@ function applyResult(history: OverlayTurn[], result: ChatTurnResult) {
   }
   researchSessionId = "";
   writeSessionId = "";
+  savedBrief = false;
   const parsed = parseNoteEdit(result.reply);
   turns = [
     ...history,
@@ -191,6 +198,36 @@ async function confirmEdit(edit: RetagProposal) {
     showToast(caught instanceof Error ? caught.message : "Could not retag that note");
   } finally {
     confirmBusy = false;
+    persist();
+    paint();
+  }
+}
+
+async function saveBrief() {
+  const last = lastAssistant();
+  if (!last || !briefIsSavable(last.content) || saveBusy || !currentHost) return;
+  saveBusy = true;
+  paint();
+  try {
+    const page = briefToPage({
+      reply: last.content,
+      findings: last.findings ?? [],
+      now: new Date().toISOString(),
+      id: newHubPageId(),
+    });
+    const saved = await savePage(page);
+    try {
+      await tidyPage(saved.id, saved.updated_at);
+    } catch {
+      /* page exists; tags can wait */
+    }
+    savedBrief = true;
+    showToast("Saved as a new page");
+    await currentHost.onSavedPage?.(saved);
+  } catch (caught) {
+    showToast(caught instanceof Error ? caught.message : "Save failed");
+  } finally {
+    saveBusy = false;
     persist();
     paint();
   }
@@ -274,8 +311,16 @@ function overlayHtml() {
         }
       </ul>
       ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
+      ${
+        lastAssistant() && briefIsSavable(lastAssistant()!.content) && !savedBrief
+          ? `<div class="chat-overlay__save">
+              <button class="btn btn--secondary" type="button" data-save-brief ${saveBusy || busy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>
+            </div>`
+          : ""
+      }
       <form class="chat-form">
-        <input id="overlay-chat-input" value="${escapeHtml(input)}" placeholder="Ask ${escapeHtml(who.shortName)}…" ${busy || writeSessionId || researchSessionId ? "disabled" : ""} />
+        <label class="chat-form__label" for="overlay-chat-input">Message</label>
+        <textarea id="overlay-chat-input" rows="3" placeholder="Ask ${escapeHtml(who.shortName)}…" ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>${escapeHtml(input)}</textarea>
         <button class="btn btn--primary" type="submit" ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>${busy || writeSessionId || researchSessionId ? "…" : "Send"}</button>
       </form>
     </section>
@@ -340,8 +385,11 @@ function bind(root: HTMLElement) {
       currentHost?.onOpenPage?.(el.dataset.openPage!, el.textContent?.trim());
     });
   });
+  root.querySelector<HTMLButtonElement>("[data-save-brief]")?.addEventListener("click", () => {
+    void saveBrief();
+  });
   const form = root.querySelector<HTMLFormElement>(".chat-form");
-  const field = root.querySelector<HTMLInputElement>("#overlay-chat-input");
+  const field = root.querySelector<HTMLTextAreaElement>("#overlay-chat-input");
   if (field) field.oninput = () => { input = field.value; };
   form?.addEventListener("submit", event => {
     event.preventDefault();
@@ -375,6 +423,7 @@ function paint() {
 
 export function ensureChatOverlay(host: ChatOverlayHost) {
   restore();
+  bindKeyboardInset();
   currentHost = host;
   if ((researchSessionId || writeSessionId) && !pollTimer && open) {
     pollTimer = setTimeout(() => void send(), 400);
