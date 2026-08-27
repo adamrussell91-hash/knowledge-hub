@@ -4,7 +4,7 @@ import type { Page } from "../domain/page";
 import { escapeHtml, showToast } from "../lib/dom";
 import { bindKeyboardInset } from "../lib/keyboardInset";
 import { filterPickerOptions, optionPickerListHtml } from "../ui/optionPicker";
-import { bookContextLine, bookOrigin, normalizeBookContext, type BookContext } from "./bookNote";
+import { bookContextLine, bookOrigin, normalizeBookContext, resolveBookLabel, type BookContext } from "./bookNote";
 import { CHAT_HATS, DEPTHS, SCOPES, hatById, isChatHatId, resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
 import { renderChatMarkdown, type NoteTitle } from "./noteLinks";
 import { researchFromFindings, searchedNotesHtml, thinkingHistoryHtml } from "./sources";
@@ -360,8 +360,8 @@ async function saveBrief(host: ChatRailHost) {
   }
 }
 
-function setBook(label: string, locus = bookContext?.locus ?? "") {
-  bookContext = normalizeBookContext({ label, locus });
+function setBook(label: string, locus = bookContext?.locus ?? "", catalog: string[] = []) {
+  bookContext = normalizeBookContext({ label: resolveBookLabel(label, catalog), locus });
   bookQuery = "";
   bookOpen = false;
   if (bookContext && error === "Pick the book first.") error = "";
@@ -566,7 +566,7 @@ export function renderChatRail(host: ChatRailHost) {
     host.render();
   });
   const applyBook = (label: string) => {
-    setBook(label);
+    setBook(label, bookContext?.locus, host.bookLabels ?? []);
     persist();
     host.render();
   };

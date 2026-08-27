@@ -33,6 +33,21 @@ export function bookContextLine(book?: BookContext): string {
   return book.locus ? `Reading: ${book.label} (${book.locus})` : `Reading: ${book.label}`;
 }
 
+export function resolveBookLabel(raw: string, catalog: string[] = []) {
+  const typed = normalizeOriginLabel(raw);
+  if (!typed) return "";
+  const lower = typed.toLowerCase();
+  const exact = catalog.find(item => item.toLowerCase() === lower);
+  if (exact) return exact;
+  const overlap = catalog
+    .filter(item => {
+      const name = item.toLowerCase();
+      return lower.includes(name) || name.includes(lower);
+    })
+    .sort((left, right) => right.length - left.length)[0];
+  return overlap ?? typed;
+}
+
 export function bookOrigin(book?: BookContext): Origin | undefined {
   if (!book?.label) return undefined;
   return { kind: "book", label: book.label };

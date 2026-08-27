@@ -56,7 +56,11 @@ export function originComposeFieldHtml(
         ${originPillsHtml(pageOrigins({ origins }), { removable: true, editable: true, editing }) || `<p class="compose__hint">None yet.</p>`}
         <div class="origin-add">
           <select id="compose-origin-kind" aria-label="Origin kind">${options}</select>
-          <input id="compose-origin-label" aria-label="Origin label" placeholder="EDST5805, MEd, notebook name…" value="${escapeHtml(editing?.label ?? "")}" list="compose-origin-suggestions" autocomplete="off" />
+          <input id="compose-origin-label" aria-label="Origin label" placeholder="${escapeHtml(
+            currentKind === "book"
+              ? "Make It Stick, Discourses…"
+              : "EDST5805, MEd, notebook name…",
+          )}" value="${escapeHtml(editing?.label ?? "")}" list="compose-origin-suggestions" autocomplete="off" />
           <datalist id="compose-origin-suggestions">${list}</datalist>
           <button type="button" class="btn btn--ghost" data-origin-add>${editing ? "Save" : "Add"}</button>
         </div>

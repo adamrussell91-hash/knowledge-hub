@@ -6,6 +6,7 @@ import {
   bookNoteProtocol,
   bookOrigin,
   normalizeBookContext,
+  resolveBookLabel,
   scoreBookFinding,
   selectBestFindings,
 } from "./bookNote";
@@ -34,6 +35,8 @@ describe("from a book protocol helpers", () => {
       "Reading: Make It Stick (p. 142)",
     );
     expect(bookOrigin({ label: "Make It Stick" })).toEqual({ kind: "book", label: "Make It Stick" });
+    expect(resolveBookLabel("Make It StickMake", ["Make It Stick", "Atomic Habits"])).toBe("Make It Stick");
+    expect(resolveBookLabel("a new memoir", ["Make It Stick"])).toBe("a new memoir");
   });
 
   it("keeps only the strongest notes and drops thin related hits", () => {

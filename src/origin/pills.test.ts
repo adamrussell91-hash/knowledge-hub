@@ -28,9 +28,10 @@ describe("origin pills", () => {
   });
 
   it("lists known book titles on the origin field", () => {
-    const html = originComposeFieldHtml([], null, ["Make It Stick", "Atomic Habits"]);
+    const html = originComposeFieldHtml([], null, ["Make It Stick", "Atomic Habits"], "book");
     expect(html).toContain('value="Make It Stick"');
     expect(html).toContain('value="Atomic Habits"');
+    expect(html).toContain("Make It Stick, Discourses");
   });
 
   it("parses a remove value back into an origin", () => {

@@ -606,6 +606,7 @@
   padding: var(--space-5);
 }
 
+.chat .graph-modes.chat__hats,
 .chat__hats {
   flex-wrap: nowrap;
   overflow-x: auto;
@@ -1871,6 +1872,17 @@ body.is-universe-fullscreen .local-banner {
   .coach.chat .chat__sitting {
     order: -2;
     padding: var(--space-3);
+  }
+
+  .chat__book-add {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chat__book-add input,
+  .chat__book-add .btn {
+    width: 100%;
+    min-height: 44px;
   }
 
   .coach.chat .coach__thread {
