@@ -156,8 +156,7 @@ export function tuningFromSlider(control: ShowAllTuningControl, sliderValue: num
 export type GraphNotePayload = { pageId: string; title: string; excerpt: string };
 
 export type GraphClickResult =
-  | { kind: "focusMajor"; label: string }
-  | { kind: "expandMinor"; label: string }
+  | { kind: "expandHub"; label: string }
   | { kind: "selectHub"; selected: string | null }
   | { kind: "selectNote"; selected: string; note: GraphNotePayload }
   | { kind: "ignore" };
@@ -259,11 +258,7 @@ export function resolveNodeClick(
   excerptFor: (pageId: string) => string,
 ): GraphClickResult {
   if (node.kind === "major" || node.kind === "minor") {
-    if (variant === "constellation") {
-      return node.kind === "major"
-        ? { kind: "focusMajor", label: node.label }
-        : { kind: "expandMinor", label: node.label };
-    }
+    if (variant === "constellation") return { kind: "expandHub", label: node.label };
     return { kind: "selectHub", selected: selected === node.label ? null : node.label };
   }
   if (node.pageId) {
@@ -292,9 +287,27 @@ export function resolveEnterKey(
 }
 
 export function nodeHoverTip(node: GraphNodeDatum) {
-  if (node.kind === "major") return `${node.label} · ${node.count} notes · click to focus`;
-  if (node.kind === "minor") return `${node.label} · sub-theme of ${node.parentKeyword} · click to focus`;
+  if (node.kind === "major" || node.kind === "minor") {
+    const extra = node.kind === "minor" && node.parentKeyword ? ` under ${node.parentKeyword}` : "";
+    const count = `${node.count} note${node.count === 1 ? "" : "s"}`;
+    const action = node.expanded ? "click to close" : "click to see its notes";
+    return `${node.label} · ${count}${extra} · ${action}`;
+  }
   return node.label;
+}
+
+export function focusViewOnNode(
+  node: { x?: number; y?: number },
+  width: number,
+  height: number,
+  k = 0.92,
+): ViewState | null {
+  if (node.x == null || node.y == null) return null;
+  return {
+    k,
+    x: width / 2 - node.x * k,
+    y: height / 2 - node.y * k,
+  };
 }
 
 type DrawArgs = {

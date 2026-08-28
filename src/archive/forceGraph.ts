@@ -14,6 +14,8 @@ import {
   applyShowAllTuning,
   attachGraphSearch,
   canvasRadius,
+  fitViewToNodes,
+  focusViewOnNode,
   initialForceView,
   linkDrawState,
   nodeDrawState,
@@ -31,7 +33,13 @@ import {
   type GraphMount,
   type ShowAllTuning,
 } from "./forceGraphBehavior";
-import type { ArchiveGraphModel, GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
+import {
+  applyConstellationHubClick,
+  collapseConstellation,
+  type ArchiveGraphModel,
+  type GraphLinkDatum,
+  type GraphNodeDatum,
+} from "./keywordGraph";
 import { applyShowAllFade, mergeShowAllModels, SHOW_ALL_FADE_MS } from "./showAllTransition";
 import { createShowAllSimulation, lockShowAllNodes, unlockShowAllNodes } from "./showAllSimulation";
 
@@ -97,6 +105,10 @@ export function mountForceGraph(
     x: options.variant === "showAll" ? 760 : (anchor?.x ?? 760),
     y: options.variant === "showAll" ? 560 : (anchor?.y ?? 560),
   });
+  if (options.variant === "constellation") {
+    const fitted = fitViewToNodes(model.nodes, width, height, 72, 0.2);
+    if (fitted) Object.assign(view, fitted);
+  }
 
   let hover: GraphNodeDatum | null = null;
   let selected: string | null = null;
@@ -266,80 +278,31 @@ export function mountForceGraph(
     return nodeMap;
   }
 
+  function applyConstellationView(nodes: GraphNodeDatum[], expandedLabel: string | null) {
+    if (expandedLabel) {
+      const hub = nodes.find(node => node.kind !== "leaf" && node.label === expandedLabel);
+      const focused = hub ? focusViewOnNode(hub, width, height) : null;
+      if (focused) Object.assign(view, focused);
+      return;
+    }
+    const fitted = fitViewToNodes(nodes, width, height, 72, 0.2);
+    if (fitted) Object.assign(view, fitted);
+  }
+
   function collapseLeaves() {
-    const liveById = byId();
-    simNodes = liveModel.nodes.map(node => {
-      const live = liveById.get(node.id);
-      return {
-        ...node,
-        expanded: false,
-        x: live?.x ?? node.x,
-        y: live?.y ?? node.y,
-      };
-    });
-    simLinks = liveModel.links.map(link => ({ ...link }));
+    const next = collapseConstellation(liveModel, simNodes);
+    simNodes = next.nodes;
+    simLinks = next.links;
     refreshLookups();
   }
 
-  function expandMinor(label: string) {
-    const hub = simNodes.find(node => node.kind === "minor" && node.label === label);
-    if (!hub) return;
-    const wasExpanded = hub.expanded;
-    collapseLeaves();
-    const nextHub = simNodes.find(node => node.kind === "minor" && node.label === label)!;
-    if (wasExpanded) {
-      selected = null;
-      restartSimulation();
-      return;
-    }
-    nextHub.expanded = true;
-    selected = label;
-    const notes = liveModel.leaves.get(label) ?? [];
-    if (!notes.length || nextHub.x == null || nextHub.y == null) {
-      restartSimulation();
-      return;
-    }
-
-    const leaves: GraphNodeDatum[] = [];
-    const spokes: GraphLinkDatum[] = [];
-    const radius = 96 + notes.length * 3;
-    notes.forEach((note, index) => {
-      const angle = (Math.PI * 2 * index) / notes.length - Math.PI / 2;
-      const node: GraphNodeDatum = {
-        id: `leaf:${note.id}`,
-        kind: "leaf",
-        label: note.title,
-        count: 1,
-        pageId: note.id,
-        parentKeyword: label,
-        color: nextHub.color,
-        soft: nextHub.soft,
-        ink: nextHub.ink,
-        r: 6,
-        x: nextHub.x! + Math.cos(angle) * radius,
-        y: nextHub.y! + Math.sin(angle) * radius,
-      };
-      leaves.push(node);
-      spokes.push({
-        source: nextHub.id,
-        target: node.id,
-        kind: "spoke",
-        weight: 1,
-        color: nextHub.color,
-      });
-    });
-
-    simNodes = [...simNodes, ...leaves];
-    simLinks = [...simLinks, ...spokes];
+  function expandHub(label: string) {
+    const next = applyConstellationHubClick(liveModel, simNodes, label);
+    simNodes = next.nodes;
+    simLinks = next.links;
+    selected = next.expandedLabel;
     refreshLookups();
-    restartSimulation();
-  }
-
-  function focusMajor(label: string) {
-    selected = selected === label ? null : label;
-    collapseLeaves();
-    const major = simNodes.find(node => node.kind === "major" && node.label === label);
-    if (major) major.expanded = selected === label;
+    applyConstellationView(simNodes, next.expandedLabel);
     restartSimulation();
   }
 
@@ -512,12 +475,15 @@ export function mountForceGraph(
       ctx.strokeStyle = "#fff";
       ctx.stroke();
 
-      if (view.k > 0.85 && hover === node) {
-        ctx.fillStyle = node.ink;
+      const parentOpen = simNodes.some(
+        item => item.kind !== "leaf" && item.label === node.parentKeyword && item.expanded,
+      );
+      if (parentOpen || hover === node || view.k > 0.85) {
+        ctx.fillStyle = dim ? "rgba(19, 35, 58, 0.35)" : node.ink;
         ctx.font = `500 ${Math.max(10, 11 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
-        const text = node.label.length > 32 ? `${node.label.slice(0, 31)}…` : node.label;
+        const text = node.label.length > 36 ? `${node.label.slice(0, 35)}…` : node.label;
         ctx.fillText(text, node.x + drawR + 6, node.y);
       }
     }
@@ -589,7 +555,7 @@ export function mountForceGraph(
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.globalAlpha = dim ? 0.35 : 1;
-      ctx.fillText(hot ? "●" : "+", node.x, node.y + 1);
+      ctx.fillText(node.expanded ? "−" : "+", node.x, node.y + 1);
 
       if (view.k > 0.4) {
         ctx.font = `600 ${Math.max(12, 14 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
@@ -597,7 +563,14 @@ export function mountForceGraph(
         ctx.fillText(node.label, node.x, node.y + node.r + 10);
         ctx.font = `500 ${Math.max(10, 11 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
         ctx.fillStyle = dim ? "rgba(19, 35, 58, 0.28)" : "rgba(19, 35, 58, 0.62)";
-        ctx.fillText(`${node.count} notes`, node.x, node.y + node.r + 28);
+        const shown = simNodes.filter(
+          item => item.kind === "leaf" && item.parentKeyword === node.label,
+        ).length;
+        ctx.fillText(
+          node.expanded && shown < node.count ? `showing ${shown} of ${node.count}` : `${node.count} notes`,
+          node.x,
+          node.y + node.r + 28,
+        );
       }
       ctx.globalAlpha = 1;
     }
@@ -645,7 +618,13 @@ export function mountForceGraph(
       if (resolveBackgroundClick(Math.hypot(up.clientX - startX, up.clientY - startY)) === "clear") {
         selected = null;
         onNoteSelect(null);
-        scheduleDraw();
+        if (options.variant === "constellation") {
+          collapseLeaves();
+          applyConstellationView(simNodes, null);
+          restartSimulation();
+        } else {
+          scheduleDraw();
+        }
       }
     };
     window.addEventListener("pointermove", onMove);
@@ -695,14 +674,9 @@ export function mountForceGraph(
     if (event.detail >= 2 && (node.kind === "major" || node.kind === "minor")) return;
 
     const action = resolveNodeClick(options.variant, node, selected, options.excerptFor);
-    if (action.kind === "focusMajor") {
+    if (action.kind === "expandHub") {
       onNoteSelect(null);
-      focusMajor(action.label);
-      return;
-    }
-    if (action.kind === "expandMinor") {
-      onNoteSelect(null);
-      expandMinor(action.label);
+      expandHub(action.label);
       return;
     }
     if (action.kind === "selectHub") {

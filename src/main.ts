@@ -659,7 +659,7 @@ function graphMetaText() {
     constellation.majorCount === 0 && graphMode !== "showAll"
       ? "No topic keywords yet · Universe still has a sun"
       : graphMode === "constellation"
-        ? `${constellation.majorCount} topics · click a hub to open its constellation`
+        ? `${constellation.majorCount} topics · notes sit with their topic · click one to open it`
         : graphMode === "showAll"
           ? showAllMetaText()
           : `Universe v${UNIVERSE_BUILD}`;

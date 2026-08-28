@@ -8,6 +8,7 @@ import {
   applyShowAllStrandStroke,
   applyShowAllTuning,
   fitViewToNodes,
+  focusViewOnNode,
   initialForceView,
   isGraphSearching,
   linkDrawState,
@@ -57,11 +58,11 @@ const excerptFor = (pageId: string) => `${pageId} excerpt`;
 describe("force graph clicks", () => {
   it("keeps constellation hubs on the canvas and never list-filters", () => {
     expect(resolveNodeClick("constellation", major, null, excerptFor)).toEqual({
-      kind: "focusMajor",
+      kind: "expandHub",
       label: "A",
     });
     expect(resolveNodeClick("constellation", minor, null, excerptFor)).toEqual({
-      kind: "expandMinor",
+      kind: "expandHub",
       label: "a1",
     });
   });
@@ -185,11 +186,17 @@ describe("force graph search dimming", () => {
 
 describe("force graph chrome", () => {
   it("never mentions double-click for the list in hover tips", () => {
-    expect(nodeHoverTip(major)).toBe("A · 4 notes · click to focus");
-    expect(nodeHoverTip(minor)).toBe("a1 · sub-theme of A · click to focus");
+    expect(nodeHoverTip(major)).toBe("A · 4 notes · click to see its notes");
+    expect(nodeHoverTip({ ...major, expanded: true })).toBe("A · 4 notes · click to close");
+    expect(nodeHoverTip(minor)).toBe("a1 · 1 note under A · click to see its notes");
     expect(nodeHoverTip(leaf)).toBe("Note 1");
     expect(nodeHoverTip(major).toLowerCase()).not.toContain("double-click");
     expect(nodeHoverTip(minor).toLowerCase()).not.toContain("double-click");
+  });
+
+  it("frames an opened hub in the middle of the canvas", () => {
+    expect(focusViewOnNode({ x: 100, y: 50 }, 400, 300, 1)).toEqual({ k: 1, x: 100, y: 100 });
+    expect(focusViewOnNode({}, 400, 300)).toBeNull();
   });
 
   it("starts Show All at a local zoom so a bigger layout is not fitted away", () => {

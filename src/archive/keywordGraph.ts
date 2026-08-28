@@ -7,7 +7,11 @@ const SKIP = new Set(["note", "lecture", "assessment", "tutorial", "study note",
 const MAJOR_COUNT = TOPIC_VOCABULARY.length;
 const BACKBONE_MIN_WEIGHT = 3;
 const BACKBONE_MAX_EDGES = 22;
-const LEAF_SAMPLE = 14;
+/** Notes shown around every hub on first paint — the actual constellation. */
+export const CONSTELLATION_PREVIEW = 4;
+/** Notes shown after opening a hub. */
+export const CONSTELLATION_EXPAND = 16;
+const LEAF_SAMPLE = CONSTELLATION_EXPAND;
 
 function swatch(fill: string, ink: string) {
   const n = Number.parseInt(fill.slice(1), 16);
@@ -137,6 +141,103 @@ function pairKey(a: string, b: string) {
   return a < b ? `${a}||${b}` : `${b}||${a}`;
 }
 
+export function rankTopicNotes(entries: PageManifestEntry[]) {
+  return [...entries].sort((a, b) => {
+    const created = (b.created_at ?? "").localeCompare(a.created_at ?? "");
+    if (created) return created;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+export function constellationLeafId(hubId: string, pageId: string) {
+  return `leaf:${hubId}:${pageId}`;
+}
+
+export function placeHubLeaves(hub: GraphNodeDatum, notes: PageManifestEntry[]) {
+  const nodes: GraphNodeDatum[] = [];
+  const links: GraphLinkDatum[] = [];
+  if (!notes.length || hub.x == null || hub.y == null) return { nodes, links };
+  const radius = 58 + notes.length * 4;
+  notes.forEach((note, index) => {
+    const angle = (Math.PI * 2 * index) / notes.length - Math.PI / 2;
+    const node: GraphNodeDatum = {
+      id: constellationLeafId(hub.id, note.id),
+      kind: "leaf",
+      label: note.title,
+      count: 1,
+      pageId: note.id,
+      parentKeyword: hub.label,
+      color: hub.color,
+      soft: hub.soft,
+      ink: hub.ink,
+      r: 6,
+      x: hub.x! + Math.cos(angle) * radius,
+      y: hub.y! + Math.sin(angle) * radius,
+    };
+    nodes.push(node);
+    links.push({
+      source: hub.id,
+      target: node.id,
+      kind: "spoke",
+      weight: 1,
+      color: hub.color,
+    });
+  });
+  return { nodes, links };
+}
+
+function restoreConstellationBase(model: ArchiveGraphModel, liveNodes: GraphNodeDatum[]) {
+  const liveById = new Map(liveNodes.map(node => [node.id, node]));
+  return {
+    nodes: model.nodes.map(node => {
+      const live = liveById.get(node.id);
+      return {
+        ...node,
+        expanded: false,
+        x: live?.x ?? node.x,
+        y: live?.y ?? node.y,
+      };
+    }),
+    links: model.links.map(link => ({ ...link })),
+  };
+}
+
+export function collapseConstellation(model: ArchiveGraphModel, liveNodes: GraphNodeDatum[]) {
+  return restoreConstellationBase(model, liveNodes);
+}
+
+/** Open a hub's notes, or close it if it is already open. */
+export function applyConstellationHubClick(
+  model: ArchiveGraphModel,
+  liveNodes: GraphNodeDatum[],
+  label: string,
+) {
+  const wasExpanded = liveNodes.some(node => node.kind !== "leaf" && node.label === label && node.expanded);
+  const restored = restoreConstellationBase(model, liveNodes);
+  if (wasExpanded) return { ...restored, expandedLabel: null as string | null };
+
+  const hub = restored.nodes.find(node => node.kind !== "leaf" && node.label === label);
+  if (!hub) return { ...restored, expandedLabel: null as string | null };
+  hub.expanded = true;
+
+  const previewIds = new Set(
+    restored.nodes.filter(node => node.kind === "leaf" && node.parentKeyword === label).map(node => node.id),
+  );
+  const nodes = restored.nodes.filter(node => !previewIds.has(node.id));
+  const links = restored.links.filter(link => {
+    const source = typeof link.source === "string" ? link.source : link.source.id;
+    const target = typeof link.target === "string" ? link.target : link.target.id;
+    return !previewIds.has(source) && !previewIds.has(target);
+  });
+
+  const attached = placeHubLeaves(hub, model.leaves.get(label) ?? []);
+  return {
+    nodes: [...nodes, ...attached.nodes],
+    links: [...links, ...attached.links],
+    expandedLabel: label,
+  };
+}
+
 export function buildArchiveGraph(entries: PageManifestEntry[]): ArchiveGraphModel {
   const counts = new Map<string, number>();
   const pagesByKeyword = new Map<string, PageManifestEntry[]>();
@@ -189,7 +290,7 @@ export function buildArchiveGraph(entries: PageManifestEntry[]): ArchiveGraphMod
     majorIndex.set(label, index);
     const palette = colorByKeyword.get(label)!;
     const angle = (Math.PI * 2 * index) / Math.max(majors.length, 1) - Math.PI / 2;
-    const orbit = 480;
+    const orbit = Math.max(520, 240 + majors.length * 28);
     nodes.push({
       id: `major:${label}`,
       kind: "major",
@@ -275,7 +376,15 @@ export function buildArchiveGraph(entries: PageManifestEntry[]): ArchiveGraphMod
 
   const leaves = new Map<string, PageManifestEntry[]>();
   for (const [label] of ordered) {
-    leaves.set(label, (pagesByKeyword.get(label) ?? []).slice(0, LEAF_SAMPLE));
+    leaves.set(label, rankTopicNotes(pagesByKeyword.get(label) ?? []).slice(0, LEAF_SAMPLE));
+  }
+
+  for (const hub of [...nodes]) {
+    if (hub.kind !== "major" && hub.kind !== "minor") continue;
+    const preview = (leaves.get(hub.label) ?? []).slice(0, CONSTELLATION_PREVIEW);
+    const attached = placeHubLeaves(hub, preview);
+    nodes.push(...attached.nodes);
+    links.push(...attached.links);
   }
 
   return {

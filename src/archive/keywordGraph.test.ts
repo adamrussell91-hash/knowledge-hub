@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
 import {
+  CONSTELLATION_EXPAND,
+  CONSTELLATION_PREVIEW,
   KEYWORD_PALETTE,
+  applyConstellationHubClick,
   buildArchiveGraph,
   colorForTopic,
+  constellationLeafId,
   isTopicKeyword,
+  rankTopicNotes,
   topicKeywords,
 } from "./keywordGraph";
 
@@ -42,8 +47,11 @@ describe("archive graph", () => {
       expect.arrayContaining([V[0], V[1], V[11]]),
     );
     expect(graph.nodes.some(node => node.kind === "minor")).toBe(false);
-    expect(graph.nodes.every(node => node.kind !== "leaf")).toBe(true);
+    const previewLeaves = graph.nodes.filter(node => node.kind === "leaf");
+    expect(previewLeaves.length).toBe(12 * CONSTELLATION_PREVIEW);
+    expect(previewLeaves.every(node => node.pageId && node.parentKeyword)).toBe(true);
     expect(graph.links.some(link => link.kind === "backbone")).toBe(true);
+    expect(graph.links.some(link => link.kind === "spoke")).toBe(true);
     expect(graph.links.every(link => link.kind !== "orbit")).toBe(true);
     expect(graph.leaves.get(V[0])?.length).toBeGreaterThan(0);
     expect(graph.nodes.every(node => !/^(EDST|HNO|EDUC|EDED|EDGL)\d/i.test(node.label))).toBe(true);
@@ -51,6 +59,42 @@ describe("archive graph", () => {
     const pedagogy = graph.nodes.find(node => node.label === V[2])!;
     expect(pedagogy.color).toBe(colorForTopic(V[2]).fill);
     expect(colorForTopic(V[2]).fill).toBe(KEYWORD_PALETTE[2].fill);
+  });
+});
+
+describe("constellation notes", () => {
+  function pagesFor(label: string, count: number) {
+    return Array.from({ length: count }, (_, index) => ({
+      id: `p${index}`,
+      title: `Note ${String(index).padStart(2, "0")}`,
+      area: "notes" as const,
+      tags: [label, "Note"],
+      excerpt: "",
+      created_at: `2026-01-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`,
+    }));
+  }
+
+  it("ranks newest notes first so the constellation sample is recent work", () => {
+    const ranked = rankTopicNotes(pagesFor(V[0]!, 3).reverse());
+    expect(ranked.map(page => page.id)).toEqual(["p2", "p1", "p0"]);
+  });
+
+  it("opens a topic hub to its full sample and closes it back to the preview ring", () => {
+    const graph = buildArchiveGraph(pagesFor(V[0]!, 20));
+    const hub = graph.nodes.find(node => node.kind === "major" && node.label === V[0])!;
+    expect(graph.nodes.filter(node => node.kind === "leaf")).toHaveLength(CONSTELLATION_PREVIEW);
+    expect(graph.leaves.get(V[0])!).toHaveLength(CONSTELLATION_EXPAND);
+
+    const opened = applyConstellationHubClick(graph, graph.nodes, V[0]!);
+    expect(opened.expandedLabel).toBe(V[0]);
+    expect(opened.nodes.filter(node => node.kind === "leaf")).toHaveLength(CONSTELLATION_EXPAND);
+    expect(opened.nodes.some(node => node.id === constellationLeafId(hub.id, "p19"))).toBe(true);
+    expect(opened.nodes.find(node => node.id === hub.id)?.expanded).toBe(true);
+
+    const closed = applyConstellationHubClick(graph, opened.nodes, V[0]!);
+    expect(closed.expandedLabel).toBeNull();
+    expect(closed.nodes.filter(node => node.kind === "leaf")).toHaveLength(CONSTELLATION_PREVIEW);
+    expect(closed.nodes.find(node => node.id === hub.id)?.expanded).toBe(false);
   });
 });
 
