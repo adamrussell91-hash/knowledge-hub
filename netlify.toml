@@ -12,10 +12,6 @@
 [functions.clementine-chat]
   timeout = 26
 
-# Background: Anthropic web_search for From a book. Must not share the 26s sync cap.
-[functions.clementine-book-write]
-  timeout = 900
-
 [build.environment]
   # Public CORS origin and R2 bucket name — not secrets. Netlify's scanner
   # fails Git deploys when these values appear in .env.example / wrangler config.
