@@ -38,14 +38,16 @@ describe("Clementine chat has a long enough function window", () => {
     expect(config).toMatch(/\[functions\.clementine-chat\][\s\S]*timeout = 26/);
   });
 
-  it("runs From a book web search on a background function outside the 26s sync cap", async () => {
+  it("hands From a book web search to the Worker write DO outside the 26s Netlify cap", async () => {
     const config = await readFile(path.join(process.cwd(), "netlify.toml"), "utf8");
-    expect(config).toMatch(/\[functions\.clementine-book-write\][\s\S]*timeout = 900/);
+    expect(config).not.toMatch(/clementine-book-write/);
     const handlers = await readdir(path.join(process.cwd(), "netlify/handlers"));
-    expect(handlers).toContain("clementine-book-write.ts");
+    expect(handlers).not.toContain("clementine-book-write.ts");
     const source = await readFile(path.join(process.cwd(), "netlify/functions/clementine-chat.ts"), "utf8");
-    expect(source).toContain("clementine-book-write");
-    expect(source).toMatch(/Never run Anthropic web_search inside this 26s function/);
+    expect(source).toContain("/chat/write/start");
+    expect(source).toMatch(/never via R2 session storage/i);
+    expect(source).not.toContain("chatWriteStore");
+    expect(source).not.toContain("clementine-book-write");
   });
 });
 

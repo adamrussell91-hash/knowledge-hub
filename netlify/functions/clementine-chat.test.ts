@@ -6,15 +6,6 @@ import { signSession } from "./_lib/session";
 const secret = "session-secret";
 const kernelSecret = "kernel-secret-value";
 
-const putChatWrite = vi.fn();
-const getChatWrite = vi.fn();
-
-vi.mock("./_lib/chatWriteStore", () => ({
-  isBookWriteSessionId: (id: string) => id.startsWith("book_"),
-  putChatWrite: (...args: unknown[]) => putChatWrite(...args),
-  getChatWrite: (...args: unknown[]) => getChatWrite(...args),
-}));
-
 function event(overrides: { cookie?: boolean; body?: string; method?: string; isBase64Encoded?: boolean } = {}) {
   const token = signSession({ sub: "adam" }, secret);
   return {
@@ -37,8 +28,6 @@ describe("clementine-chat handler", () => {
     process.env.RESEARCH_KERNEL_SHARED_SECRET = kernelSecret;
     process.env.RESEARCH_KERNEL_URL = "https://kernel.test";
     process.env.URL = "https://knowledge-api.adam-russell.com";
-    putChatWrite.mockReset();
-    getChatWrite.mockReset();
   });
 
   afterEach(() => {
@@ -73,14 +62,12 @@ describe("clementine-chat handler", () => {
     expect(JSON.parse(response.body ?? "{}").error).toMatch(/fromBook/);
   });
 
-  it("accepts a base64-encoded fromBook body", async () => {
-    putChatWrite.mockImplementation(async (state: { writeSessionId: string }) => ({
-      ...state,
-      status: "writing",
-    }));
-    const fetchImpl = vi.fn(async (url: string) => {
-      if (String(url).includes("clementine-book-write")) {
-        return { ok: false, status: 202, json: async () => ({}) };
+  it("accepts a base64-encoded fromBook body and starts a Worker write", async () => {
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("/chat/write/start") && init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        expect(body.webSearch).toBe(true);
+        return { ok: true, json: async () => ({ writeSessionId: "w-b64", status: "writing" }) };
       }
       throw new Error(`unexpected ${url}`);
     });
@@ -97,8 +84,9 @@ describe("clementine-chat handler", () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body ?? "{}");
     expect(body.status).toBe("writing");
-    expect(body.writeSessionId).toMatch(/^book_/);
+    expect(body.writeSessionId).toBe("w-b64");
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("clementine-book-write"))).toBe(false);
   });
 
   it("starts a Worker write after a quick archive pull without calling Anthropic on Netlify", async () => {
@@ -275,21 +263,17 @@ describe("clementine-chat handler", () => {
     expect(response.body).not.toContain(kernelSecret);
   });
 
-  it("kicks a background book-write instead of Anthropic inside the 26s function", async () => {
-    putChatWrite.mockImplementation(async (state: { writeSessionId: string }) => ({
-      ...state,
-      status: "writing",
-    }));
+  it("hands From a book web search to the Worker write DO (no R2, no 26s Anthropic)", async () => {
     const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
-      if (String(url).includes("clementine-book-write")) {
-        const body = JSON.parse(String(init?.body));
-        expect(body.writeSessionId).toMatch(/^book_/);
+      if (String(url).includes("/chat/write/start") && init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        expect(body.webSearch).toBe(true);
         expect(body.system).toContain("From a book protocol");
         expect(body.system).toContain("Reading: Make It Stick (p. 142)");
         expect(body.system).toMatch(/open web/i);
         expect(body.maxTokens).toBeGreaterThan(2000);
         expect(init?.headers).toMatchObject({ "x-research-kernel-secret": kernelSecret });
-        return { ok: false, status: 202, json: async () => ({}) };
+        return { ok: true, json: async () => ({ writeSessionId: "w-book-1", status: "writing" }) };
       }
       throw new Error(`unexpected ${url}`);
     });
@@ -305,23 +289,29 @@ describe("clementine-chat handler", () => {
       {} as never,
     );
     expect(response.statusCode).toBe(200);
-    const payload = JSON.parse(response.body ?? "{}");
-    expect(payload).toMatchObject({ status: "writing" });
-    expect(payload.writeSessionId).toMatch(/^book_/);
-    expect(putChatWrite).toHaveBeenCalledOnce();
+    expect(JSON.parse(response.body ?? "{}")).toMatchObject({
+      status: "writing",
+      writeSessionId: "w-book-1",
+    });
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/deep_research"))).toBe(false);
-    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/chat/write/start"))).toBe(false);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("clementine-book-write"))).toBe(false);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("r2"))).toBe(false);
   });
 
-  it("polls book write state from R2, not the Worker", async () => {
-    getChatWrite.mockResolvedValue({
-      writeSessionId: "book_abc",
-      status: "done",
-      reply: "## Weak absolutism\n\nA web note.",
-    });
-    const fetchImpl = vi.fn(async () => {
-      throw new Error("unexpected fetch");
+  it("polls From a book write state from the Worker, not R2", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes("/chat/write/w-book-done")) {
+        return {
+          ok: true,
+          json: async () => ({
+            writeSessionId: "w-book-done",
+            status: "done",
+            reply: "## Weak absolutism\n\nA web note.",
+          }),
+        };
+      }
+      throw new Error(`unexpected ${url}`);
     });
     vi.stubGlobal("fetch", fetchImpl);
     const response = await handler(
@@ -330,7 +320,7 @@ describe("clementine-chat handler", () => {
           hat: "fromBook",
           bookContext: { label: "The Origins of Political Order" },
           messages: [{ role: "user", content: "Weak absolutism and collective action failures" }],
-          writeSessionId: "book_abc",
+          writeSessionId: "w-book-done",
         }),
       }) as never,
       {} as never,
@@ -340,7 +330,6 @@ describe("clementine-chat handler", () => {
       status: "done",
       reply: "## Weak absolutism\n\nA web note.",
     });
-    expect(getChatWrite).toHaveBeenCalledWith("book_abc");
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(fetchImpl).toHaveBeenCalledOnce();
   });
 });
