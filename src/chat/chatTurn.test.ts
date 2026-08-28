@@ -431,6 +431,29 @@ describe("runChatTurn", () => {
     expect(result.research?.findings).toHaveLength(3);
   });
 
+  it("surfaces the Worker Anthropic error instead of a fake done reply", async () => {
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "fromBook",
+      messages: [{ role: "user", content: "serfdom" }],
+      bookContext: { label: "The Origins of Political Order" },
+      writeSessionId: "w-fail",
+      write: {
+        start: async () => ({ writeSessionId: "w-fail", status: "writing" }),
+        poll: async () => ({
+          writeSessionId: "w-fail",
+          status: "error",
+          error: "Anthropic error 400: web search is not enabled",
+        }),
+      },
+    });
+    expect(result).toEqual({
+      status: "external-unavailable",
+      reason: "Anthropic error 400: web search is not enabled",
+    });
+  });
+
   it("writes from the sitting library on a follow-up without a new archive pull", async () => {
     const fetchImpl = vi.fn();
     const archivePull = vi.fn();

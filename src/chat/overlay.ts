@@ -160,7 +160,11 @@ function applyResult(history: OverlayTurn[], result: ChatTurnResult) {
     return;
   }
   if (result.status === "compose" || result.status === "external-unavailable") {
-    if (result.status === "external-unavailable") error = result.reason;
+    if (result.status === "external-unavailable") {
+      error = result.reason;
+      writeSessionId = "";
+      fileAfterDone = false;
+    }
     researchSessionId = "";
     return;
   }

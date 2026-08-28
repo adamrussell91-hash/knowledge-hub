@@ -402,13 +402,8 @@ async function pollWrite(input: ChatTurnInput): Promise<ChatTurnResult> {
     };
   }
   if (state.status === "error" || !state.reply) {
-    return {
-      status: "done",
-      reply: "The Worker write failed. The archive notes from this sitting are still attached.",
-      research: state.research,
-      archiveFailed: state.archiveFailed,
-      coverage: state.research ? coverageFromResearch(state.research) : undefined,
-    };
+    const detail = state.error?.trim() || "The Worker write failed.";
+    return { status: "external-unavailable", reason: detail };
   }
   const coverage = state.research ? coverageFromResearch(state.research) : undefined;
   return {
