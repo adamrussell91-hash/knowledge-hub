@@ -73,13 +73,18 @@ describe("buildShowAllGraph", () => {
 
   it("sizes notes by degree so hubs read larger than leaves", () => {
     expect(showAllNoteRadius(16)).toBeGreaterThan(showAllNoteRadius(1));
-    const model = buildShowAllGraph([
-      page("a", "Shared regulation note", [V[0], V[1]], { excerpt: "regulation motivation" }),
-      page("b", "Regulation one", [V[0]], { excerpt: "regulation" }),
-      page("c", "Regulation two", [V[0]], { excerpt: "regulation" }),
-      page("d", "Motivation one", [V[1]], { excerpt: "motivation" }),
-      page("e", "Motivation two", [V[1]], { excerpt: "motivation" }),
-    ]);
+    const pages = [
+      page("hub", "Shared regulation motivation note", [V[0], V[1], V[2]], {
+        excerpt: "regulation motivation pedagogy hub",
+      }),
+      ...Array.from({ length: 12 }, (_, index) =>
+        page(`r${index}`, `Regulation ${index}`, [V[0]], { excerpt: "regulation hub" }),
+      ),
+      ...Array.from({ length: 12 }, (_, index) =>
+        page(`m${index}`, `Motivation ${index}`, [V[1]], { excerpt: "motivation hub" }),
+      ),
+    ];
+    const model = buildShowAllGraph(pages);
     const radii = model.nodes.map(node => node.r);
     expect(Math.max(...radii)).toBeGreaterThan(Math.min(...radii));
   });

@@ -23,15 +23,13 @@ describe("graphMetrics", () => {
   it("reports an empty edge set as many orphans and components", () => {
     const nodes = [node("a"), node("b"), node("c")];
     const metrics = graphMetrics(nodes, []);
-    expect(metrics).toMatchObject({
-      nodeCount: 3,
-      edgeCount: 0,
-      meanDegree: 0,
-      medianDegree: 0,
-      orphans: 3,
-      components: 3,
-      largestComponentPct: 100 / 3,
-    });
+    expect(metrics.nodeCount).toBe(3);
+    expect(metrics.edgeCount).toBe(0);
+    expect(metrics.meanDegree).toBe(0);
+    expect(metrics.medianDegree).toBe(0);
+    expect(metrics.orphans).toBe(3);
+    expect(metrics.components).toBe(3);
+    expect(metrics.largestComponentPct).toBeCloseTo(100 / 3);
   });
 
   it("reports a connected triangle as one component with no orphans", () => {

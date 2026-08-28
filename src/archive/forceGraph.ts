@@ -173,6 +173,8 @@ export function mountForceGraph(
           if (!fading && shouldLockShowAll(settleTicks)) {
             lockShowAllNodes(simNodes);
             sim.stop();
+            const fitted = fitViewToNodes(simNodes, width, height, 56, 0.08);
+            if (fitted) Object.assign(view, fitted);
           }
           scheduleDraw();
         });
@@ -453,7 +455,7 @@ export function mountForceGraph(
           sums.set(key, cur);
         }
         for (const sum of sums.values()) {
-          if (sum.n < 8 || !sum.label) continue;
+          if (sum.n < 24 || !sum.label) continue;
           ctx.fillStyle = sum.ink;
           ctx.globalAlpha = 0.55;
           ctx.textAlign = "center";

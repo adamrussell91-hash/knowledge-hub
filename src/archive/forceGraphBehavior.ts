@@ -12,9 +12,9 @@ export type ShowAllTuning = {
 };
 
 export const SHOW_ALL_TUNING_DEFAULTS: ShowAllTuning = {
-  leafCharge: -140,
-  overlapLinkStrength: 0.35,
-  overlapLinkAlpha: 0.2,
+  leafCharge: -180,
+  overlapLinkStrength: 0.28,
+  overlapLinkAlpha: 0.14,
   lineWidthScale: 1,
 };
 
@@ -74,7 +74,7 @@ export const SHOW_ALL_TUNING_CONTROLS: readonly ShowAllTuningControl[] = [
 ];
 
 export const SHOW_ALL_SPOKE_ALPHA = 0.28;
-export const SHOW_ALL_SETTLE_TICKS = 180;
+export const SHOW_ALL_SETTLE_TICKS = 240;
 export const SHOW_ALL_RETUNE_MS = 90;
 /** CSS-pixel width. Thick enough that diagonals do not hairline into dots. */
 export const SHOW_ALL_STRAND_WIDTH = 2;
@@ -203,7 +203,7 @@ export function showAllLinkDistance(linkOrKind: GraphLinkKind | GraphLinkDatum) 
   if (kind === "spoke") return 220;
   if (kind === "overlap" || kind === "backbone") {
     const weight = typeof linkOrKind === "string" ? 1 : linkOrKind.weight;
-    return 42 + 48 / (1 + Math.max(weight, 0.05));
+    return 58 + 70 / (1 + Math.max(weight, 0.05));
   }
   if (kind === "orbit") return 200;
   return 700;
@@ -231,7 +231,7 @@ export function showAllCollisionRadius(node: GraphNodeDatum) {
 export function showAllTargetStrength(node: GraphNodeDatum) {
   if (node.kind === "major") return 0.018;
   if (node.kind === "minor") return 0.02;
-  return 0.012;
+  return 0.006;
 }
 
 export function shouldLockShowAll(tickCount: number) {
@@ -252,10 +252,10 @@ export function showAllLinkShouldDraw(
 
 export function showAllLabelVisible(node: GraphNodeDatum, viewK: number, hover = false) {
   if (node.kind === "major") return true;
-  if (hover) return viewK > 0.4;
-  if (node.important) return viewK >= 0.12;
-  if ((node.degree ?? 0) >= 8) return viewK >= 0.45;
-  return viewK >= 0.9;
+  if (hover) return viewK > 0.35;
+  if (node.important && (node.degree ?? 0) >= 16) return viewK >= 0.28;
+  if ((node.degree ?? 0) >= 14) return viewK >= 0.62;
+  return viewK >= 1.1;
 }
 
 export function isGraphSearching(query: string) {

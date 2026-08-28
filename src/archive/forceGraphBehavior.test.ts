@@ -233,9 +233,10 @@ describe("force graph chrome", () => {
   });
 
   it("labels only important notes at the default Show All zoom", () => {
-    expect(showAllLabelVisible({ ...leaf, important: true }, 0.16)).toBe(true);
+    expect(showAllLabelVisible({ ...leaf, important: true, degree: 20 }, 0.3)).toBe(true);
+    expect(showAllLabelVisible({ ...leaf, important: true, degree: 20 }, 0.16)).toBe(false);
     expect(showAllLabelVisible({ ...leaf, important: false, degree: 2 }, 0.16)).toBe(false);
-    expect(showAllLabelVisible({ ...leaf, important: false, degree: 2 }, 0.95)).toBe(true);
+    expect(showAllLabelVisible({ ...leaf, important: false, degree: 2 }, 1.2)).toBe(true);
   });
 
   it("keeps the same world centre when the stage grows for full screen", () => {
@@ -260,7 +261,7 @@ describe("show all draw budget", () => {
   it("lets tag-sharing overlaps pull harder and closer than hub spokes", () => {
     expect(showAllLinkStrength("overlap")).toBeGreaterThan(showAllLinkStrength("spoke"));
     expect(showAllLinkDistance("overlap")).toBeLessThan(showAllLinkDistance("spoke"));
-    expect(showAllLinkStrength("overlap")).toBeGreaterThanOrEqual(0.3);
+    expect(showAllLinkStrength("overlap")).toBeGreaterThanOrEqual(0.25);
   });
 
   it("lets busier hubs hold wider note clouds", () => {
@@ -361,7 +362,7 @@ describe("show all tuning sliders", () => {
 
   it("maps repulsion through a positive slider without leaving the safe range", () => {
     const repulsion = SHOW_ALL_TUNING_CONTROLS[0]!;
-    expect(sliderValueForTuning(repulsion)).toBe(140);
+    expect(sliderValueForTuning(repulsion)).toBe(180);
     expect(tuningFromSlider(repulsion, 300)).toBe(-300);
     applyShowAllTuning({ leafCharge: -999, overlapLinkAlpha: 4, lineWidthScale: 0 });
     expect(showAllTuning.leafCharge).toBe(-400);

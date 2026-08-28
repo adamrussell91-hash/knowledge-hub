@@ -145,7 +145,7 @@ export function nameCommunities(titles: string[], community: number[], count: nu
   return names;
 }
 
-export function importantByCommunity(degree: number[], community: number[], count: number, perCommunity = 4) {
+export function importantByCommunity(degree: number[], community: number[], count: number, perCommunity = 2) {
   const important = new Array<boolean>(degree.length).fill(false);
   for (let comm = 0; comm < count; comm++) {
     const members = degree
