@@ -237,6 +237,8 @@ function applyResult(history: ChatTurn[], result: ChatTurnResult) {
   if (result.status === "external-unavailable") {
     error = result.reason;
     researchSessionId = "";
+    writeSessionId = "";
+    fileAfterDone = false;
     return;
   }
   researchSessionId = "";
