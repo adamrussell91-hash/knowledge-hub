@@ -28,10 +28,10 @@ export const CHAT_HATS: ChatHat[] = [
   {
     id: "fromBook",
     label: "From a book",
-    explain: "Research a passage from a book and file a referenced page that turns back to the book.",
+    explain: "Look up a passage from a book on the open web and file a referenced page that turns back to the book.",
     defaultScope: "standard",
-    defaultDepth: "iterative",
-    plan: "Pick the book. Capture the idea, term, or question from the page. Deep-retrieve the archive, keep only the strongest notes, and write a referenced information page that says how this bears on the book.",
+    defaultDepth: "single",
+    plan: "Pick the book. Capture the idea, term, or question from the page. Search the open web — not the archive — and write a referenced information page that says how this bears on the book.",
   },
   {
     id: "scoping",

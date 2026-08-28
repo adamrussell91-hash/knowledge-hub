@@ -9,6 +9,7 @@ export type ChatWriteStartInput = {
   maxTokens?: number;
   research?: ResearchResult;
   archiveFailed?: boolean;
+  webSearch?: boolean;
 };
 
 export type ChatWriteState = {
@@ -63,6 +64,7 @@ async function readStart(request: Request): Promise<ChatWriteStartInput | null> 
       maxTokens?: unknown;
       research?: ResearchResult;
       archiveFailed?: unknown;
+      webSearch?: unknown;
     };
     const system = typeof payload.system === "string" ? payload.system : "";
     const messages = readMessages(payload.messages);
@@ -73,6 +75,7 @@ async function readStart(request: Request): Promise<ChatWriteStartInput | null> 
       maxTokens: typeof payload.maxTokens === "number" && payload.maxTokens > 0 ? payload.maxTokens : undefined,
       research: payload.research,
       archiveFailed: payload.archiveFailed === true,
+      webSearch: payload.webSearch === true,
     };
   } catch {
     return null;

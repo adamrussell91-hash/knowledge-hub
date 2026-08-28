@@ -63,12 +63,13 @@ describe("chat hats", () => {
     expect(hatById("synthesis").explain).toMatch(/audit trail/);
     expect(resolveChatPlan("fromBook")).toMatchObject({
       scope: "standard",
-      depth: "iterative",
-      kernel: "deep",
+      depth: "single",
+      kernel: "quick",
       k: 16,
-      maxRounds: 5,
+      maxRounds: 1,
     });
     expect(hatById("fromBook").plan).toMatch(/bears on the book/i);
-    expect(hatById("fromBook").plan).toMatch(/strongest notes/i);
+    expect(hatById("fromBook").plan).toMatch(/open web/i);
+    expect(hatById("fromBook").plan).toMatch(/not the archive/i);
   });
 });

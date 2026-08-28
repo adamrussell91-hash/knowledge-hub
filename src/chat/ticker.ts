@@ -10,6 +10,7 @@ export type ChatTickInput = {
   noteCount?: number;
   followUps?: number;
   waitLine?: string;
+  webResearch?: boolean;
 };
 
 export const CLEMENTINE_WAIT_LINES = [
@@ -27,18 +28,31 @@ export const CLEMENTINE_WAIT_LINES = [
   "Arranging the evidence properly…",
 ];
 
+export const BOOK_NOTE_WAIT_LINES = [
+  "Looking it up on the open web…",
+  "Chasing the named source…",
+  "Reading past the blog fog…",
+  "Checking how the term is used…",
+  "Pulling the definition into focus…",
+  "Turning the page back to the book…",
+];
+
 export function pickClementineWaitLine(
-  { exclude, random = Math.random }: { exclude?: string; random?: () => number } = {},
+  {
+    exclude,
+    pool = CLEMENTINE_WAIT_LINES,
+    random = Math.random,
+  }: { exclude?: string; pool?: readonly string[]; random?: () => number } = {},
 ): string {
-  const pool = exclude ? CLEMENTINE_WAIT_LINES.filter(line => line !== exclude) : CLEMENTINE_WAIT_LINES;
-  const choices = pool.length ? pool : CLEMENTINE_WAIT_LINES;
+  const filtered = exclude ? pool.filter(line => line !== exclude) : [...pool];
+  const choices = filtered.length ? filtered : [...pool];
   const index = Math.min(choices.length - 1, Math.max(0, Math.floor(random() * choices.length)));
   return choices[index]!;
 }
 
 export function chatTick(input: ChatTickInput): string {
   const sitting = `${input.hatLabel} · ${input.scope} · ${input.depth}`;
-  const wait = input.waitLine ?? CLEMENTINE_WAIT_LINES[0]!;
+  const wait = input.waitLine ?? (input.webResearch ? BOOK_NOTE_WAIT_LINES[0]! : CLEMENTINE_WAIT_LINES[0]!);
   if (input.phase === "searching") return `${wait} — ${sitting}`;
   if (input.phase === "library") {
     const notes = input.noteCount ?? 0;
@@ -46,8 +60,13 @@ export function chatTick(input: ChatTickInput): string {
       ? `${wait} — ${notes} searched note${notes === 1 ? "" : "s"} from this sitting`
       : `${wait} — using the sitting library`;
   }
-  if (input.phase === "failed") return `${wait} — archive pull failed; using what she has`;
+  if (input.phase === "failed") {
+    return input.webResearch
+      ? `${wait} — web search failed; drafting with what she has`
+      : `${wait} — archive pull failed; using what she has`;
+  }
   if (input.phase === "writing") {
+    if (input.webResearch) return `${wait} — drafting the note from the open web`;
     const notes = input.noteCount ?? 0;
     return notes
       ? `${wait} — ${notes} archive note${notes === 1 ? "" : "s"} in play`

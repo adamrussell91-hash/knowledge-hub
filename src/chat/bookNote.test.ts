@@ -96,7 +96,8 @@ describe("from a book protocol helpers", () => {
     expect(protocol).toBe(onDisk);
     expect(protocol).toMatch(/From a book protocol/);
     expect(protocol).toMatch(/How this bears on the book/);
-    expect(protocol).toMatch(/only the best/i);
+    expect(protocol).toMatch(/Search the open web/i);
+    expect(protocol).toMatch(/Do not dig the archive/i);
     expect(protocol).not.toMatch(/Theme evidence matrix/);
     expect(protocol).toMatch(/Do not run Reverse Outline/);
   });

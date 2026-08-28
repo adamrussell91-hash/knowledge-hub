@@ -9,6 +9,7 @@ type WriteRecord = ChatWriteState & {
   system: string;
   messages: ChatMessage[];
   maxTokens?: number;
+  webSearch?: boolean;
 };
 
 export interface ChatWriteEnv {
@@ -39,6 +40,7 @@ export class ChatWrite {
         maxTokens?: number;
         research?: ResearchResult;
         archiveFailed?: boolean;
+        webSearch?: boolean;
       };
       const state: WriteRecord = {
         writeSessionId: body.writeSessionId,
@@ -48,6 +50,7 @@ export class ChatWrite {
         maxTokens: body.maxTokens,
         research: body.research,
         archiveFailed: body.archiveFailed,
+        webSearch: body.webSearch === true,
       };
       await this.save(state);
       await this.ctx.storage.setAlarm(Date.now() + ALARM_DELAY_MS);
@@ -84,6 +87,7 @@ export class ChatWrite {
         messages: state.messages,
         apiKey: this.env.ANTHROPIC_API_KEY,
         maxTokens: state.maxTokens,
+        webSearch: state.webSearch,
       });
       await this.save({ ...state, status: "done", reply });
     } catch (error) {

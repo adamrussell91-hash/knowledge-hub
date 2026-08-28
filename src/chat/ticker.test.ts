@@ -63,6 +63,28 @@ describe("chatTick", () => {
       }),
     ).toBe("Checking the archive shelves… — 3 archive notes in play");
   });
+
+  it("reports web drafting for From a book without archive theatre", () => {
+    expect(
+      chatTick({
+        phase: "searching",
+        hatLabel: "From a book",
+        scope: "standard",
+        depth: "single",
+        webResearch: true,
+      }),
+    ).toBe("Looking it up on the open web… — From a book · standard · single");
+    expect(
+      chatTick({
+        phase: "writing",
+        hatLabel: "From a book",
+        scope: "standard",
+        depth: "single",
+        webResearch: true,
+        waitLine: "Turning the page back to the book…",
+      }),
+    ).toBe("Turning the page back to the book… — drafting the note from the open web");
+  });
 });
 
 describe("appendTick", () => {

@@ -29,6 +29,7 @@ export type ChatWriteClock = {
     maxTokens?: number;
     research?: ResearchResult;
     archiveFailed?: boolean;
+    webSearch?: boolean;
   }) => Promise<ChatWriteState>;
   poll: (writeSessionId: string) => Promise<ChatWriteState | null>;
 };
@@ -62,6 +63,9 @@ export type ChatTurnInput = {
 
 export const ANSWER_FROM_ARCHIVE =
   "Answer the question from the archive. Do not refuse it as the wrong office, a curriculum question, or not academic writing.";
+
+export const RESEARCH_THE_OPEN_WEB =
+  "Search the open web for this topic. Do not dig the archive for answers Adam does not already have. Cite web sources as markdown links [Title](url). Never invent a URL.";
 
 export const CITE_NOTES_AS_LINKS =
   "Cite archive notes as markdown links [Note title](pageId). Never write a raw page_notion_ or page_hub_ id in the reader-facing answer.";
@@ -281,6 +285,7 @@ function researchForWrite(input: ChatTurnInput, archive: ArchivePack): ArchivePa
 }
 
 function writeArchiveNote(input: ChatTurnInput, archive: ArchivePack): string {
+  if (isBookNote(input) && !archive.research?.findings.length) return archive.note;
   if (archive.archiveFailed && !archive.research?.findings.length) return archive.note;
   if (!archive.research) return archive.note;
   const rich = isSynthesis(input) || isBookNote(input);
@@ -304,12 +309,15 @@ function assembledSystem(input: ChatTurnInput, archive: ArchivePack) {
       : "";
   const steer =
     input.personality && input.protocolId ? `\n${protocolSteerBlock(input.personality, input.protocolId)}` : "";
+  const grounding = isBookNote(input)
+    ? RESEARCH_THE_OPEN_WEB
+    : `${ANSWER_FROM_ARCHIVE}\n${CITE_NOTES_AS_LINKS}\n${NOTE_EDIT_PROTOCOL}`;
   return {
     coverage,
     system: assembleClementinePrompt({
       voice: input.voice,
       job: input.universityJob,
-      surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}${protocol}${steer}\n${ANSWER_FROM_ARCHIVE}\n${CITE_NOTES_AS_LINKS}\n${NOTE_EDIT_PROTOCOL}\n${writeArchiveNote(input, archive)}`,
+      surface: `This turn is the Knowledge Hub Chat sitting. Hat: ${plan.hat.label}. Scope: ${plan.scope}. Depth: ${plan.depth}.\n${plan.hat.plan}${protocol}${steer}\n${grounding}\n${writeArchiveNote(input, archive)}`,
       payload: [
         bookContextLine(input.bookContext),
         input.workingThesis?.trim() ? `Working thesis:\n${input.workingThesis.trim()}` : "",
@@ -337,6 +345,7 @@ export function writeMaxTokens(input: Pick<ChatTurnInput, "hat" | "scope" | "dep
 async function startWrite(input: ChatTurnInput, archive: ArchivePack): Promise<ChatTurnResult> {
   const prepared = researchForWrite(input, archive);
   const { system, coverage } = assembledSystem(input, prepared);
+  const webSearch = isBookNote(input);
   if (input.write) {
     const started = await input.write.start({
       system,
@@ -344,7 +353,17 @@ async function startWrite(input: ChatTurnInput, archive: ArchivePack): Promise<C
       maxTokens: writeMaxTokens(input),
       research: prepared.research,
       archiveFailed: prepared.archiveFailed,
+      webSearch: webSearch || undefined,
     });
+    if (started.status === "done" && started.reply) {
+      return {
+        status: "done",
+        reply: started.reply,
+        research: prepared.research ?? started.research,
+        archiveFailed: prepared.archiveFailed ?? started.archiveFailed,
+        coverage,
+      };
+    }
     return {
       status: "writing",
       writeSessionId: started.writeSessionId,
@@ -421,6 +440,9 @@ export async function runChatTurn(input: ChatTurnInput): Promise<ChatTurnResult>
   }
   if (input.writeSessionId) {
     return pollWrite(input);
+  }
+  if (isBookNote(input) && !input.compose) {
+    return startWrite(input, { note: "" });
   }
   if (input.compose) {
     if (input.priorResearch?.findings.length) {
