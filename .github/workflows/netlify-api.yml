@@ -1,0 +1,40 @@
+name: Deploy Netlify API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "netlify/**"
+      - "src/chat/**"
+      - "src/clementine/**"
+      - "src/research/**"
+      - "prompts/clementine-*.md"
+      - "netlify.toml"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/netlify-api.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: netlify-api
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.NETLIFY_AUTH_TOKEN != '' && secrets.NETLIFY_SITE_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy API functions to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: npx netlify deploy --prod --dir=netlify/public --functions=netlify/handlers --message "main ${GITHUB_SHA}"
