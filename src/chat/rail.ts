@@ -8,7 +8,7 @@ import { bookContextLine, bookOrigin, normalizeBookContext, resolveBookLabel, ty
 import { CHAT_HATS, DEPTHS, SCOPES, hatById, isChatHatId, resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
 import { renderChatMarkdown, type NoteTitle } from "./noteLinks";
 import { researchFromFindings, searchedNotesHtml, thinkingHistoryHtml } from "./sources";
-import { CLEMENTINE_WAIT_LINES, appendTick, chatTick, pickClementineWaitLine } from "./ticker";
+import { BOOK_NOTE_WAIT_LINES, CLEMENTINE_WAIT_LINES, appendTick, chatTick, pickClementineWaitLine } from "./ticker";
 import { briefIsSavable, briefToPage, type SavableFinding } from "./saveBrief";
 import type { ChatTurnResult } from "./chatTurn";
 
@@ -138,7 +138,7 @@ function resetSitting() {
   writeSessionId = "";
   error = "";
   ticks = [];
-  waitLine = CLEMENTINE_WAIT_LINES[0]!;
+  waitLine = waitPool()[0]!;
   savedBrief = false;
   fileAfterDone = false;
   persist();
@@ -189,12 +189,17 @@ function sitting() {
   return resolveChatPlan(hat, { scope, depth });
 }
 
+function waitPool() {
+  return hat === "fromBook" ? BOOK_NOTE_WAIT_LINES : CLEMENTINE_WAIT_LINES;
+}
+
 function pushTick(
   phase: "searching" | "library" | "round" | "writing" | "failed",
   research?: { findings?: unknown[]; followUpQueries?: string[]; round?: number },
 ) {
   const plan = sitting();
-  waitLine = pickClementineWaitLine({ exclude: ticks.length ? waitLine : undefined });
+  const webResearch = hat === "fromBook";
+  waitLine = pickClementineWaitLine({ exclude: ticks.length ? waitLine : undefined, pool: waitPool() });
   ticks = appendTick(
     ticks,
     chatTick({
@@ -207,6 +212,7 @@ function pushTick(
       noteCount: research?.findings?.length,
       followUps: research?.followUpQueries?.length,
       waitLine,
+      webResearch,
     }),
   );
 }
@@ -235,7 +241,7 @@ function applyResult(history: ChatTurn[], result: ChatTurnResult) {
   }
   researchSessionId = "";
   writeSessionId = "";
-  waitLine = CLEMENTINE_WAIT_LINES[0]!;
+  waitLine = waitPool()[0]!;
   savedBrief = false;
   turns = [
     ...history,
@@ -337,7 +343,7 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
     }
   } finally {
     busy = false;
-    if (!researchSessionId && !writeSessionId) waitLine = CLEMENTINE_WAIT_LINES[0]!;
+    if (!researchSessionId && !writeSessionId) waitLine = waitPool()[0]!;
     persist();
     host.render();
     if (researchSessionId || writeSessionId) {

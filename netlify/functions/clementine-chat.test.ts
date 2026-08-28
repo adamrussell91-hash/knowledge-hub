@@ -62,43 +62,31 @@ describe("clementine-chat handler", () => {
 
   it("accepts a base64-encoded fromBook body", async () => {
     const fetchImpl = vi.fn(async (url: string) => {
-      if (String(url).includes("/chat/write/start")) {
-        return { ok: true, json: async () => ({ writeSessionId: "w-b64", status: "writing" }) };
+      if (String(url).includes("api.anthropic.com")) {
+        return {
+          ok: true,
+          json: async () => ({
+            content: [{ type: "text", text: "## Desirable difficulties\n\nA note." }],
+          }),
+        };
       }
       throw new Error(`unexpected ${url}`);
     });
     vi.stubGlobal("fetch", fetchImpl);
     const payload = JSON.stringify({
       hat: "fromBook",
-      compose: true,
       bookContext: { label: "Make It Stick", locus: "p. 142" },
       messages: [{ role: "user", content: "desirable difficulties" }],
-      priorResearch: {
-        query: "desirable difficulties",
-        round: 1,
-        status: "done",
-        findings: [
-          {
-            pageId: "page_bjork",
-            title: "Bjork on retrieval effort",
-            sourceUrl: "https://example.test/b",
-            excerpt: "Effortful retrieval strengthens later recall",
-            stance: "supports",
-            analysis: "Supports the book.",
-            confidence: "high",
-            claimRelationship: "direct",
-          },
-        ],
-        gaps: [],
-        followUpQueries: [],
-      },
     });
     const response = await handler(
       event({ body: Buffer.from(payload, "utf8").toString("base64"), isBase64Encoded: true }) as never,
       {} as never,
     );
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body ?? "{}")).toMatchObject({ status: "writing", writeSessionId: "w-b64" });
+    expect(JSON.parse(response.body ?? "{}")).toMatchObject({
+      status: "done",
+      reply: "## Desirable difficulties\n\nA note.",
+    });
   });
 
   it("starts a Worker write after a quick archive pull without calling Anthropic on Netlify", async () => {
@@ -275,10 +263,28 @@ describe("clementine-chat handler", () => {
     expect(response.body).not.toContain(kernelSecret);
   });
 
-  it("writes a from-a-book page with the book in the brief", async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
-      if (String(url).includes("/chat/write/start")) {
-        return { ok: true, json: async () => ({ writeSessionId: "w-book", status: "writing" }) };
+  it("writes a from-a-book page via open-web research, not the archive Worker", async () => {
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("api.anthropic.com")) {
+        const body = JSON.parse(String(init?.body));
+        expect(body.tools?.[0]?.name).toBe("web_search");
+        expect(body.system).toContain("From a book protocol");
+        expect(body.system).toContain("Reading: Make It Stick (p. 142)");
+        expect(body.system).toMatch(/open web/i);
+        expect(body.max_tokens).toBeGreaterThan(2000);
+        return {
+          ok: true,
+          json: async () => ({
+            content: [
+              { type: "text", text: "Looking that up." },
+              { type: "server_tool_use" },
+              {
+                type: "text",
+                text: "## Desirable difficulties\n\n### How this bears on the book\nSupports the claim.",
+              },
+            ],
+          }),
+        };
       }
       throw new Error(`unexpected ${url}`);
     });
@@ -287,38 +293,17 @@ describe("clementine-chat handler", () => {
       event({
         body: JSON.stringify({
           hat: "fromBook",
-          compose: true,
           bookContext: { label: "Make It Stick", locus: "p. 142" },
           messages: [{ role: "user", content: "desirable difficulties" }],
-          priorResearch: {
-            query: "desirable difficulties",
-            round: 1,
-            status: "done",
-            findings: [
-              {
-                pageId: "page_bjork",
-                title: "Bjork on retrieval effort",
-                sourceUrl: "https://example.test/b",
-                excerpt: "Effortful retrieval strengthens later recall",
-                stance: "supports",
-                analysis: "Supports the book.",
-                confidence: "high",
-                claimRelationship: "direct",
-              },
-            ],
-            gaps: [],
-            followUpQueries: [],
-          },
         }),
       }) as never,
       {} as never,
     );
     expect(response.statusCode).toBe(200);
-    const start = fetchImpl.mock.calls.find(([url]) => String(url).includes("/chat/write/start"));
-    const body = JSON.parse(String((start?.[1] as RequestInit).body));
-    expect(body.system).toContain("From a book protocol");
-    expect(body.system).toContain("Reading: Make It Stick (p. 142)");
-    expect(body.system).toContain("How this bears on the book");
-    expect(body.maxTokens).toBeGreaterThan(2000);
+    const payload = JSON.parse(response.body ?? "{}");
+    expect(payload.status).toBe("done");
+    expect(payload.reply).toContain("Desirable difficulties");
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/chat/write/start"))).toBe(false);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/deep_research"))).toBe(false);
   });
 });

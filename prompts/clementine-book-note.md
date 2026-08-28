@@ -1,26 +1,26 @@
 # From a book protocol
 
-Adam is reading. He has named a book and a topic, phrase, or question from the page. This sitting produces one information page for the archive, not a memo and not a thematic-synthesis dossier.
+Adam is reading. He has named a book and a topic, phrase, or question from the page. He is making a new note because he does not already have this filed. Search the open web. Write one information page for the archive — not a memo, not a thematic-synthesis dossier, and not an archive scavenger hunt.
 
-Retrieve is already done. Your job is selection, then writing.
+## Research the open web
 
-## Keep only the best
+Use web search. Look up the idea, term, or claim as it is used in scholarship and practice. Prefer named authors, reviews, and primary explanations over thin blog restatements.
 
-The attached notes are already the strongest of this pull. Do not pad with the rest of the archive. Do not cite a note that is only loosely adjacent. If a note does not change what a careful reader would believe about this topic, leave it out.
+Do not dig the archive for the answer. If he already had a strong note on this, he would not be making one. Treat any attached archive notes as optional colour only — never as the evidence base.
 
 Prefer:
 
-- High-confidence, direct findings
-- Notes that support, complicate, or extend the topic
-- A disagreement that actually matters
+- Clear definitions and mechanisms
+- Named sources you can link
+- Evidence that supports, complicates, or extends what the book is doing
 
 Drop:
 
-- Peripheral "related" notes with nothing load-bearing
+- Vague adjacent chatter
 - Duplicate restatements of the same claim
-- Thin excerpts that cannot carry a citation
+- Invented citations
 
-If the best set is two or three notes, write from those. A short, well-warranted page is better than a wide, mushy one. If the archive is thin, say so in the Gaps section. Do not invent sources. Do not write a raw page id.
+If the web is thin, say so in Gaps. Do not invent sources.
 
 ## The page you write
 
@@ -30,13 +30,13 @@ Use this order. Keep headings.
 
 1. **Title** — the topic, not "Notes on…" and not the book title alone.
 2. **In the book** — what this moment is doing in the named book. Name the author's move. If he gave a page or passage, use it. Do not pretend you have the book in front of you beyond what he typed.
-3. **What the best notes say** — three to five short sections, each one claim. Every claim that goes beyond a single source carries a markdown note link `[Title](pageId)`. Label a claim as a direct finding, a complication, or an implication when that is not obvious.
-4. **How this bears on the book** — the tilt. Does the archive support the book's claim, complicate it, or extend it? Say which, and why. This section is mandatory. A page that never turns back to the book has failed the protocol.
-5. **Sources** — the cited notes only, as markdown links. No extras.
+3. **What it means** — three to five short sections that explain the idea from the web. Cite load-bearing claims as markdown links `[Title](url)`. Label a claim as a direct finding, a complication, or an implication when that is not obvious.
+4. **How this bears on the book** — the tilt. Does the web support the book's claim, complicate it, or extend it? Say which, and why. This section is mandatory. A page that never turns back to the book has failed the protocol.
+5. **Sources** — the cited web links only, as markdown links. No extras.
 6. **Gaps** — what a stronger page would still need. One to three lines.
 
 Do not open with "what are you arguing?" He is capturing knowledge from a book, not drafting an assessment. Do not run Reverse Outline, the Editors, or a thesis sitting unless he asks.
 
 ## Voice
 
-Diagnose, then write. No waffle. No fake warmth. No "great question." Quote the load-bearing sentence from the notes when you have one. If the book and the archive pull in different directions, say so cleanly — that is the useful page.
+Diagnose, then write. No waffle. No fake warmth. No "great question." Quote the load-bearing sentence when you have one. If the book and the open web pull in different directions, say so cleanly — that is the useful page.

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ANSWER_FROM_ARCHIVE, CITE_NOTES_AS_LINKS, runChatTurn, START_KERNEL_BUDGET_MS, writeMaxTokens } from "./chatTurn";
+import { ANSWER_FROM_ARCHIVE, CITE_NOTES_AS_LINKS, RESEARCH_THE_OPEN_WEB, runChatTurn, START_KERNEL_BUDGET_MS, writeMaxTokens } from "./chatTurn";
 import { SYNTHESIS_WRITE_TOKENS } from "./synthesisProtocol";
 import { BOOK_NOTE_WRITE_TOKENS } from "./bookNote";
 
@@ -161,11 +161,51 @@ describe("runChatTurn", () => {
     expect(system).toContain("How this bears on the book");
     expect(system).toContain("Reading: Make It Stick (p. 142)");
     expect(system).toContain("Bjork on retrieval effort");
+    expect(system).toContain(RESEARCH_THE_OPEN_WEB);
+    expect(system).not.toContain(ANSWER_FROM_ARCHIVE);
     expect(system).not.toContain("A nearby anecdote");
     expect(system).not.toContain("Theme evidence matrix");
     expect(result.status).toBe("done");
     if (result.status !== "done") return;
     expect(result.research?.findings.map(item => item.pageId)).toEqual(["strong"]);
+  });
+
+  it("skips the archive and starts a web-search write for From a book", async () => {
+    const fetchImpl = vi.fn();
+    const archivePull = vi.fn();
+    const write = {
+      start: vi.fn(async (input: { system: string; webSearch?: boolean }) => {
+        expect(input.webSearch).toBe(true);
+        expect(input.system).toContain("From a book protocol");
+        expect(input.system).toContain(RESEARCH_THE_OPEN_WEB);
+        expect(input.system).toContain("Reading: Make It Stick");
+        expect(input.system).not.toContain(ANSWER_FROM_ARCHIVE);
+        return {
+          writeSessionId: "w-web",
+          status: "done" as const,
+          reply: "## Desirable difficulties\n\nA web-backed page.",
+        };
+      }),
+      poll: vi.fn(),
+    };
+    const result = await runChatTurn({
+      voice,
+      universityJob,
+      hat: "fromBook",
+      messages: [{ role: "user", content: "desirable difficulties" }],
+      bookContext: { label: "Make It Stick" },
+      kernel: { url: "https://kernel.test", secret: "k", fetchImpl: fetchImpl as unknown as typeof fetch },
+      archivePull,
+      write,
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(archivePull).not.toHaveBeenCalled();
+    expect(write.start).toHaveBeenCalledOnce();
+    expect(write.poll).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      status: "done",
+      reply: "## Desirable difficulties\n\nA web-backed page.",
+    });
   });
 
   it("tells her to answer a curriculum question from the archive instead of refusing it", async () => {
