@@ -12,10 +12,12 @@ import {
   SHOW_ALL_SPOKE_ALPHA,
   applyShowAllStrandStroke,
   applyShowAllTuning,
+  applyForceStageResize,
   attachGraphSearch,
   canvasRadius,
   fitViewToNodes,
   focusViewOnNode,
+  forceStageSize,
   initialForceView,
   linkDrawState,
   nodeDrawState,
@@ -80,8 +82,7 @@ export function mountForceGraph(
   handlers: ForceGraphHandlers,
   options: ForceGraphOptions = { variant: "constellation", search: "", excerptFor: () => "" },
 ): GraphMount {
-  const width = host.clientWidth || 1100;
-  const height = Math.max(720, Math.floor(window.innerHeight * 0.8));
+  let { width, height } = forceStageSize(host, window);
   host.innerHTML = "";
   host.style.height = `${height}px`;
   const onNoteSelect = handlers.onNoteSelect ?? (() => {});
@@ -705,12 +706,43 @@ export function mountForceGraph(
   };
   window.addEventListener("keydown", onKeyDown);
 
+  function applyHostSize() {
+    const next = applyForceStageResize(
+      { width, height, k: view.k, x: view.x, y: view.y },
+      forceStageSize(host, window),
+    );
+    if (next.width === width && next.height === height) return;
+    width = next.width;
+    height = next.height;
+    view.k = next.k;
+    view.x = next.x;
+    view.y = next.y;
+    if (options.variant === "constellation" && !simNodes.some(node => node.expanded)) {
+      const fitted = fitViewToNodes(simNodes, width, height, 72, 0.2);
+      if (fitted) Object.assign(view, fitted);
+    }
+    canvas.width = Math.floor(width * devicePixelRatio);
+    canvas.height = Math.floor(height * devicePixelRatio);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    scheduleDraw();
+  }
+
+  const resizeObserver =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => {
+          applyHostSize();
+        })
+      : null;
+  resizeObserver?.observe(host);
+
   draw();
 
   return attachGraphSearch(
     () => {
       window.removeEventListener("keydown", onKeyDown);
       window.clearTimeout(retuneTimer);
+      resizeObserver?.disconnect();
       simulation.stop();
       if (drawRaf) cancelAnimationFrame(drawRaf);
       host.innerHTML = "";

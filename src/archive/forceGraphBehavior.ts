@@ -296,6 +296,33 @@ export function nodeHoverTip(node: GraphNodeDatum) {
   return node.label;
 }
 
+export function forceStageSize(
+  host: { clientWidth: number; clientHeight: number },
+  viewport: { innerHeight: number },
+) {
+  const width = host.clientWidth || 1100;
+  const fallback = Math.max(720, Math.floor(viewport.innerHeight * 0.8));
+  if (host.clientHeight > fallback) return { width, height: host.clientHeight };
+  return { width, height: fallback };
+}
+
+export function applyForceStageResize(
+  prev: ViewState & { width: number; height: number },
+  nextSize: { width: number; height: number },
+) {
+  if (nextSize.width < 32 || nextSize.height < 32) return prev;
+  if (nextSize.width === prev.width && nextSize.height === prev.height) return prev;
+  const focusX = (prev.width / 2 - prev.x) / Math.max(prev.k, 1e-9);
+  const focusY = (prev.height / 2 - prev.y) / Math.max(prev.k, 1e-9);
+  return {
+    width: nextSize.width,
+    height: nextSize.height,
+    k: prev.k,
+    x: nextSize.width / 2 - focusX * prev.k,
+    y: nextSize.height / 2 - focusY * prev.k,
+  };
+}
+
 export function focusViewOnNode(
   node: { x?: number; y?: number },
   width: number,

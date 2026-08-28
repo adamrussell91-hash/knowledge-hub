@@ -11,6 +11,7 @@ import {
   universeViewToolsHtml,
   universeWrapClass,
   writeUniverseDark,
+  graphFullscreenToolsHtml,
 } from "./universeChrome";
 
 describe("universe view chrome", () => {
@@ -19,6 +20,18 @@ describe("universe view chrome", () => {
     expect(universeWrapClass(true, false)).toBe("graph-wrap is-universe-dark");
     expect(universeWrapClass(false, true)).toBe("graph-wrap is-universe-fullscreen");
     expect(universeWrapClass(true, true)).toBe("graph-wrap is-universe-dark is-universe-fullscreen");
+  });
+
+  it("gives constellation a Full screen toggle without the Universe dark control", () => {
+    document.body.innerHTML = graphFullscreenToolsHtml(false) + universeExitHtml(false);
+    expect(document.querySelector("[data-universe-dark]")).toBeNull();
+    const full = document.querySelector<HTMLButtonElement>("[data-universe-fullscreen]")!;
+    expect(full.textContent).toBe("Full screen");
+    expect(full.getAttribute("aria-pressed")).toBe("false");
+    expect(document.querySelector<HTMLButtonElement>("[data-universe-exit]")!.hidden).toBe(true);
+    document.body.innerHTML = graphFullscreenToolsHtml(true) + universeExitHtml(true);
+    expect(document.querySelector("[data-universe-fullscreen]")!.textContent).toBe("Exit");
+    expect(document.querySelector<HTMLButtonElement>("[data-universe-exit]")!.hidden).toBe(false);
   });
 
   it("renders Dark and Full screen as unpressed toggles by default", () => {

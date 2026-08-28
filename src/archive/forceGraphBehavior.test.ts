@@ -7,8 +7,10 @@ import {
   SHOW_ALL_STRAND_WIDTH,
   applyShowAllStrandStroke,
   applyShowAllTuning,
+  applyForceStageResize,
   fitViewToNodes,
   focusViewOnNode,
+  forceStageSize,
   initialForceView,
   isGraphSearching,
   linkDrawState,
@@ -192,6 +194,29 @@ describe("force graph chrome", () => {
     expect(nodeHoverTip(leaf)).toBe("Note 1");
     expect(nodeHoverTip(major).toLowerCase()).not.toContain("double-click");
     expect(nodeHoverTip(minor).toLowerCase()).not.toContain("double-click");
+  });
+
+  it("uses the host size once the stage is taller than the inset fallback", () => {
+    expect(forceStageSize({ clientWidth: 1100, clientHeight: 0 }, { innerHeight: 900 })).toEqual({
+      width: 1100,
+      height: 720,
+    });
+    expect(forceStageSize({ clientWidth: 1440, clientHeight: 980 }, { innerHeight: 900 })).toEqual({
+      width: 1440,
+      height: 980,
+    });
+  });
+
+  it("keeps the same world focus when the canvas grows into fullscreen", () => {
+    const next = applyForceStageResize({ width: 800, height: 600, k: 0.5, x: 100, y: 50 }, { width: 1600, height: 900 });
+    expect(next).toEqual({ width: 1600, height: 900, k: 0.5, x: 500, y: 200 });
+    expect(applyForceStageResize({ width: 800, height: 600, k: 1, x: 0, y: 0 }, { width: 10, height: 10 })).toEqual({
+      width: 800,
+      height: 600,
+      k: 1,
+      x: 0,
+      y: 0,
+    });
   });
 
   it("frames an opened hub in the middle of the canvas", () => {

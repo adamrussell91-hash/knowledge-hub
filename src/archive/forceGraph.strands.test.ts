@@ -205,4 +205,47 @@ describe("Constellation drawing", () => {
 
     stop();
   });
+
+  it("resizes the canvas when the constellation stage goes fullscreen", () => {
+    stubFrame();
+    installCanvas();
+    const callbacks: Array<() => void> = [];
+    const disconnect = vi.fn();
+    class FakeResizeObserver {
+      constructor(cb: () => void) {
+        callbacks.push(cb);
+      }
+      observe() {}
+      disconnect() {
+        disconnect();
+      }
+    }
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 800, configurable: true });
+    Object.defineProperty(host, "clientHeight", { value: 720, configurable: true });
+    document.body.appendChild(host);
+
+    const graph = buildArchiveGraph([
+      {
+        id: "p1",
+        title: "Note 1",
+        area: "notes" as const,
+        tags: [TOPIC_VOCABULARY[0]!],
+        excerpt: "",
+      },
+    ]);
+    const stop = mountForceGraph(host, graph, {}, { variant: "constellation", search: "", excerptFor: () => "" });
+    const canvas = host.querySelector("canvas")!;
+    expect(canvas.style.width).toBe("800px");
+
+    Object.defineProperty(host, "clientWidth", { value: 1400, configurable: true });
+    Object.defineProperty(host, "clientHeight", { value: 900, configurable: true });
+    callbacks.at(-1)?.();
+    expect(host.querySelector("canvas")).toBe(canvas);
+    expect(canvas.style.width).toBe("1400px");
+    expect(canvas.style.height).toBe("900px");
+    stop();
+    expect(disconnect).toHaveBeenCalled();
+  });
 });
