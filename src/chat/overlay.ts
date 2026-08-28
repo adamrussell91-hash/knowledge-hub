@@ -62,6 +62,7 @@ let error = "";
 let confirmBusy = false;
 let saveBusy = false;
 let savedBrief = false;
+let fileAfterDone = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let currentHost: ChatOverlayHost | null = null;
 
@@ -123,6 +124,7 @@ function resetSitting() {
   selectedProtocolId = null;
   error = "";
   savedBrief = false;
+  fileAfterDone = false;
 }
 
 function currentPersonality() {
@@ -187,6 +189,7 @@ async function send(outgoingOverride?: string) {
   if (!researchSessionId && !writeSessionId) {
     turns = history;
     input = "";
+    if (fromBookSelected()) fileAfterDone = true;
   }
   busy = true;
   error = "";
@@ -205,15 +208,25 @@ async function send(outgoingOverride?: string) {
       writeSessionId: writeSessionId || undefined,
     });
     applyResult(history, result);
+    if (fileAfterDone && result.status === "done" && fromBookSelected()) {
+      fileAfterDone = false;
+      busy = false;
+      persist();
+      paint();
+      await saveBrief();
+      return;
+    }
   } catch (caught) {
     if (caught instanceof ChatWriteDroppedError) {
       error = caught.message;
+      fileAfterDone = false;
     } else {
       if (!researchSessionId) {
         input = outgoing;
         turns = history.slice(0, -1);
       }
       error = caught instanceof Error ? caught.message : "Chat failed";
+      if (!researchSessionId && !writeSessionId) fileAfterDone = false;
     }
   } finally {
     busy = false;
@@ -414,9 +427,9 @@ function overlayHtml() {
       ${saveCardHtml()}
       ${bookFieldHtml()}
       <form class="chat-form">
-        <label class="chat-form__label" for="overlay-chat-input">${fromBook ? "From the page" : "Message"}</label>
+        <label class="chat-form__label" for="overlay-chat-input">${fromBook ? "Note from the page" : "Message"}</label>
         <textarea id="overlay-chat-input" rows="3" placeholder="${fromBook ? "The idea, term, or question from the page…" : `Ask ${escapeHtml(who.shortName)}…`}" ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>${escapeHtml(input)}</textarea>
-        <button class="btn btn--primary" type="submit" ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>${busy || writeSessionId || researchSessionId ? "…" : fromBook ? "Research this" : "Send"}</button>
+        <button class="btn btn--primary" type="submit" ${busy || writeSessionId || researchSessionId ? "disabled" : ""}>${busy || writeSessionId || researchSessionId ? "…" : fromBook ? "Make note" : "Send"}</button>
       </form>
     </section>
   `;

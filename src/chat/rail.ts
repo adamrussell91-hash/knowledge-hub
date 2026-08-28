@@ -58,6 +58,7 @@ let thinkingOpen = false;
 const sourcesOpen = new Set<number>();
 let saveBusy = false;
 let savedBrief = false;
+let fileAfterDone = false;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
 function persist() {
@@ -138,6 +139,8 @@ function resetSitting() {
   error = "";
   ticks = [];
   waitLine = CLEMENTINE_WAIT_LINES[0]!;
+  savedBrief = false;
+  fileAfterDone = false;
   persist();
 }
 
@@ -265,6 +268,7 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
   if (!extras.searchOutside && !researchSessionId && !writeSessionId) {
     turns = history;
     input = "";
+    if (hat === "fromBook") fileAfterDone = true;
   }
   busy = true;
   error = "";
@@ -303,6 +307,14 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
       },
     );
     applyResult(history, result);
+    if (fileAfterDone && result.status === "done" && hat === "fromBook") {
+      fileAfterDone = false;
+      busy = false;
+      persist();
+      host.render();
+      await saveBrief(host);
+      return;
+    }
   } catch (caught) {
     if (caught instanceof ChatWriteDroppedError && caught.research?.findings?.length) {
       turns = [
@@ -314,12 +326,14 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
         },
       ];
       error = caught.message;
+      fileAfterDone = false;
     } else {
       if (!researchSessionId && !extras.searchOutside) {
         input = outgoing;
         turns = history.slice(0, -1);
       }
       error = caught instanceof Error ? caught.message : "Chat failed";
+      if (!researchSessionId && !writeSessionId) fileAfterDone = false;
     }
   } finally {
     busy = false;
@@ -406,18 +420,39 @@ function saveCardHtml(canSave: boolean) {
   if (!canSave || savedBrief) return "";
   if (hat === "fromBook") {
     const book = bookContext?.label ? escapeHtml(bookContext.label) : "this book";
+    if (saveBusy) {
+      return `<p class="alchemist__mode">Filing under ${book}…</p>`;
+    }
     return `<section class="confirm-card" role="region" aria-label="Add to archive">
       <p class="page-header__eyebrow">Add to archive</p>
       <h2 class="page-header__title" style="font-size: var(--text-lg)">File this page</h2>
       <p class="page-header__supporting">Referenced, and stamped under ${book}.</p>
       <div class="confirm-card__actions">
-        <button class="btn btn--primary" type="button" data-save-brief ${saveBusy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Add to archive"}</button>
+        <button class="btn btn--primary" type="button" data-save-brief>Add to archive</button>
       </div>
     </section>`;
   }
   return `<div class="alchemist__actions chat__save-row">
     <button class="btn btn--secondary" type="button" data-save-brief ${saveBusy ? "disabled" : ""}>${saveBusy ? "Saving…" : "Save as new page"}</button>
   </div>`;
+}
+
+function noteComposerHtml(fromBook: boolean, placeholder: string) {
+  const submitLabel = busy || researchSessionId || writeSessionId
+    ? escapeHtml(waitLine)
+    : fromBook
+      ? "Make note"
+      : "Send";
+  return `<form class="coach__form ${fromBook ? "chat__note-form" : "glass-panel chat__composer"}" novalidate>
+    <label for="chat-input">${fromBook ? "Note from the page" : "Message"}</label>
+    <textarea id="chat-input" rows="${fromBook ? 4 : 3}" placeholder="${escapeHtml(placeholder)}" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${escapeHtml(input)}</textarea>
+    <div class="alchemist__actions">
+      <button class="btn btn--primary" type="submit" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${submitLabel}</button>
+    </div>
+    ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
+    ${busy || researchSessionId || writeSessionId ? `<p class="chat__status" aria-live="polite">${escapeHtml(waitLine)}</p>` : ""}
+    ${busy || researchSessionId || writeSessionId ? thinkingHistoryHtml(ticks, thinkingOpen) : ""}
+  </form>`;
 }
 
 export function renderChatRail(host: ChatRailHost) {
@@ -433,6 +468,33 @@ export function renderChatRail(host: ChatRailHost) {
     ? "The idea, term, or question from the page…"
     : "Ask about the archive…";
   const bookLabels = host.bookLabels ?? [];
+  const threadHtml = turns.length
+    ? turns
+        .map((turn, index) => {
+          const lastTurn = index === turns.length - 1;
+          const body =
+            turn.role === "assistant"
+              ? `<div class="coach-msg__body">${renderChatMarkdown(turn.content, turn.findings, host.archiveNotes)}</div>`
+              : `<div class="coach-msg__body coach-msg__body--plain">${escapeHtml(turn.content)}</div>`;
+          return `<article class="coach-msg coach-msg--${turn.role} glass-panel">
+                    <p class="coach-msg__who">${turn.role === "user" ? "You" : "Clementine"}</p>
+                    ${body}
+                    ${turn.archiveFailed ? `<p class="alchemist__error">Archive pull failed this turn — she continued with what she had.</p>` : ""}
+                    ${turn.coverageThin ? `<p class="alchemist__mode">Coverage is thin.</p>` : ""}
+                    ${
+                      turn.canSearchOutside
+                        ? `<button type="button" data-search-outside ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>Search outside</button>`
+                        : ""
+                    }
+                    ${turn.role === "assistant" && turn.ticks?.length ? thinkingHistoryHtml(turn.ticks, thinkingOpen && lastTurn) : ""}
+                    ${turn.findings?.length ? searchedNotesHtml(turn.findings, sourcesOpen.has(index), index) : ""}
+                    ${lastTurn && turn.role === "assistant" ? saveCardHtml(canSave) : ""}
+                  </article>`;
+        })
+        .join("")
+    : fromBook
+      ? ""
+      : `<p class="empty">${current.plan}</p>`;
   host.shell(`
     ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · Chat needs the Netlify API (session + Anthropic). The browser never talks to the research kernel.</p>` : ""}
     ${host.pageHeader(
@@ -441,7 +503,7 @@ export function renderChatRail(host: ChatRailHost) {
       `<button class="btn btn--ghost" data-open-visualiser type="button">Portrait ideas</button>
       <button class="btn btn--ghost" data-new-chat type="button" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>New chat</button>`,
     )}
-    <section class="coach chat">
+    <section class="coach chat${fromBook ? " chat--from-book" : ""}">
       <div class="chat__sitting glass-panel">
         <div class="graph-modes chat__hats" role="group" aria-label="Chat hats">
           ${CHAT_HATS.map(
@@ -455,6 +517,7 @@ export function renderChatRail(host: ChatRailHost) {
             : ""
         }
         ${bookFieldHtml(bookLabels)}
+        ${fromBook ? noteComposerHtml(true, placeholder) : ""}
         <button type="button" class="chat__dials-toggle" data-toggle-dials>${showDials ? "Hide scope and depth" : "Adjust scope and depth"}</button>
         ${
           showDials
@@ -480,44 +543,9 @@ export function renderChatRail(host: ChatRailHost) {
         }
       </div>
       <div class="coach__thread" aria-live="polite">
-        ${
-          turns.length
-            ? turns
-                .map((turn, index) => {
-                  const lastTurn = index === turns.length - 1;
-                  const body =
-                    turn.role === "assistant"
-                      ? `<div class="coach-msg__body">${renderChatMarkdown(turn.content, turn.findings, host.archiveNotes)}</div>`
-                      : `<div class="coach-msg__body coach-msg__body--plain">${escapeHtml(turn.content)}</div>`;
-                  return `<article class="coach-msg coach-msg--${turn.role} glass-panel">
-                    <p class="coach-msg__who">${turn.role === "user" ? "You" : "Clementine"}</p>
-                    ${body}
-                    ${turn.archiveFailed ? `<p class="alchemist__error">Archive pull failed this turn — she continued with what she had.</p>` : ""}
-                    ${turn.coverageThin ? `<p class="alchemist__mode">Coverage is thin.</p>` : ""}
-                    ${
-                      turn.canSearchOutside
-                        ? `<button type="button" data-search-outside ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>Search outside</button>`
-                        : ""
-                    }
-                    ${turn.role === "assistant" && turn.ticks?.length ? thinkingHistoryHtml(turn.ticks, thinkingOpen && lastTurn) : ""}
-                    ${turn.findings?.length ? searchedNotesHtml(turn.findings, sourcesOpen.has(index), index) : ""}
-                    ${lastTurn && turn.role === "assistant" ? saveCardHtml(canSave) : ""}
-                  </article>`;
-                })
-                .join("")
-            : `<p class="empty">${current.plan}</p>`
-        }
+        ${threadHtml}
       </div>
-      <form class="coach__form glass-panel chat__composer">
-        <label for="chat-input">${fromBook ? "From the page" : "Message"}</label>
-        <textarea id="chat-input" rows="3" placeholder="${escapeHtml(placeholder)}" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${escapeHtml(input)}</textarea>
-        <div class="alchemist__actions">
-          <button class="btn btn--primary" type="submit" ${busy || researchSessionId || writeSessionId ? "disabled" : ""}>${busy || researchSessionId || writeSessionId ? escapeHtml(waitLine) : fromBook ? "Research this" : "Send"}</button>
-        </div>
-        ${error ? `<p class="alchemist__error">${escapeHtml(error)}</p>` : ""}
-        ${busy || researchSessionId || writeSessionId ? `<p class="chat__status" aria-live="polite">${escapeHtml(waitLine)}</p>` : ""}
-        ${busy || researchSessionId || writeSessionId ? thinkingHistoryHtml(ticks, thinkingOpen) : ""}
-      </form>
+      ${fromBook ? "" : noteComposerHtml(false, placeholder)}
     </section>
   `);
 

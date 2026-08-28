@@ -697,6 +697,33 @@
   gap: var(--space-3);
 }
 
+.chat__note-form {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.chat__note-form label {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chat--from-book .chat__sitting {
+  gap: var(--space-4);
+}
+
+.chat--from-book .coach__thread:empty {
+  display: none;
+}
+
 .chat__save-row {
   margin-top: var(--space-3);
 }
@@ -1950,7 +1977,20 @@ body.is-universe-fullscreen .local-banner {
     padding-bottom: max(var(--space-3), calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px)));
   }
 
+  .coach.chat.chat--from-book .chat__composer,
+  .coach.chat.chat--from-book .chat__note-form {
+    position: static;
+    z-index: auto;
+    padding: 0;
+    padding-bottom: 0;
+  }
+
+  .coach.chat.chat--from-book {
+    min-height: 0;
+  }
+
   .coach.chat .chat__composer textarea,
+  .coach.chat.chat--from-book .chat__note-form textarea,
   .compose input,
   .compose select,
   .compose textarea,
@@ -1960,11 +2000,13 @@ body.is-universe-fullscreen .local-banner {
     font-size: 16px;
   }
 
-  .coach.chat .chat__composer textarea {
+  .coach.chat .chat__composer textarea,
+  .coach.chat.chat--from-book .chat__note-form textarea {
     min-height: 5.5rem;
   }
 
   .coach.chat .alchemist__actions .btn,
+  .coach.chat.chat--from-book .chat__note-form .btn,
   .compose__capture .btn,
   .compose__save,
   .origin-add .btn,

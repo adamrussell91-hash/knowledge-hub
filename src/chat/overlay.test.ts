@@ -172,8 +172,8 @@ Effortful retrieval is the load-bearing claim. The archive supports Bjork here a
     });
     openChatOverlay({ protocolId: "fromBook" });
     expect(document.body.textContent).toContain("The one in your hand");
-    expect(document.body.textContent).toContain("From the page");
-    expect(document.querySelector<HTMLButtonElement>("[type=submit]")?.textContent).toBe("Research this");
+    expect(document.body.textContent).toContain("Note from the page");
+    expect(document.querySelector<HTMLButtonElement>("[type=submit]")?.textContent).toBe("Make note");
     const field = document.querySelector<HTMLTextAreaElement>("#overlay-chat-input")!;
     field.value = "desirable difficulties";
     field.dispatchEvent(new Event("input"));

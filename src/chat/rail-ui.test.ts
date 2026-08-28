@@ -180,13 +180,16 @@ describe("Knowledge chat rail protocol affordances", () => {
     expect(opened).toEqual(["visualiser"]);
   });
 
-  it("asks for the book before researching a from-a-book sitting", () => {
+  it("asks for the book before making a from-a-book note", () => {
     enterChatRail({ fresh: true, hat: "fromBook" });
     const host = makeHost();
     host.bookLabels = ["Make It Stick"];
     host.render();
     expect(host.app.textContent).toContain("From a book");
     expect(host.app.textContent).toContain("The one in your hand");
+    expect(host.app.querySelector(".chat--from-book")).toBeTruthy();
+    expect(host.app.querySelector(".chat__composer")).toBeNull();
+    expect(host.app.querySelector<HTMLButtonElement>("[type=submit]")?.textContent).toBe("Make note");
     const field = host.app.querySelector<HTMLTextAreaElement>("#chat-input")!;
     field.value = "desirable difficulties";
     host.app.querySelector<HTMLFormElement>("form")!.dispatchEvent(
@@ -196,7 +199,7 @@ describe("Knowledge chat rail protocol affordances", () => {
     expect(runChatMock).not.toHaveBeenCalled();
   });
 
-  it("does not leave a duplicate You turn when Research this fails", async () => {
+  it("does not leave a duplicate You turn when Make note fails", async () => {
     runChatMock.mockRejectedValueOnce(new Error("hat and messages are required"));
     sessionStorage.setItem(
       "knowledge-hub-chat-v1",
@@ -224,6 +227,53 @@ describe("Knowledge chat rail protocol affordances", () => {
     expect(host.app.querySelector<HTMLTextAreaElement>("#chat-input")?.value).toBe(
       "Economists and the rule of law",
     );
+  });
+
+  it("files the researched page after Make note without a second confirm tap", async () => {
+    const { savePage, tidyPage } = await import("../api/client");
+    const savePageMock = vi.mocked(savePage);
+    const tidyPageMock = vi.mocked(tidyPage);
+    savePageMock.mockResolvedValue({
+      id: "page_hub_saved",
+      title: "Economists and the rule of law",
+      area: "notes",
+      tags: [],
+      origins: [{ kind: "book", label: "Make It Stick" }],
+      body: "x",
+      connected: [],
+      attachments: [],
+      source: "hub",
+      created_at: "2026-08-27T00:00:00.000Z",
+      updated_at: "2026-08-27T00:00:00.000Z",
+      schema_version: 1,
+    });
+    tidyPageMock.mockResolvedValue(undefined as never);
+    const reply = `## Economists and the rule of law
+
+Effortful retrieval is the load-bearing claim. The archive supports Bjork here and turns that back onto Make It Stick. The notes that earn a citation are the ones that change what a careful reader would believe about institutions.`;
+    runChatMock.mockResolvedValue({ status: "done", reply });
+    sessionStorage.setItem(
+      "knowledge-hub-chat-v1",
+      JSON.stringify({
+        hat: "fromBook",
+        bookContext: { label: "Make It Stick", locus: "p. 142" },
+        input: "Economists and the rule of law",
+        turns: [],
+      }),
+    );
+    const host = makeHost();
+    host.render();
+    expect(host.app.querySelector("[type=submit]")?.textContent).toBe("Make note");
+    host.app.querySelector<HTMLFormElement>("form")!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await vi.waitFor(() => expect(runChatMock).toHaveBeenCalled());
+    await vi.waitFor(() => expect(savePageMock).toHaveBeenCalled());
+    await vi.waitFor(() => expect(host.app.textContent).not.toContain("Add to archive"));
+    await vi.waitFor(() => expect(host.app.textContent).not.toContain("Filing under"));
+    expect(savePageMock.mock.calls[0]?.[0]?.origins).toEqual([{ kind: "book", label: "Make It Stick" }]);
+    expect(tidyPageMock).toHaveBeenCalled();
+    expect(host.app.textContent).toContain("Economists and the rule of law");
   });
 
   it("files a researched page under the book with a confirm card", async () => {
