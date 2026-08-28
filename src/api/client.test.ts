@@ -173,6 +173,23 @@ describe("api client", () => {
     ).rejects.toThrow(/timed out/i);
   });
 
+  it("surfaces API failures instead of calling them a timeout", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: async () => ({ error: "Anthropic error 400: web search is not enabled" }),
+      }),
+    );
+    await expect(
+      runChat({
+        hat: "fromBook",
+        messages: [{ role: "user", content: "weak absolutism" }],
+      }),
+    ).rejects.toThrow(/web search is not enabled/i);
+  });
+
   it("retries the write once when Safari drops it after archive findings land", async () => {
     const research = { findings: [{ pageId: "p1", title: "SDT" }], gaps: [] };
     vi.stubGlobal(

@@ -3,7 +3,7 @@ import type { ChatMessage } from "./messages";
 export const WEB_SEARCH_TOOL = {
   type: "web_search_20250305",
   name: "web_search",
-  max_uses: 5,
+  max_uses: 3,
 } as const;
 
 type ContentBlock = { type: string; text?: string };
@@ -50,7 +50,16 @@ export async function completeChatWrite(input: {
     },
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error(`Anthropic error ${response.status}`);
+  if (!response.ok) {
+    let detail = `Anthropic error ${response.status}`;
+    try {
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (payload.error?.message) detail = `${detail}: ${payload.error.message}`;
+    } catch {
+      /* keep status */
+    }
+    throw new Error(detail);
+  }
   const payload = (await response.json()) as { content?: ContentBlock[] };
   return extractAssistantText(payload.content);
 }
