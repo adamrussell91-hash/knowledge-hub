@@ -4,14 +4,12 @@ import { requireSession } from "./_lib/requireSession";
 import { readRawBody } from "./_lib/readJsonBody";
 import { loadPromptFile } from "../../src/clementine/loadFromDisk";
 import { runChatTurn, type ChatMessage } from "../../src/chat/chatTurn";
-import { completeChatWrite } from "../../src/chat/completeWrite";
 import { CHAT_HATS, isChatHatId, type ChatDepth, type ChatHatId, type ChatScope } from "../../src/chat/hats";
 import { normalizeBookContext } from "../../src/chat/bookNote";
 import { isChatPersonalityId, personalityById } from "../../src/chat/personalities";
 import { normalizeProtocolId } from "../../src/chat/agentProtocols";
 import { ResearchResultSchema } from "../../src/research/schema";
 import { pullLiveArchive } from "./_lib/liveArchive";
-import { randomUUID } from "node:crypto";
 
 const DEFAULT_KERNEL_URL = "https://knowledge-hub-research.adamrussell91.workers.dev";
 
@@ -119,16 +117,8 @@ export const handler: Handler = async event => {
   const body = parsed.body;
   const kernelUrl = (process.env.RESEARCH_KERNEL_URL || DEFAULT_KERNEL_URL).replace(/\/+$/, "");
   const kernelSecret = process.env.RESEARCH_KERNEL_SHARED_SECRET;
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!kernelSecret && body.hat !== "fromBook") {
+  if (!kernelSecret) {
     return { statusCode: 503, headers: cors(origin), body: JSON.stringify({ error: "Chat write clock is not configured" }) };
-  }
-  if (body.hat === "fromBook" && !anthropicKey) {
-    return {
-      statusCode: 503,
-      headers: cors(origin),
-      body: JSON.stringify({ error: "Book note web research is not configured" }),
-    };
   }
   try {
     const who = personalityById(body.personality ?? "clementine") ?? personalityById("clementine")!;
@@ -153,30 +143,12 @@ export const handler: Handler = async event => {
       priorResearch: body.priorResearch,
       sittingLibrary: body.sittingLibrary,
       archiveFailed: body.archiveFailed,
-      kernel: kernelSecret
-        ? { url: kernelUrl, secret: kernelSecret, fetchImpl: fetch }
-        : undefined,
+      kernel: { url: kernelUrl, secret: kernelSecret, fetchImpl: fetch },
       archivePull: pullLiveArchive,
       write: {
         start: async input => {
-          if (input.webSearch) {
-            if (!anthropicKey) throw new Error("Book note web research is not configured");
-            const reply = await completeChatWrite({
-              system: input.system,
-              messages: input.messages,
-              maxTokens: input.maxTokens,
-              apiKey: anthropicKey,
-              webSearch: true,
-            });
-            return {
-              writeSessionId: randomUUID(),
-              status: "done" as const,
-              reply,
-              research: input.research,
-              archiveFailed: input.archiveFailed,
-            };
-          }
-          if (!kernelSecret) throw new Error("Chat write clock is not configured");
+          // Book notes need Anthropic web_search, which outlives Netlify's 26s cap.
+          // Hand off to the Worker ChatWrite Durable Object and let the client poll.
           const response = await fetch(`${kernelUrl}/chat/write/start`, {
             method: "POST",
             headers: {
@@ -191,7 +163,6 @@ export const handler: Handler = async event => {
           return response.json();
         },
         poll: async writeSessionId => {
-          if (!kernelSecret) return null;
           const response = await fetch(`${kernelUrl}/chat/write/${encodeURIComponent(writeSessionId)}`, {
             headers: { "x-research-kernel-secret": kernelSecret },
             signal: AbortSignal.timeout(8_000),
@@ -208,9 +179,9 @@ export const handler: Handler = async event => {
     if (message.startsWith("Prompt file missing:")) {
       return { statusCode: 500, headers: cors(origin), body: JSON.stringify({ error: message }) };
     }
-    if (/write clock is not deployed|web research is not configured/i.test(message)) {
+    if (/write clock is not deployed|Chat write clock is not configured/i.test(message)) {
       return { statusCode: 503, headers: cors(origin), body: JSON.stringify({ error: message }) };
     }
-    return { statusCode: 502, headers: cors(origin), body: JSON.stringify({ error: "Chat turn failed" }) };
+    return { statusCode: 502, headers: cors(origin), body: JSON.stringify({ error: message || "Chat turn failed" }) };
   }
 };

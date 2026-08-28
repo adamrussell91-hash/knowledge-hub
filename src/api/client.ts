@@ -159,7 +159,9 @@ export class ChatWriteDroppedError extends Error {
 function isDroppedRequest(error: unknown) {
   if (error instanceof TypeError) return true;
   const message = error instanceof Error ? error.message : String(error);
-  return /load failed|failed to fetch|networkerror|chat turn failed|the internet connection appears to be offline/i.test(message);
+  // Do not map API 502 bodies like "Chat turn failed" into a fake timeout —
+  // those need the real error on screen.
+  return /load failed|failed to fetch|networkerror|the internet connection appears to be offline/i.test(message);
 }
 
 function timeoutError() {

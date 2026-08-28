@@ -180,11 +180,7 @@ describe("runChatTurn", () => {
         expect(input.system).toContain(RESEARCH_THE_OPEN_WEB);
         expect(input.system).toContain("Reading: Make It Stick");
         expect(input.system).not.toContain(ANSWER_FROM_ARCHIVE);
-        return {
-          writeSessionId: "w-web",
-          status: "done" as const,
-          reply: "## Desirable difficulties\n\nA web-backed page.",
-        };
+        return { writeSessionId: "w-web", status: "writing" as const };
       }),
       poll: vi.fn(),
     };
@@ -202,10 +198,7 @@ describe("runChatTurn", () => {
     expect(archivePull).not.toHaveBeenCalled();
     expect(write.start).toHaveBeenCalledOnce();
     expect(write.poll).not.toHaveBeenCalled();
-    expect(result).toMatchObject({
-      status: "done",
-      reply: "## Desirable difficulties\n\nA web-backed page.",
-    });
+    expect(result).toMatchObject({ status: "writing", writeSessionId: "w-web" });
   });
 
   it("tells her to answer a curriculum question from the archive instead of refusing it", async () => {
