@@ -209,7 +209,10 @@ async function send(outgoingOverride?: string) {
     if (caught instanceof ChatWriteDroppedError) {
       error = caught.message;
     } else {
-      if (!researchSessionId) input = outgoing;
+      if (!researchSessionId) {
+        input = outgoing;
+        turns = history.slice(0, -1);
+      }
       error = caught instanceof Error ? caught.message : "Chat failed";
     }
   } finally {

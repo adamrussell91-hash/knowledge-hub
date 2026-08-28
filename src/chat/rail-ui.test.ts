@@ -196,6 +196,36 @@ describe("Knowledge chat rail protocol affordances", () => {
     expect(runChatMock).not.toHaveBeenCalled();
   });
 
+  it("does not leave a duplicate You turn when Research this fails", async () => {
+    runChatMock.mockRejectedValueOnce(new Error("hat and messages are required"));
+    sessionStorage.setItem(
+      "knowledge-hub-chat-v1",
+      JSON.stringify({
+        hat: "fromBook",
+        bookContext: {
+          label: "The Origins of Political Order: From Prehuman Times to the French Revolution",
+          locus: "P145",
+        },
+        input: "Economists and the rule of law",
+        turns: [],
+      }),
+    );
+    const host = makeHost();
+    host.render();
+    host.app.querySelector<HTMLFormElement>("form")!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await vi.waitFor(() => expect(runChatMock).toHaveBeenCalled());
+    await vi.waitFor(() => expect(host.app.textContent).toContain("hat and messages are required"));
+    const youCards = [...host.app.querySelectorAll(".coach-msg")].filter(el =>
+      el.textContent?.includes("You"),
+    );
+    expect(youCards).toHaveLength(0);
+    expect(host.app.querySelector<HTMLTextAreaElement>("#chat-input")?.value).toBe(
+      "Economists and the rule of law",
+    );
+  });
+
   it("files a researched page under the book with a confirm card", async () => {
     const { savePage } = await import("../api/client");
     const savePageMock = vi.mocked(savePage);

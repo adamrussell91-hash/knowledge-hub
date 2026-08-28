@@ -3,13 +3,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   bookContextLine,
-  bookNoteProtocol,
   bookOrigin,
   normalizeBookContext,
   resolveBookLabel,
   scoreBookFinding,
   selectBestFindings,
 } from "./bookNote";
+import { bookNoteProtocol } from "./bookNoteProtocol";
 import type { ResearchFinding } from "../research/schema";
 
 function finding(overrides: Partial<ResearchFinding> = {}): ResearchFinding {

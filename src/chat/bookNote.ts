@@ -1,4 +1,3 @@
-import { bookNote } from "../clementine/pack";
 import type { Origin } from "../domain/page";
 import { normalizeOriginLabel } from "../origin/normalize";
 import type { ResearchFinding } from "../research/schema";
@@ -14,10 +13,6 @@ export type BookContext = {
 const CONFIDENCE_SCORE = { high: 3, medium: 1, low: -1 } as const;
 const STANCE_SCORE = { supports: 2, complicates: 2, extends: 2, related: 0 } as const;
 const RELATION_SCORE = { direct: 2, indirect: 1, interpretive: 0 } as const;
-
-export function bookNoteProtocol(): string {
-  return bookNote;
-}
 
 export function normalizeBookContext(value: unknown): BookContext | undefined {
   if (!value || typeof value !== "object") return undefined;

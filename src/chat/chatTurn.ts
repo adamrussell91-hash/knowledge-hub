@@ -7,7 +7,8 @@ import { protocolSteerBlock } from "./agentProtocols";
 import { resolveChatPlan, type ChatDepth, type ChatHatId, type ChatScope } from "./hats";
 import type { ChatPersonalityId } from "./personalities";
 import { corpusAuditFromResearch, formatCorpusAudit, SYNTHESIS_WRITE_TOKENS, thematicSynthesisProtocol } from "./synthesisProtocol";
-import { BOOK_NOTE_WRITE_TOKENS, bookContextLine, bookNoteProtocol, selectBestFindings, type BookContext } from "./bookNote";
+import { BOOK_NOTE_WRITE_TOKENS, bookContextLine, selectBestFindings, type BookContext } from "./bookNote";
+import { bookNoteProtocol } from "./bookNoteProtocol";
 import type { ChatMessage } from "./messages";
 import type { ChatWriteState } from "./writeHttp";
 

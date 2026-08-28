@@ -1,9 +1,10 @@
 import type { Handler } from "@netlify/functions";
 import { cors, preflight, requestOrigin } from "./_lib/cors";
 import { requireSession } from "./_lib/requireSession";
+import { readRawBody } from "./_lib/readJsonBody";
 import { loadPromptFile } from "../../src/clementine/loadFromDisk";
 import { runChatTurn, type ChatMessage } from "../../src/chat/chatTurn";
-import { isChatHatId, type ChatDepth, type ChatScope } from "../../src/chat/hats";
+import { CHAT_HATS, isChatHatId, type ChatDepth, type ChatHatId, type ChatScope } from "../../src/chat/hats";
 import { normalizeBookContext } from "../../src/chat/bookNote";
 import { isChatPersonalityId, personalityById } from "../../src/chat/personalities";
 import { normalizeProtocolId } from "../../src/chat/agentProtocols";
@@ -12,51 +13,69 @@ import { pullLiveArchive } from "./_lib/liveArchive";
 
 const DEFAULT_KERNEL_URL = "https://knowledge-hub-research.adamrussell91.workers.dev";
 
-function parseBody(raw: string | null) {
+type ParsedChatBody = {
+  messages: ChatMessage[];
+  hat: ChatHatId;
+  scope?: ChatScope;
+  depth?: ChatDepth;
+  workingThesis?: string;
+  draft?: string;
+  noteContext?: { pageId: string; title: string };
+  notesInPlay?: { pageId: string; title: string }[];
+  bookContext?: ReturnType<typeof normalizeBookContext>;
+  personality?: string;
+  protocolId?: string;
+  searchOutside: boolean;
+  researchSessionId?: string;
+  writeSessionId?: string;
+  compose: boolean;
+  priorResearch?: ReturnType<typeof ResearchResultSchema.safeParse>["data"];
+  sittingLibrary?: ReturnType<typeof ResearchResultSchema.safeParse>["data"];
+  archiveFailed: boolean;
+};
+
+function parseBody(raw: string): { ok: true; body: ParsedChatBody } | { ok: false; error: string } {
+  let parsed: Record<string, unknown>;
   try {
-    const parsed = JSON.parse(raw ?? "{}") as {
-      messages?: unknown;
-      hat?: unknown;
-      scope?: unknown;
-      depth?: unknown;
-      workingThesis?: unknown;
-      draft?: unknown;
-      noteContext?: unknown;
-      notesInPlay?: unknown;
-      bookContext?: unknown;
-      personality?: unknown;
-      protocolId?: unknown;
-      searchOutside?: unknown;
-      researchSessionId?: unknown;
-      writeSessionId?: unknown;
-      compose?: unknown;
-      priorResearch?: unknown;
-      sittingLibrary?: unknown;
-      archiveFailed?: unknown;
-    };
-    if (!Array.isArray(parsed.messages)) return null;
-    const messages = parsed.messages.filter(
-      (item): item is ChatMessage =>
-        Boolean(item) &&
-        typeof item === "object" &&
-        ((item as ChatMessage).role === "user" || (item as ChatMessage).role === "assistant") &&
-        typeof (item as ChatMessage).content === "string",
-    );
-    if (!messages.length) return null;
-    if (typeof parsed.hat !== "string" || !isChatHatId(parsed.hat)) return null;
-    const asNote = (value: unknown) =>
-      value &&
-      typeof value === "object" &&
-      typeof (value as { pageId?: unknown }).pageId === "string" &&
-      typeof (value as { title?: unknown }).title === "string"
-        ? { pageId: (value as { pageId: string }).pageId, title: (value as { title: string }).title }
-        : undefined;
-    const note = asNote(parsed.noteContext);
-    const notesInPlay = Array.isArray(parsed.notesInPlay)
-      ? parsed.notesInPlay.map(asNote).filter((item): item is { pageId: string; title: string } => Boolean(item))
+    parsed = JSON.parse(raw || "{}") as Record<string, unknown>;
+  } catch {
+    return { ok: false, error: "Chat request was not valid JSON" };
+  }
+  if (!Array.isArray(parsed.messages)) {
+    return { ok: false, error: "messages are required" };
+  }
+  const messages = parsed.messages.filter(
+    (item): item is ChatMessage =>
+      Boolean(item) &&
+      typeof item === "object" &&
+      ((item as ChatMessage).role === "user" || (item as ChatMessage).role === "assistant") &&
+      typeof (item as ChatMessage).content === "string",
+  );
+  if (!messages.length) {
+    return { ok: false, error: "messages are required" };
+  }
+  if (typeof parsed.hat !== "string" || !parsed.hat.trim()) {
+    return { ok: false, error: "hat is required" };
+  }
+  if (!isChatHatId(parsed.hat)) {
+    const known = CHAT_HATS.map(item => item.id).join(", ");
+    return { ok: false, error: `Unknown chat hat "${parsed.hat}". Known: ${known}` };
+  }
+  const asNote = (value: unknown) =>
+    value &&
+    typeof value === "object" &&
+    typeof (value as { pageId?: unknown }).pageId === "string" &&
+    typeof (value as { title?: unknown }).title === "string"
+      ? { pageId: (value as { pageId: string }).pageId, title: (value as { title: string }).title }
       : undefined;
-    const bookContext = normalizeBookContext(parsed.bookContext);
-    return {
+  const note = asNote(parsed.noteContext);
+  const notesInPlay = Array.isArray(parsed.notesInPlay)
+    ? parsed.notesInPlay.map(asNote).filter((item): item is { pageId: string; title: string } => Boolean(item))
+    : undefined;
+  const bookContext = normalizeBookContext(parsed.bookContext);
+  return {
+    ok: true,
+    body: {
       messages,
       hat: parsed.hat,
       scope: typeof parsed.scope === "string" ? (parsed.scope as ChatScope) : undefined,
@@ -66,7 +85,10 @@ function parseBody(raw: string | null) {
       noteContext: note,
       notesInPlay,
       bookContext,
-      personality: typeof parsed.personality === "string" && isChatPersonalityId(parsed.personality) ? parsed.personality : undefined,
+      personality:
+        typeof parsed.personality === "string" && isChatPersonalityId(parsed.personality)
+          ? parsed.personality
+          : undefined,
       protocolId: normalizeProtocolId(parsed.protocolId),
       searchOutside: parsed.searchOutside === true,
       researchSessionId: typeof parsed.researchSessionId === "string" ? parsed.researchSessionId : undefined,
@@ -75,10 +97,8 @@ function parseBody(raw: string | null) {
       priorResearch: ResearchResultSchema.safeParse(parsed.priorResearch).data,
       sittingLibrary: ResearchResultSchema.safeParse(parsed.sittingLibrary).data,
       archiveFailed: parsed.archiveFailed === true,
-    };
-  } catch {
-    return null;
-  }
+    },
+  };
 }
 
 export const handler: Handler = async event => {
@@ -90,10 +110,11 @@ export const handler: Handler = async event => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, headers: cors(origin), body: JSON.stringify({ error: "Method not allowed" }) };
   }
-  const body = parseBody(event.body);
-  if (!body) {
-    return { statusCode: 400, headers: cors(origin), body: JSON.stringify({ error: "hat and messages are required" }) };
+  const parsed = parseBody(readRawBody(event));
+  if (!parsed.ok) {
+    return { statusCode: 400, headers: cors(origin), body: JSON.stringify({ error: parsed.error }) };
   }
+  const body = parsed.body;
   const kernelUrl = (process.env.RESEARCH_KERNEL_URL || DEFAULT_KERNEL_URL).replace(/\/+$/, "");
   const kernelSecret = process.env.RESEARCH_KERNEL_SHARED_SECRET;
   if (!kernelSecret) {

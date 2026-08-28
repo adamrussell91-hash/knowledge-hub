@@ -1,4 +1,4 @@
-import { thematicSynthesis } from "../clementine/pack";
+import { loadPromptFile } from "../clementine/loadFromDisk";
 import { filled } from "../research/evidencePacket";
 import type { ResearchResult, Stance } from "../research/schema";
 
@@ -107,8 +107,9 @@ Unavailable from this export: ${audit.unavailable.join("; ")}. Report those as $
 Theme confidence rules: high = two or more direct sources, or one major theoretical source plus one empirical source; medium = one direct source plus one interpretive connection; low = mostly inference. Do not mark every theme high.`;
 }
 
-export function thematicSynthesisProtocol(): string {
-  return thematicSynthesis;
+/** Node / Netlify only — do not call from browser code. */
+export function thematicSynthesisProtocol(cwd = process.cwd()): string {
+  return loadPromptFile("clementine-thematic-synthesis.md", cwd);
 }
 
 export function auditSynthesisReply(reply: string) {

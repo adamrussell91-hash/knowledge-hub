@@ -6,7 +6,7 @@ import { signSession } from "./_lib/session";
 const secret = "session-secret";
 const kernelSecret = "kernel-secret-value";
 
-function event(overrides: { cookie?: boolean; body?: string; method?: string } = {}) {
+function event(overrides: { cookie?: boolean; body?: string; method?: string; isBase64Encoded?: boolean } = {}) {
   const token = signSession({ sub: "adam" }, secret);
   return {
     httpMethod: overrides.method ?? "POST",
@@ -17,6 +17,7 @@ function event(overrides: { cookie?: boolean; body?: string; method?: string } =
         hat: "scoping",
         messages: [{ role: "user", content: "What do I have on Gagne?" }],
       }),
+    isBase64Encoded: overrides.isBase64Encoded,
   };
 }
 
@@ -42,6 +43,62 @@ describe("clementine-chat handler", () => {
   it("requires a site session", async () => {
     const response = await handler(event({ cookie: false }) as never, {} as never);
     expect(response.statusCode).toBe(401);
+  });
+
+  it("names an unknown hat instead of a vague parse error", async () => {
+    const response = await handler(
+      event({
+        body: JSON.stringify({
+          hat: "not-a-hat",
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }) as never,
+      {} as never,
+    );
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body ?? "{}").error).toMatch(/Unknown chat hat "not-a-hat"/);
+    expect(JSON.parse(response.body ?? "{}").error).toMatch(/fromBook/);
+  });
+
+  it("accepts a base64-encoded fromBook body", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes("/chat/write/start")) {
+        return { ok: true, json: async () => ({ writeSessionId: "w-b64", status: "writing" }) };
+      }
+      throw new Error(`unexpected ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const payload = JSON.stringify({
+      hat: "fromBook",
+      compose: true,
+      bookContext: { label: "Make It Stick", locus: "p. 142" },
+      messages: [{ role: "user", content: "desirable difficulties" }],
+      priorResearch: {
+        query: "desirable difficulties",
+        round: 1,
+        status: "done",
+        findings: [
+          {
+            pageId: "page_bjork",
+            title: "Bjork on retrieval effort",
+            sourceUrl: "https://example.test/b",
+            excerpt: "Effortful retrieval strengthens later recall",
+            stance: "supports",
+            analysis: "Supports the book.",
+            confidence: "high",
+            claimRelationship: "direct",
+          },
+        ],
+        gaps: [],
+        followUpQueries: [],
+      },
+    });
+    const response = await handler(
+      event({ body: Buffer.from(payload, "utf8").toString("base64"), isBase64Encoded: true }) as never,
+      {} as never,
+    );
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? "{}")).toMatchObject({ status: "writing", writeSessionId: "w-b64" });
   });
 
   it("starts a Worker write after a quick archive pull without calling Anthropic on Netlify", async () => {

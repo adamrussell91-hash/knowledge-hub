@@ -315,7 +315,10 @@ async function send(host: ChatRailHost, extras: { searchOutside?: boolean } = {}
       ];
       error = caught.message;
     } else {
-      if (!researchSessionId && !extras.searchOutside) input = outgoing;
+      if (!researchSessionId && !extras.searchOutside) {
+        input = outgoing;
+        turns = history.slice(0, -1);
+      }
       error = caught instanceof Error ? caught.message : "Chat failed";
     }
   } finally {
