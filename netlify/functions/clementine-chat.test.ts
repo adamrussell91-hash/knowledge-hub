@@ -6,6 +6,15 @@ import { signSession } from "./_lib/session";
 const secret = "session-secret";
 const kernelSecret = "kernel-secret-value";
 
+const putChatWrite = vi.fn();
+const getChatWrite = vi.fn();
+
+vi.mock("./_lib/chatWriteStore", () => ({
+  isBookWriteSessionId: (id: string) => id.startsWith("book_"),
+  putChatWrite: (...args: unknown[]) => putChatWrite(...args),
+  getChatWrite: (...args: unknown[]) => getChatWrite(...args),
+}));
+
 function event(overrides: { cookie?: boolean; body?: string; method?: string; isBase64Encoded?: boolean } = {}) {
   const token = signSession({ sub: "adam" }, secret);
   return {
@@ -27,6 +36,9 @@ describe("clementine-chat handler", () => {
     process.env.ANTHROPIC_API_KEY = "anthropic-key";
     process.env.RESEARCH_KERNEL_SHARED_SECRET = kernelSecret;
     process.env.RESEARCH_KERNEL_URL = "https://kernel.test";
+    process.env.URL = "https://knowledge-api.adam-russell.com";
+    putChatWrite.mockReset();
+    getChatWrite.mockReset();
   });
 
   afterEach(() => {
@@ -34,6 +46,7 @@ describe("clementine-chat handler", () => {
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.RESEARCH_KERNEL_SHARED_SECRET;
     delete process.env.RESEARCH_KERNEL_URL;
+    delete process.env.URL;
     delete process.env.GITHUB_DATA_REPO;
     delete process.env.GITHUB_DATA_REPO_TOKEN;
     resetLiveArchiveCache();
@@ -61,12 +74,13 @@ describe("clementine-chat handler", () => {
   });
 
   it("accepts a base64-encoded fromBook body", async () => {
-    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
-      if (String(url).includes("/chat/write/start")) {
-        const body = JSON.parse(String(init?.body));
-        expect(body.webSearch).toBe(true);
-        expect(body.system).toContain("From a book protocol");
-        return { ok: true, json: async () => ({ writeSessionId: "w-b64", status: "writing" }) };
+    putChatWrite.mockImplementation(async (state: { writeSessionId: string }) => ({
+      ...state,
+      status: "writing",
+    }));
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (String(url).includes("clementine-book-write")) {
+        return { ok: false, status: 202, json: async () => ({}) };
       }
       throw new Error(`unexpected ${url}`);
     });
@@ -81,10 +95,9 @@ describe("clementine-chat handler", () => {
       {} as never,
     );
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body ?? "{}")).toMatchObject({
-      status: "writing",
-      writeSessionId: "w-b64",
-    });
+    const body = JSON.parse(response.body ?? "{}");
+    expect(body.status).toBe("writing");
+    expect(body.writeSessionId).toMatch(/^book_/);
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
   });
 
@@ -262,16 +275,21 @@ describe("clementine-chat handler", () => {
     expect(response.body).not.toContain(kernelSecret);
   });
 
-  it("hands From a book to the Worker write clock with web_search, not Netlify Anthropic", async () => {
+  it("kicks a background book-write instead of Anthropic inside the 26s function", async () => {
+    putChatWrite.mockImplementation(async (state: { writeSessionId: string }) => ({
+      ...state,
+      status: "writing",
+    }));
     const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
-      if (String(url).includes("/chat/write/start")) {
+      if (String(url).includes("clementine-book-write")) {
         const body = JSON.parse(String(init?.body));
-        expect(body.webSearch).toBe(true);
+        expect(body.writeSessionId).toMatch(/^book_/);
         expect(body.system).toContain("From a book protocol");
         expect(body.system).toContain("Reading: Make It Stick (p. 142)");
         expect(body.system).toMatch(/open web/i);
         expect(body.maxTokens).toBeGreaterThan(2000);
-        return { ok: true, json: async () => ({ writeSessionId: "w-book", status: "writing" }) };
+        expect(init?.headers).toMatchObject({ "x-research-kernel-secret": kernelSecret });
+        return { ok: false, status: 202, json: async () => ({}) };
       }
       throw new Error(`unexpected ${url}`);
     });
@@ -287,11 +305,42 @@ describe("clementine-chat handler", () => {
       {} as never,
     );
     expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body ?? "{}")).toMatchObject({
-      status: "writing",
-      writeSessionId: "w-book",
-    });
+    const payload = JSON.parse(response.body ?? "{}");
+    expect(payload).toMatchObject({ status: "writing" });
+    expect(payload.writeSessionId).toMatch(/^book_/);
+    expect(putChatWrite).toHaveBeenCalledOnce();
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("anthropic"))).toBe(false);
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/deep_research"))).toBe(false);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/chat/write/start"))).toBe(false);
+  });
+
+  it("polls book write state from R2, not the Worker", async () => {
+    getChatWrite.mockResolvedValue({
+      writeSessionId: "book_abc",
+      status: "done",
+      reply: "## Weak absolutism\n\nA web note.",
+    });
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("unexpected fetch");
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const response = await handler(
+      event({
+        body: JSON.stringify({
+          hat: "fromBook",
+          bookContext: { label: "The Origins of Political Order" },
+          messages: [{ role: "user", content: "Weak absolutism and collective action failures" }],
+          writeSessionId: "book_abc",
+        }),
+      }) as never,
+      {} as never,
+    );
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body ?? "{}")).toMatchObject({
+      status: "done",
+      reply: "## Weak absolutism\n\nA web note.",
+    });
+    expect(getChatWrite).toHaveBeenCalledWith("book_abc");
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
