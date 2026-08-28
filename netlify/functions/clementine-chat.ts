@@ -1,7 +1,9 @@
 import type { Handler } from "@netlify/functions";
+import { randomUUID } from "node:crypto";
 import { cors, preflight, requestOrigin } from "./_lib/cors";
 import { requireSession } from "./_lib/requireSession";
 import { readRawBody } from "./_lib/readJsonBody";
+import { getChatWrite, isBookWriteSessionId, putChatWrite } from "./_lib/chatWriteStore";
 import { loadPromptFile } from "../../src/clementine/loadFromDisk";
 import { runChatTurn, type ChatMessage } from "../../src/chat/chatTurn";
 import { CHAT_HATS, isChatHatId, type ChatDepth, type ChatHatId, type ChatScope } from "../../src/chat/hats";
@@ -12,6 +14,13 @@ import { ResearchResultSchema } from "../../src/research/schema";
 import { pullLiveArchive } from "./_lib/liveArchive";
 
 const DEFAULT_KERNEL_URL = "https://knowledge-hub-research.adamrussell91.workers.dev";
+
+function siteOrigin() {
+  return (process.env.URL || process.env.DEPLOY_PRIME_URL || "https://knowledge-api.adam-russell.com").replace(
+    /\/+$/,
+    "",
+  );
+}
 
 type ParsedChatBody = {
   messages: ChatMessage[];
@@ -147,8 +156,38 @@ export const handler: Handler = async event => {
       archivePull: pullLiveArchive,
       write: {
         start: async input => {
-          // Book notes need Anthropic web_search, which outlives Netlify's 26s cap.
-          // Hand off to the Worker ChatWrite Durable Object and let the client poll.
+          if (input.webSearch) {
+            if (!process.env.ANTHROPIC_API_KEY) {
+              throw new Error("Book note web research is not configured");
+            }
+            // Never run Anthropic web_search inside this 26s function.
+            // Park state in R2, kick a background function (202 + up to ~15 min), return.
+            const writeSessionId = `book_${randomUUID()}`;
+            const started = await putChatWrite({
+              writeSessionId,
+              status: "writing",
+              research: input.research,
+              archiveFailed: input.archiveFailed,
+            });
+            const kick = await fetch(`${siteOrigin()}/.netlify/functions/clementine-book-write`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-research-kernel-secret": kernelSecret,
+              },
+              body: JSON.stringify({
+                writeSessionId,
+                system: input.system,
+                messages: input.messages,
+                maxTokens: input.maxTokens,
+              }),
+              signal: AbortSignal.timeout(5_000),
+            });
+            if (kick.status !== 202 && !kick.ok) {
+              throw new Error(`Book write failed to start ${kick.status}`);
+            }
+            return started;
+          }
           const response = await fetch(`${kernelUrl}/chat/write/start`, {
             method: "POST",
             headers: {
@@ -163,6 +202,9 @@ export const handler: Handler = async event => {
           return response.json();
         },
         poll: async writeSessionId => {
+          if (isBookWriteSessionId(writeSessionId)) {
+            return getChatWrite(writeSessionId);
+          }
           const response = await fetch(`${kernelUrl}/chat/write/${encodeURIComponent(writeSessionId)}`, {
             headers: { "x-research-kernel-secret": kernelSecret },
             signal: AbortSignal.timeout(8_000),
@@ -179,7 +221,11 @@ export const handler: Handler = async event => {
     if (message.startsWith("Prompt file missing:")) {
       return { statusCode: 500, headers: cors(origin), body: JSON.stringify({ error: message }) };
     }
-    if (/write clock is not deployed|Chat write clock is not configured/i.test(message)) {
+    if (
+      /write clock is not deployed|Chat write clock is not configured|write store is not configured|web research is not configured/i.test(
+        message,
+      )
+    ) {
       return { statusCode: 503, headers: cors(origin), body: JSON.stringify({ error: message }) };
     }
     return { statusCode: 502, headers: cors(origin), body: JSON.stringify({ error: message || "Chat turn failed" }) };
