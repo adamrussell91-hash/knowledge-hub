@@ -7,11 +7,11 @@ import {
   readUniverseDark,
   shouldExitUniverseFullscreen,
   syncUniverseViewButtons,
+  graphFullscreenToolsHtml,
   universeExitHtml,
   universeViewToolsHtml,
   universeWrapClass,
   writeUniverseDark,
-  graphFullscreenToolsHtml,
 } from "./universeChrome";
 
 describe("universe view chrome", () => {
@@ -22,7 +22,7 @@ describe("universe view chrome", () => {
     expect(universeWrapClass(true, true)).toBe("graph-wrap is-universe-dark is-universe-fullscreen");
   });
 
-  it("gives constellation a Full screen toggle without the Universe dark control", () => {
+  it("gives constellation and Show All a Full screen toggle without the Universe dark control", () => {
     document.body.innerHTML = graphFullscreenToolsHtml(false) + universeExitHtml(false);
     expect(document.querySelector("[data-universe-dark]")).toBeNull();
     const full = document.querySelector<HTMLButtonElement>("[data-universe-fullscreen]")!;

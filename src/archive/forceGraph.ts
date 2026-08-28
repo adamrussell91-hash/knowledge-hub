@@ -10,9 +10,9 @@ import {
 import {
   SHOW_ALL_RETUNE_MS,
   SHOW_ALL_SPOKE_ALPHA,
+  applyForceStageResize,
   applyShowAllStrandStroke,
   applyShowAllTuning,
-  applyForceStageResize,
   attachGraphSearch,
   canvasRadius,
   fitViewToNodes,
@@ -23,6 +23,7 @@ import {
   nodeDrawState,
   nodeHoverTip,
   overlapLinkAlpha,
+  showAllLabelVisible,
   resolveBackgroundClick,
   resolveEnterKey,
   resolveNodeClick,
@@ -172,6 +173,8 @@ export function mountForceGraph(
           if (!fading && shouldLockShowAll(settleTicks)) {
             lockShowAllNodes(simNodes);
             sim.stop();
+            const fitted = fitViewToNodes(simNodes, width, height, 56, 0.08);
+            if (fitted) Object.assign(view, fitted);
           }
           scheduleDraw();
         });
@@ -380,7 +383,7 @@ export function mountForceGraph(
           ctx.globalAlpha = 0.9 * fade;
         } else {
           ctx.strokeStyle = link.color;
-          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" ? overlapLinkAlpha() : 0.2) * fade;
+          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" || link.kind === "backbone" ? overlapLinkAlpha() : 0.2) * fade;
         }
       } else if (link.kind === "spoke") {
         ctx.setLineDash([4 / view.k, 5 / view.k]);
@@ -401,7 +404,7 @@ export function mountForceGraph(
           ctx.lineWidth = (thick + 1.4) / view.k;
         } else {
           ctx.strokeStyle = link.color;
-          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" ? overlapLinkAlpha() : 0.2) * fade;
+          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" || link.kind === "backbone" ? overlapLinkAlpha() : 0.2) * fade;
           ctx.lineWidth = thick / view.k;
         }
       }
@@ -429,7 +432,7 @@ export function mountForceGraph(
         ctx.lineWidth = 1 / view.k;
         ctx.strokeStyle = "#fff";
         ctx.stroke();
-        if ((view.k > 0.85 && hover === node) || (hot && node.kind !== "leaf" && view.k > 0.28)) {
+        if (showAllLabelVisible(node, view.k, hover === node) || (hot && node.kind !== "leaf" && view.k > 0.28)) {
           ctx.fillStyle = node.ink;
           ctx.globalAlpha = fade;
           ctx.font = `500 ${Math.max(10, 11 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
@@ -437,6 +440,28 @@ export function mountForceGraph(
           ctx.textBaseline = "middle";
           const text = node.label.length > 32 ? `${node.label.slice(0, 31)}…` : node.label;
           ctx.fillText(text, node.x + drawR + 6, node.y);
+        }
+        ctx.globalAlpha = 1;
+      }
+      if (view.k < 0.55) {
+        const sums = new Map<string, { x: number; y: number; n: number; ink: string; label: string }>();
+        for (const node of simNodes) {
+          if (node.kind !== "leaf" || !node.communityLabel || node.x == null || node.y == null) continue;
+          const key = `${node.community ?? 0}:${node.communityLabel}`;
+          const cur = sums.get(key) ?? { x: 0, y: 0, n: 0, ink: node.ink, label: node.communityLabel };
+          cur.x += node.x;
+          cur.y += node.y;
+          cur.n += 1;
+          sums.set(key, cur);
+        }
+        for (const sum of sums.values()) {
+          if (sum.n < 24 || !sum.label) continue;
+          ctx.fillStyle = sum.ink;
+          ctx.globalAlpha = 0.55;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `600 ${Math.max(13, 16 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
+          ctx.fillText(sum.label, sum.x / sum.n, sum.y / sum.n);
         }
         ctx.globalAlpha = 1;
       }
@@ -740,9 +765,9 @@ export function mountForceGraph(
 
   return attachGraphSearch(
     () => {
+      resizeObserver?.disconnect();
       window.removeEventListener("keydown", onKeyDown);
       window.clearTimeout(retuneTimer);
-      resizeObserver?.disconnect();
       simulation.stop();
       if (drawRaf) cancelAnimationFrame(drawRaf);
       host.innerHTML = "";

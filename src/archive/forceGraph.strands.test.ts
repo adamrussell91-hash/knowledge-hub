@@ -161,12 +161,13 @@ describe("Show All strand drawing", () => {
     );
     const graph = buildShowAllGraph(pages, "tags");
     expect(graph.nodes.every(node => node.kind === "leaf")).toBe(true);
-    expect(graph.links.every(link => link.kind === "overlap")).toBe(true);
+    expect(graph.links.every(link => link.kind === "overlap" || link.kind === "backbone")).toBe(true);
+    expect(graph.links.some(link => link.kind === "spoke")).toBe(false);
 
     const stop = mountForceGraph(host, graph, {}, { variant: "showAll", search: "", excerptFor: () => "" });
     expect(recorded.paths.length).toBeGreaterThan(0);
     expect(recorded.paths.every(path => path === "curve")).toBe(true);
-    expect(recorded.texts).toEqual([]);
+    expect(recorded.texts.length).toBeLessThan(graph.nodes.length / 4);
 
     stop();
   });

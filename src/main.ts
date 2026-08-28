@@ -56,6 +56,7 @@ import {
   tuningFromSlider,
   type GraphMount,
 } from "./archive/forceGraphBehavior";
+import { formatGraphMetrics, graphMetrics } from "./archive/graphMetrics";
 import { buildShowAllGraph } from "./archive/showAllGraph";
 import {
   SHOW_ALL_GROUPINGS,
@@ -136,6 +137,7 @@ let universeKeyOpen = false;
 let universeDark = readUniverseDark(typeof localStorage === "undefined" ? null : localStorage);
 let graphFullscreen = false;
 let solarModelCache: { source: PageManifestEntry[]; model: SolarModel } | null = null;
+let showAllModelCache: { source: PageManifestEntry[]; grouping: ShowAllGrouping; model: ReturnType<typeof buildShowAllGraph> } | null = null;
 
 function getSolarModel() {
   if (solarModelCache && solarModelCache.source === entries) return solarModelCache.model;
@@ -641,7 +643,16 @@ function showAllTuningHtml() {
 }
 
 function showAllModel() {
-  return buildShowAllGraph(entries, showAllGrouping);
+  if (
+    showAllModelCache &&
+    showAllModelCache.source === entries &&
+    showAllModelCache.grouping === showAllGrouping
+  ) {
+    return showAllModelCache.model;
+  }
+  const model = buildShowAllGraph(entries, showAllGrouping);
+  showAllModelCache = { source: entries, grouping: showAllGrouping, model };
+  return model;
 }
 
 function showAllMetaText() {
@@ -649,9 +660,8 @@ function showAllMetaText() {
   const model = showAllModel();
   const notes = model.nodes.filter(node => node.kind === "leaf").length;
   const hidden = Math.max(0, entries.length - notes);
-  return hidden
-    ? `${notes} tagged · ${model.majorCount} topics · ${hidden} still untagged`
-    : `${notes} tagged · ${model.majorCount} topics`;
+  const connectivity = formatGraphMetrics(graphMetrics(model.nodes, model.links));
+  return hidden ? `${connectivity} · ${hidden} still untagged` : connectivity;
 }
 
 function graphMetaText() {

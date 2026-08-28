@@ -101,6 +101,10 @@ export type GraphNodeDatum = {
   parentKeyword?: string;
   /** Every topic this note belongs to (Show All colouring and notebook/degree spokes). */
   hubLabels?: string[];
+  degree?: number;
+  community?: number;
+  communityLabel?: string;
+  important?: boolean;
   color: string;
   soft: string;
   ink: string;

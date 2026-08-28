@@ -71,7 +71,7 @@ export function createShowAllSimulation(
         .distance(showAllLinkDistance)
         .strength(link => showAllLinkStrength(link.kind)),
     )
-    .force("charge", forceManyBody<GraphNodeDatum>().strength(showAllNodeCharge).distanceMax(2000))
+    .force("charge", forceManyBody<GraphNodeDatum>().strength(showAllNodeCharge).distanceMax(560).theta(0.9))
     .force("x", forceX<GraphNodeDatum>(node => homeFor(node, hubHomes).x).strength(showAllTargetStrength))
     .force("y", forceY<GraphNodeDatum>(node => homeFor(node, hubHomes).y).strength(showAllTargetStrength))
     .force(
