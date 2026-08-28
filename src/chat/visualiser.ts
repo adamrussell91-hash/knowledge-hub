@@ -85,8 +85,7 @@ function mockHeader(showPortrait: boolean) {
 }
 
 function mockHats() {
-  return `<p class="chat__picker-label">How should she work</p>
-    <div class="graph-modes" role="group" aria-label="Chat hats">
+  return `<div class="graph-modes" role="group" aria-label="Chat hats">
       <button type="button" class="is-active" tabindex="-1"><span>Thematic synthesis</span></button>
       <button type="button" tabindex="-1"><span>Evidence check</span></button>
       <button type="button" tabindex="-1"><span>Writing</span></button>

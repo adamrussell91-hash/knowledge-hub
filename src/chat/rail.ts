@@ -440,7 +440,6 @@ export function renderChatRail(host: ChatRailHost) {
     )}
     <section class="coach chat">
       <div class="chat__sitting glass-panel">
-        <p class="chat__picker-label">How should she work</p>
         <div class="graph-modes chat__hats" role="group" aria-label="Chat hats">
           ${CHAT_HATS.map(
             item =>
