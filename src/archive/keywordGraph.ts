@@ -149,6 +149,46 @@ export function rankTopicNotes(entries: PageManifestEntry[]) {
   });
 }
 
+function spreadSample(entries: PageManifestEntry[], limit: number) {
+  if (entries.length <= limit) return [...entries];
+  const out: PageManifestEntry[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < limit; i++) {
+    const index = Math.round((i * (entries.length - 1)) / Math.max(limit - 1, 1));
+    const page = entries[index]!;
+    if (seen.has(page.id)) continue;
+    seen.add(page.id);
+    out.push(page);
+  }
+  for (const page of entries) {
+    if (out.length >= limit) break;
+    if (seen.has(page.id)) continue;
+    seen.add(page.id);
+    out.push(page);
+  }
+  return out;
+}
+
+/** Recent notes when dates vary; otherwise a spread, preferring notes that only have this topic. */
+export function sampleTopicNotes(entries: PageManifestEntry[], limit: number) {
+  if (entries.length <= limit) return rankTopicNotes(entries);
+  const ranked = rankTopicNotes(entries);
+  const dates = new Set(ranked.map(entry => entry.created_at).filter(Boolean));
+  const take = (pool: PageManifestEntry[]) =>
+    dates.size >= 3 ? rankTopicNotes(pool).slice(0, limit) : spreadSample(rankTopicNotes(pool), limit);
+
+  const core = ranked.filter(entry => topicKeywords(entry.tags).length === 1);
+  const rest = ranked.filter(entry => topicKeywords(entry.tags).length !== 1);
+  const picked: PageManifestEntry[] = [];
+  const seen = new Set<string>();
+  for (const page of [...take(core), ...take(rest)]) {
+    if (picked.length >= limit || seen.has(page.id)) continue;
+    seen.add(page.id);
+    picked.push(page);
+  }
+  return picked;
+}
+
 export function constellationLeafId(hubId: string, pageId: string) {
   return `leaf:${hubId}:${pageId}`;
 }
@@ -376,7 +416,7 @@ export function buildArchiveGraph(entries: PageManifestEntry[]): ArchiveGraphMod
 
   const leaves = new Map<string, PageManifestEntry[]>();
   for (const [label] of ordered) {
-    leaves.set(label, rankTopicNotes(pagesByKeyword.get(label) ?? []).slice(0, LEAF_SAMPLE));
+    leaves.set(label, sampleTopicNotes(pagesByKeyword.get(label) ?? [], LEAF_SAMPLE));
   }
 
   for (const hub of [...nodes]) {

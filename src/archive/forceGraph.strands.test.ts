@@ -4,6 +4,7 @@ import { mountForceGraph } from "./forceGraph";
 import { SHOW_ALL_STRAND_WIDTH, resetShowAllTuning } from "./forceGraphBehavior";
 import type { ArchiveGraphModel, GraphLinkDatum, GraphNodeDatum } from "./keywordGraph";
 import { TOPIC_VOCABULARY } from "../tidy/vocabulary";
+import { buildArchiveGraph } from "./keywordGraph";
 import { buildShowAllGraph } from "./showAllGraph";
 
 type StrokeRecord = {
@@ -37,6 +38,9 @@ function recordingContext() {
     beginPath() {},
     arc() {},
     fill() {},
+    createRadialGradient() {
+      return { addColorStop() {} };
+    },
     stroke() {
       strokes.push({
         lineWidth: ctx.lineWidth,
@@ -163,6 +167,41 @@ describe("Show All strand drawing", () => {
     expect(recorded.paths.length).toBeGreaterThan(0);
     expect(recorded.paths.every(path => path === "curve")).toBe(true);
     expect(recorded.texts).toEqual([]);
+
+    stop();
+  });
+});
+
+describe("Constellation drawing", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  it("draws topic hubs with a sample of their notes already on the canvas", () => {
+    stubFrame();
+    const recorded = installCanvas();
+    const host = document.createElement("div");
+    Object.defineProperty(host, "clientWidth", { value: 1100 });
+    document.body.appendChild(host);
+
+    const pages = TOPIC_VOCABULARY.slice(0, 3).flatMap((tag, cluster) =>
+      Array.from({ length: 8 }, (_, index) => ({
+        id: `${cluster}-${index}`,
+        title: `${tag} note ${index}`,
+        area: "notes" as const,
+        tags: [tag],
+        excerpt: "",
+      })),
+    );
+    const graph = buildArchiveGraph(pages);
+    const stop = mountForceGraph(host, graph, {}, { variant: "constellation", search: "", excerptFor: () => "" });
+
+    expect(graph.nodes.some(node => node.kind === "leaf")).toBe(true);
+    expect(recorded.texts).toContain("+");
+    expect(recorded.texts.some(text => text.includes("notes"))).toBe(true);
+    expect(recorded.texts).toContain(TOPIC_VOCABULARY[0]);
+    expect(recorded.paths).toContain("curve");
 
     stop();
   });

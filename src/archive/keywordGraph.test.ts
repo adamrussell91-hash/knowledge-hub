@@ -10,6 +10,7 @@ import {
   constellationLeafId,
   isTopicKeyword,
   rankTopicNotes,
+  sampleTopicNotes,
   topicKeywords,
 } from "./keywordGraph";
 
@@ -77,6 +78,30 @@ describe("constellation notes", () => {
   it("ranks newest notes first so the constellation sample is recent work", () => {
     const ranked = rankTopicNotes(pagesFor(V[0]!, 3).reverse());
     expect(ranked.map(page => page.id)).toEqual(["p2", "p1", "p0"]);
+  });
+
+  it("spreads across a topic when dates do not distinguish notes, and prefers single-topic notes", () => {
+    const mixed = [
+      ...Array.from({ length: 20 }, (_, index) => ({
+        id: `shared-${index}`,
+        title: `Shared ${index}`,
+        area: "notes" as const,
+        tags: [V[0]!, V[1]!],
+        excerpt: "",
+      })),
+      {
+        id: "core-only",
+        title: "Core note",
+        area: "notes" as const,
+        tags: [V[0]!],
+        excerpt: "",
+      },
+    ];
+    const sample = sampleTopicNotes(mixed, 4);
+    expect(sample[0]?.id).toBe("core-only");
+    expect(sample).toHaveLength(4);
+    const shared = sample.filter(page => page.id.startsWith("shared-")).map(page => Number(page.id.slice(7)));
+    expect(Math.max(...shared) - Math.min(...shared)).toBeGreaterThan(2);
   });
 
   it("opens a topic hub to its full sample and closes it back to the preview ring", () => {
