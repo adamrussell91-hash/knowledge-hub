@@ -17,6 +17,7 @@ import {
   canvasRadius,
   fitViewToNodes,
   focusViewOnNode,
+  forceStageSize,
   initialForceView,
   linkDrawState,
   nodeDrawState,
@@ -82,8 +83,7 @@ export function mountForceGraph(
   handlers: ForceGraphHandlers,
   options: ForceGraphOptions = { variant: "constellation", search: "", excerptFor: () => "" },
 ): GraphMount {
-  let width = host.clientWidth || 1100;
-  let height = Math.max(host.clientHeight || 0, 720, Math.floor(window.innerHeight * 0.8));
+  let { width, height } = forceStageSize(host, window);
   host.innerHTML = "";
   host.style.height = `${height}px`;
   const onNoteSelect = handlers.onNoteSelect ?? (() => {});
@@ -731,21 +731,21 @@ export function mountForceGraph(
   };
   window.addEventListener("keydown", onKeyDown);
 
-  function applyStageSize() {
-    const fullscreen = Boolean(host.closest(".is-universe-fullscreen"));
-    const measured = {
-      width: host.clientWidth || width,
-      height: fullscreen
-        ? host.clientHeight || Math.floor(window.innerHeight)
-        : Math.max(720, Math.floor(window.innerHeight * 0.8)),
-    };
-    const next = applyForceStageResize({ width, height, k: view.k, x: view.x, y: view.y }, measured);
+  function applyHostSize() {
+    const next = applyForceStageResize(
+      { width, height, k: view.k, x: view.x, y: view.y },
+      forceStageSize(host, window),
+    );
     if (next.width === width && next.height === height) return;
     width = next.width;
     height = next.height;
+    view.k = next.k;
     view.x = next.x;
     view.y = next.y;
-    host.style.height = fullscreen ? "" : `${height}px`;
+    if (options.variant === "constellation" && !simNodes.some(node => node.expanded)) {
+      const fitted = fitViewToNodes(simNodes, width, height, 72, 0.2);
+      if (fitted) Object.assign(view, fitted);
+    }
     canvas.width = Math.floor(width * devicePixelRatio);
     canvas.height = Math.floor(height * devicePixelRatio);
     canvas.style.width = `${width}px`;
@@ -756,7 +756,7 @@ export function mountForceGraph(
   const resizeObserver =
     typeof ResizeObserver === "function"
       ? new ResizeObserver(() => {
-          applyStageSize();
+          applyHostSize();
         })
       : null;
   resizeObserver?.observe(host);

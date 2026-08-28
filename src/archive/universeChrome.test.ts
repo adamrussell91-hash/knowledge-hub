@@ -22,11 +22,16 @@ describe("universe view chrome", () => {
     expect(universeWrapClass(true, true)).toBe("graph-wrap is-universe-dark is-universe-fullscreen");
   });
 
-  it("offers full screen on Show All without the Universe dark toggle", () => {
+  it("gives constellation and Show All a Full screen toggle without the Universe dark control", () => {
     document.body.innerHTML = graphFullscreenToolsHtml(false) + universeExitHtml(false);
     expect(document.querySelector("[data-universe-dark]")).toBeNull();
-    expect(document.querySelector("[data-universe-fullscreen]")!.textContent).toBe("Full screen");
+    const full = document.querySelector<HTMLButtonElement>("[data-universe-fullscreen]")!;
+    expect(full.textContent).toBe("Full screen");
+    expect(full.getAttribute("aria-pressed")).toBe("false");
     expect(document.querySelector<HTMLButtonElement>("[data-universe-exit]")!.hidden).toBe(true);
+    document.body.innerHTML = graphFullscreenToolsHtml(true) + universeExitHtml(true);
+    expect(document.querySelector("[data-universe-fullscreen]")!.textContent).toBe("Exit");
+    expect(document.querySelector<HTMLButtonElement>("[data-universe-exit]")!.hidden).toBe(false);
   });
 
   it("renders Dark and Full screen as unpressed toggles by default", () => {

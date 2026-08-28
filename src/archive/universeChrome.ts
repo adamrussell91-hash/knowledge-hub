@@ -20,16 +20,20 @@ export function universeWrapClass(dark: boolean, fullscreen: boolean) {
   return `graph-wrap${dark ? " is-universe-dark" : ""}${fullscreen ? " is-universe-fullscreen" : ""}`;
 }
 
-export function universeViewToolsHtml(dark: boolean, fullscreen: boolean) {
-  return `<div class="universe-view-tools graph-modes" role="group" aria-label="Universe view">
-    <button type="button" data-universe-dark aria-pressed="${dark}" class="${dark ? "is-active" : ""}">${dark ? "Light" : "Dark"}</button>
-    <button type="button" data-universe-fullscreen aria-pressed="${fullscreen}" class="${fullscreen ? "is-active" : ""}">${fullscreen ? "Exit" : "Full screen"}</button>
-  </div>`;
+export function graphFullscreenButtonHtml(fullscreen: boolean) {
+  return `<button type="button" data-universe-fullscreen aria-pressed="${fullscreen}" class="${fullscreen ? "is-active" : ""}">${fullscreen ? "Exit" : "Full screen"}</button>`;
 }
 
 export function graphFullscreenToolsHtml(fullscreen: boolean) {
   return `<div class="universe-view-tools graph-modes" role="group" aria-label="Graph view">
-    <button type="button" data-universe-fullscreen aria-pressed="${fullscreen}" class="${fullscreen ? "is-active" : ""}">${fullscreen ? "Exit" : "Full screen"}</button>
+    ${graphFullscreenButtonHtml(fullscreen)}
+  </div>`;
+}
+
+export function universeViewToolsHtml(dark: boolean, fullscreen: boolean) {
+  return `<div class="universe-view-tools graph-modes" role="group" aria-label="Universe view">
+    <button type="button" data-universe-dark aria-pressed="${dark}" class="${dark ? "is-active" : ""}">${dark ? "Light" : "Dark"}</button>
+    ${graphFullscreenButtonHtml(fullscreen)}
   </div>`;
 }
 

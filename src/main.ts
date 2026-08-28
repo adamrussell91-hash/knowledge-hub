@@ -69,9 +69,9 @@ import { UNIVERSE_BUILD, mountSolarView, resolveSearchHits } from "./archive/sol
 import {
   applyUniverseViewState,
   bindUniverseView,
+  graphFullscreenToolsHtml,
   readUniverseDark,
   shouldExitUniverseFullscreen,
-  graphFullscreenToolsHtml,
   universeExitHtml,
   universeViewToolsHtml,
   universeWrapClass,
@@ -135,7 +135,7 @@ let graphSearch = "";
 let orbitSpeed = 0.5;
 let universeKeyOpen = false;
 let universeDark = readUniverseDark(typeof localStorage === "undefined" ? null : localStorage);
-let universeFullscreen = false;
+let graphFullscreen = false;
 let solarModelCache: { source: PageManifestEntry[]; model: SolarModel } | null = null;
 let showAllModelCache: { source: PageManifestEntry[]; grouping: ShowAllGrouping; model: ReturnType<typeof buildShowAllGraph> } | null = null;
 
@@ -714,7 +714,7 @@ function renderGraph() {
         <button class="viewbar__btn is-active" type="button">Graph</button>
       </div>`,
     )}
-    <div class="${universeWrapClass(graphMode === "universe" && universeDark, universeFullscreen && (graphMode === "universe" || graphMode === "showAll"))}">
+    <div class="${universeWrapClass(graphMode === "universe" && universeDark, graphFullscreen)}">
       <div class="graph-toolbar glass-panel">
         <div class="graph-modes" role="group" aria-label="Graph mode">
           <button type="button" data-graph-mode="constellation" class="${graphMode === "constellation" ? "is-active" : ""}">Constellation</button>
@@ -740,21 +740,19 @@ function renderGraph() {
                 <input type="range" min="0" max="1" step="0.05" value="${orbitSpeed}" data-orbit-speed />
                 <output class="graph-speed__value" data-orbit-speed-value>${orbitSpeedLabel(orbitSpeed)}</output>
               </label>
-              ${universeViewToolsHtml(universeDark, universeFullscreen)}`
-            : graphMode === "showAll"
-              ? graphFullscreenToolsHtml(universeFullscreen)
-              : ""
+              ${universeViewToolsHtml(universeDark, graphFullscreen)}`
+            : graphFullscreenToolsHtml(graphFullscreen)
         }
         <p class="graph-toolbar__meta">${escapeHtml(graphMetaText())}</p>
       </div>
       <div class="graph-stage"></div>
       ${graphMode === "universe" ? universeKeyHtml(universeKeyOpen) : ""}
-      ${graphMode === "universe" || graphMode === "showAll" ? universeExitHtml(universeFullscreen) : ""}
+      ${universeExitHtml(graphFullscreen)}
     </div>
   `);
 
   app.querySelector<HTMLButtonElement>("[data-jump-list]")!.onclick = () => {
-    universeFullscreen = false;
+    graphFullscreen = false;
     document.body.classList.remove("is-universe-fullscreen");
     view = "list";
     render();
@@ -764,7 +762,6 @@ function renderGraph() {
     button.onclick = () => {
       const next = button.dataset.graphMode as GraphMode;
       if (next === graphMode) return;
-      if (next !== "universe" && next !== "showAll") universeFullscreen = false;
       graphMode = next;
       render();
     };
@@ -801,29 +798,26 @@ function renderGraph() {
 
   const wrap = app.querySelector<HTMLElement>(".graph-wrap")!;
   const stage = app.querySelector<HTMLElement>(".graph-stage")!;
-  if (graphMode === "universe" || graphMode === "showAll") {
-    applyUniverseViewState(wrap, document.body, graphMode === "universe" && universeDark, universeFullscreen);
-    if (graphMode === "universe") {
-      bindUniverseKey(app, open => {
-        universeKeyOpen = open;
-      });
-    }
-    bindUniverseView(app, {
-      getDark: () => universeDark,
-      getFullscreen: () => universeFullscreen,
-      setDark: on => {
-        universeDark = on;
-        writeUniverseDark(on, typeof localStorage === "undefined" ? null : localStorage);
-        applyUniverseViewState(wrap, document.body, graphMode === "universe" && universeDark, universeFullscreen);
-      },
-      setFullscreen: on => {
-        universeFullscreen = on;
-        applyUniverseViewState(wrap, document.body, graphMode === "universe" && universeDark, universeFullscreen);
-      },
+  applyUniverseViewState(wrap, document.body, graphMode === "universe" && universeDark, graphFullscreen);
+  if (graphMode === "universe") {
+    bindUniverseKey(app, open => {
+      universeKeyOpen = open;
     });
-  } else {
-    document.body.classList.remove("is-universe-fullscreen");
   }
+  bindUniverseView(app, {
+    getDark: () => universeDark,
+    getFullscreen: () => graphFullscreen,
+    setDark: on => {
+      if (graphMode !== "universe") return;
+      universeDark = on;
+      writeUniverseDark(on, typeof localStorage === "undefined" ? null : localStorage);
+      applyUniverseViewState(wrap, document.body, universeDark, graphFullscreen);
+    },
+    setFullscreen: on => {
+      graphFullscreen = on;
+      applyUniverseViewState(wrap, document.body, graphMode === "universe" && universeDark, graphFullscreen);
+    },
+  });
   const preview = mountGraphPreview(wrap, { onOpen: openPageInNewTab });
   const onNoteSelect = (note: { pageId: string; title: string; excerpt: string } | null) => {
     if (!note) {
@@ -836,10 +830,10 @@ function renderGraph() {
   };
 
   document.onkeydown = event => {
-    if (shouldExitUniverseFullscreen(event.key, universeFullscreen && (graphMode === "universe" || graphMode === "showAll"))) {
+    if (shouldExitUniverseFullscreen(event.key, graphFullscreen)) {
       event.preventDefault();
-      universeFullscreen = false;
-      applyUniverseViewState(wrap, document.body, universeDark, false);
+      graphFullscreen = false;
+      applyUniverseViewState(wrap, document.body, graphMode === "universe" && universeDark, false);
       return;
     }
     if (event.key !== "Enter") return;
