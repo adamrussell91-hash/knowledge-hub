@@ -10,6 +10,7 @@ import {
 import {
   SHOW_ALL_RETUNE_MS,
   SHOW_ALL_SPOKE_ALPHA,
+  applyForceStageResize,
   applyShowAllStrandStroke,
   applyShowAllTuning,
   attachGraphSearch,
@@ -21,6 +22,7 @@ import {
   nodeDrawState,
   nodeHoverTip,
   overlapLinkAlpha,
+  showAllLabelVisible,
   resolveBackgroundClick,
   resolveEnterKey,
   resolveNodeClick,
@@ -80,8 +82,8 @@ export function mountForceGraph(
   handlers: ForceGraphHandlers,
   options: ForceGraphOptions = { variant: "constellation", search: "", excerptFor: () => "" },
 ): GraphMount {
-  const width = host.clientWidth || 1100;
-  const height = Math.max(720, Math.floor(window.innerHeight * 0.8));
+  let width = host.clientWidth || 1100;
+  let height = Math.max(host.clientHeight || 0, 720, Math.floor(window.innerHeight * 0.8));
   host.innerHTML = "";
   host.style.height = `${height}px`;
   const onNoteSelect = handlers.onNoteSelect ?? (() => {});
@@ -379,7 +381,7 @@ export function mountForceGraph(
           ctx.globalAlpha = 0.9 * fade;
         } else {
           ctx.strokeStyle = link.color;
-          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" ? overlapLinkAlpha() : 0.2) * fade;
+          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" || link.kind === "backbone" ? overlapLinkAlpha() : 0.2) * fade;
         }
       } else if (link.kind === "spoke") {
         ctx.setLineDash([4 / view.k, 5 / view.k]);
@@ -400,7 +402,7 @@ export function mountForceGraph(
           ctx.lineWidth = (thick + 1.4) / view.k;
         } else {
           ctx.strokeStyle = link.color;
-          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" ? overlapLinkAlpha() : 0.2) * fade;
+          ctx.globalAlpha = (dim ? 0.05 : link.kind === "overlap" || link.kind === "backbone" ? overlapLinkAlpha() : 0.2) * fade;
           ctx.lineWidth = thick / view.k;
         }
       }
@@ -428,7 +430,7 @@ export function mountForceGraph(
         ctx.lineWidth = 1 / view.k;
         ctx.strokeStyle = "#fff";
         ctx.stroke();
-        if ((view.k > 0.85 && hover === node) || (hot && node.kind !== "leaf" && view.k > 0.28)) {
+        if (showAllLabelVisible(node, view.k, hover === node) || (hot && node.kind !== "leaf" && view.k > 0.28)) {
           ctx.fillStyle = node.ink;
           ctx.globalAlpha = fade;
           ctx.font = `500 ${Math.max(10, 11 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
@@ -436,6 +438,28 @@ export function mountForceGraph(
           ctx.textBaseline = "middle";
           const text = node.label.length > 32 ? `${node.label.slice(0, 31)}…` : node.label;
           ctx.fillText(text, node.x + drawR + 6, node.y);
+        }
+        ctx.globalAlpha = 1;
+      }
+      if (view.k < 0.55) {
+        const sums = new Map<string, { x: number; y: number; n: number; ink: string; label: string }>();
+        for (const node of simNodes) {
+          if (node.kind !== "leaf" || !node.communityLabel || node.x == null || node.y == null) continue;
+          const key = `${node.community ?? 0}:${node.communityLabel}`;
+          const cur = sums.get(key) ?? { x: 0, y: 0, n: 0, ink: node.ink, label: node.communityLabel };
+          cur.x += node.x;
+          cur.y += node.y;
+          cur.n += 1;
+          sums.set(key, cur);
+        }
+        for (const sum of sums.values()) {
+          if (sum.n < 8 || !sum.label) continue;
+          ctx.fillStyle = sum.ink;
+          ctx.globalAlpha = 0.55;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = `600 ${Math.max(13, 16 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
+          ctx.fillText(sum.label, sum.x / sum.n, sum.y / sum.n);
         }
         ctx.globalAlpha = 1;
       }
@@ -705,10 +729,41 @@ export function mountForceGraph(
   };
   window.addEventListener("keydown", onKeyDown);
 
+  function applyStageSize() {
+    const fullscreen = Boolean(host.closest(".is-universe-fullscreen"));
+    const measured = {
+      width: host.clientWidth || width,
+      height: fullscreen
+        ? host.clientHeight || Math.floor(window.innerHeight)
+        : Math.max(720, Math.floor(window.innerHeight * 0.8)),
+    };
+    const next = applyForceStageResize({ width, height, k: view.k, x: view.x, y: view.y }, measured);
+    if (next.width === width && next.height === height) return;
+    width = next.width;
+    height = next.height;
+    view.x = next.x;
+    view.y = next.y;
+    host.style.height = fullscreen ? "" : `${height}px`;
+    canvas.width = Math.floor(width * devicePixelRatio);
+    canvas.height = Math.floor(height * devicePixelRatio);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    scheduleDraw();
+  }
+
+  const resizeObserver =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => {
+          applyStageSize();
+        })
+      : null;
+  resizeObserver?.observe(host);
+
   draw();
 
   return attachGraphSearch(
     () => {
+      resizeObserver?.disconnect();
       window.removeEventListener("keydown", onKeyDown);
       window.clearTimeout(retuneTimer);
       simulation.stop();

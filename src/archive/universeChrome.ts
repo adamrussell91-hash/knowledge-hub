@@ -27,6 +27,12 @@ export function universeViewToolsHtml(dark: boolean, fullscreen: boolean) {
   </div>`;
 }
 
+export function graphFullscreenToolsHtml(fullscreen: boolean) {
+  return `<div class="universe-view-tools graph-modes" role="group" aria-label="Graph view">
+    <button type="button" data-universe-fullscreen aria-pressed="${fullscreen}" class="${fullscreen ? "is-active" : ""}">${fullscreen ? "Exit" : "Full screen"}</button>
+  </div>`;
+}
+
 export function universeExitHtml(fullscreen: boolean) {
   return `<button type="button" class="universe-exit btn btn--ghost" data-universe-exit${fullscreen ? "" : " hidden"}>Exit full screen</button>`;
 }

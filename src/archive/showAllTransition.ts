@@ -29,6 +29,11 @@ export function adoptShowAllNode(prev: GraphNodeDatum | undefined, next: GraphNo
   prev.count = next.count;
   prev.pageId = next.pageId;
   prev.parentKeyword = next.parentKeyword;
+  prev.hubLabels = next.hubLabels;
+  prev.degree = next.degree;
+  prev.community = next.community;
+  prev.communityLabel = next.communityLabel;
+  prev.important = next.important;
   prev.color = next.color;
   prev.soft = next.soft;
   prev.ink = next.ink;

@@ -14,7 +14,7 @@ export type ShowAllTuning = {
 export const SHOW_ALL_TUNING_DEFAULTS: ShowAllTuning = {
   leafCharge: -140,
   overlapLinkStrength: 0.35,
-  overlapLinkAlpha: 0.45,
+  overlapLinkAlpha: 0.2,
   lineWidthScale: 1,
 };
 
@@ -201,14 +201,17 @@ export function showAllLinkDistance(linkOrKind: GraphLinkKind | GraphLinkDatum) 
     if (hub) return showAllClusterRadius(hub.count) * 0.5;
   }
   if (kind === "spoke") return 220;
-  if (kind === "overlap") return 64;
+  if (kind === "overlap" || kind === "backbone") {
+    const weight = typeof linkOrKind === "string" ? 1 : linkOrKind.weight;
+    return 42 + 48 / (1 + Math.max(weight, 0.05));
+  }
   if (kind === "orbit") return 200;
   return 700;
 }
 
 export function showAllLinkStrength(kind: GraphLinkKind) {
   if (kind === "spoke") return 0.02;
-  if (kind === "overlap") return showAllTuning.overlapLinkStrength;
+  if (kind === "overlap" || kind === "backbone") return showAllTuning.overlapLinkStrength;
   if (kind === "orbit") return 0.02;
   return 0.01;
 }
@@ -243,8 +246,16 @@ export function showAllLinkShouldDraw(
 ) {
   if (emphasized) return true;
   if (kind === "spoke") return viewK >= 0.1 && leafOnScreen;
-  if (kind === "overlap") return true;
+  if (kind === "overlap" || kind === "backbone") return true;
   return true;
+}
+
+export function showAllLabelVisible(node: GraphNodeDatum, viewK: number, hover = false) {
+  if (node.kind === "major") return true;
+  if (hover) return viewK > 0.4;
+  if (node.important) return viewK >= 0.12;
+  if ((node.degree ?? 0) >= 8) return viewK >= 0.45;
+  return viewK >= 0.9;
 }
 
 export function isGraphSearching(query: string) {
@@ -389,5 +400,22 @@ export function fitViewToNodes(
     k: clamped,
     x: width / 2 - ((minX + maxX) / 2) * clamped,
     y: height / 2 - ((minY + maxY) / 2) * clamped,
+  };
+}
+
+export function applyForceStageResize(
+  prev: { width: number; height: number; k: number; x: number; y: number },
+  next: { width: number; height: number },
+) {
+  if (next.width <= 0 || next.height <= 0) return prev;
+  if (next.width === prev.width && next.height === prev.height) return prev;
+  const worldX = (prev.width / 2 - prev.x) / prev.k;
+  const worldY = (prev.height / 2 - prev.y) / prev.k;
+  return {
+    width: next.width,
+    height: next.height,
+    k: prev.k,
+    x: next.width / 2 - worldX * prev.k,
+    y: next.height / 2 - worldY * prev.k,
   };
 }

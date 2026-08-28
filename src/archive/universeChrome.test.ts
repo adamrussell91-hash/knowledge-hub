@@ -7,6 +7,7 @@ import {
   readUniverseDark,
   shouldExitUniverseFullscreen,
   syncUniverseViewButtons,
+  graphFullscreenToolsHtml,
   universeExitHtml,
   universeViewToolsHtml,
   universeWrapClass,
@@ -19,6 +20,13 @@ describe("universe view chrome", () => {
     expect(universeWrapClass(true, false)).toBe("graph-wrap is-universe-dark");
     expect(universeWrapClass(false, true)).toBe("graph-wrap is-universe-fullscreen");
     expect(universeWrapClass(true, true)).toBe("graph-wrap is-universe-dark is-universe-fullscreen");
+  });
+
+  it("offers full screen on Show All without the Universe dark toggle", () => {
+    document.body.innerHTML = graphFullscreenToolsHtml(false) + universeExitHtml(false);
+    expect(document.querySelector("[data-universe-dark]")).toBeNull();
+    expect(document.querySelector("[data-universe-fullscreen]")!.textContent).toBe("Full screen");
+    expect(document.querySelector<HTMLButtonElement>("[data-universe-exit]")!.hidden).toBe(true);
   });
 
   it("renders Dark and Full screen as unpressed toggles by default", () => {
