@@ -256,11 +256,11 @@ describe("force graph chrome", () => {
     expect(overlapLinkAlpha()).toBeLessThanOrEqual(0.35);
   });
 
-  it("labels only important notes at the default Show All zoom", () => {
-    expect(showAllLabelVisible({ ...leaf, important: true, degree: 20 }, 0.3)).toBe(true);
-    expect(showAllLabelVisible({ ...leaf, important: true, degree: 20 }, 0.16)).toBe(false);
-    expect(showAllLabelVisible({ ...leaf, important: false, degree: 2 }, 0.16)).toBe(false);
-    expect(showAllLabelVisible({ ...leaf, important: false, degree: 2 }, 1.2)).toBe(true);
+  it("never paints note names on the Show All map", () => {
+    expect(showAllLabelVisible({ ...leaf, important: true, degree: 20 }, 0.3)).toBe(false);
+    expect(showAllLabelVisible({ ...leaf, important: true, degree: 20 }, 1.8, true)).toBe(false);
+    expect(showAllLabelVisible({ ...leaf, important: false, degree: 2 }, 1.2)).toBe(false);
+    expect(showAllLabelVisible(major, 0.16)).toBe(true);
   });
 
   it("keeps the same world centre when the stage grows for full screen", () => {

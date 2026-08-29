@@ -76,6 +76,6 @@ export function createShowAllSimulation(
     .force("y", forceY<GraphNodeDatum>(node => homeFor(node, hubHomes).y).strength(showAllTargetStrength))
     .force(
       "collide",
-      forceCollide<GraphNodeDatum>().radius(showAllCollisionRadius).strength(0.82).iterations(2),
+      forceCollide<GraphNodeDatum>().radius(showAllCollisionRadius).strength(0.82).iterations(1),
     );
 }

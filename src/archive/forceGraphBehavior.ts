@@ -1,6 +1,9 @@
 import { isFocusLink, isFocusNode, isSearchHot, selectionCluster } from "./graphFocus";
 import type { ArchiveGraphModel, GraphLinkDatum, GraphLinkKind, GraphNodeDatum } from "./keywordGraph";
+import { SHOW_ALL_SETTLE_TICKS, showAllLabelVisible } from "./showAllDraw";
 import { showAllClusterRadius } from "./showAllGraph";
+
+export { SHOW_ALL_SETTLE_TICKS, showAllLabelVisible };
 
 export type ForceGraphVariant = "constellation" | "showAll";
 
@@ -74,7 +77,6 @@ export const SHOW_ALL_TUNING_CONTROLS: readonly ShowAllTuningControl[] = [
 ];
 
 export const SHOW_ALL_SPOKE_ALPHA = 0.28;
-export const SHOW_ALL_SETTLE_TICKS = 240;
 export const SHOW_ALL_RETUNE_MS = 90;
 /** CSS-pixel width. Thick enough that diagonals do not hairline into dots. */
 export const SHOW_ALL_STRAND_WIDTH = 2;
@@ -248,14 +250,6 @@ export function showAllLinkShouldDraw(
   if (kind === "spoke") return viewK >= 0.1 && leafOnScreen;
   if (kind === "overlap" || kind === "backbone") return true;
   return true;
-}
-
-export function showAllLabelVisible(node: GraphNodeDatum, viewK: number, hover = false) {
-  if (node.kind === "major") return true;
-  if (hover) return viewK > 0.35;
-  if (node.important && (node.degree ?? 0) >= 16) return viewK >= 0.28;
-  if ((node.degree ?? 0) >= 14) return viewK >= 0.62;
-  return viewK >= 1.1;
 }
 
 export function isGraphSearching(query: string) {

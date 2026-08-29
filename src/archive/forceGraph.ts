@@ -43,6 +43,12 @@ import {
   type GraphLinkDatum,
   type GraphNodeDatum,
 } from "./keywordGraph";
+import {
+  SHOW_ALL_SETTLE_DRAW_EVERY,
+  pickShowAllLinksToDraw,
+  rankShowAllLinks,
+  showAllDrawRings,
+} from "./showAllDraw";
 import { applyShowAllFade, mergeShowAllModels, SHOW_ALL_FADE_MS } from "./showAllTransition";
 import { createShowAllSimulation, lockShowAllNodes, unlockShowAllNodes } from "./showAllSimulation";
 
@@ -119,6 +125,7 @@ export function mountForceGraph(
   let liveModel = model;
   let simNodes: GraphNodeDatum[] = model.nodes.map(node => ({ ...node, opacity: node.opacity ?? 1 }));
   let simLinks: GraphLinkDatum[] = model.links.map(link => ({ ...link }));
+  let rankedShowAllLinks: GraphLinkDatum[] = options.variant === "showAll" ? rankShowAllLinks(simLinks) : [];
   let nodeMap = new Map(simNodes.map(node => [node.id, node]));
   let maxWeight = 1;
   for (const link of simLinks) if (link.weight > maxWeight) maxWeight = link.weight;
@@ -133,6 +140,7 @@ export function mountForceGraph(
     nodeMap = new Map(simNodes.map(node => [node.id, node]));
     maxWeight = 1;
     for (const link of simLinks) if (link.weight > maxWeight) maxWeight = link.weight;
+    rankedShowAllLinks = options.variant === "showAll" ? rankShowAllLinks(simLinks) : [];
   }
 
   function scheduleDraw() {
@@ -175,8 +183,10 @@ export function mountForceGraph(
             sim.stop();
             const fitted = fitViewToNodes(simNodes, width, height, 56, 0.08);
             if (fitted) Object.assign(view, fitted);
+            scheduleDraw();
+            return;
           }
-          scheduleDraw();
+          if (fading || settleTicks % SHOW_ALL_SETTLE_DRAW_EVERY === 0) scheduleDraw();
         });
       return sim;
     }
@@ -352,8 +362,49 @@ export function mountForceGraph(
 
     const emphasis = drawArgs();
     const showAll = options.variant === "showAll";
+    const searching = Boolean(options.search.trim());
+    const highlightLinks = Boolean(hover || selected || searching);
+    const linksToDraw = showAll
+      ? pickShowAllLinksToDraw(rankedShowAllLinks, view.k, {
+          keepExtra: highlightLinks
+            ? link => {
+                const { source, target } = linkEnds(link, map);
+                if (!source || !target) return false;
+                return linkDrawState(link, source, target, emphasis).active;
+              }
+            : undefined,
+          preferVisible: link => {
+            const { source, target } = linkEnds(link, map);
+            if (!source || !target || source.x == null || target.x == null || source.y == null || target.y == null) {
+              return false;
+            }
+            return onScreen(source.x, source.y) || onScreen(target.x, target.y);
+          },
+        })
+      : simLinks;
+    const batchShowAll = showAll && !highlightLinks;
 
-    for (const link of simLinks) {
+    if (batchShowAll) {
+      ctx.beginPath();
+      for (const link of linksToDraw) {
+        const { source, target } = linkEnds(link, map);
+        if (!source || !target || source.x == null || target.x == null || source.y == null || target.y == null) continue;
+        if (source.departing || target.departing) continue;
+        const leaf = source.kind === "leaf" ? source : target.kind === "leaf" ? target : null;
+        const leafOnScreen = Boolean(leaf && onScreen(leaf.x ?? 0, leaf.y ?? 0));
+        if (!showAllLinkShouldDraw(link.kind, view.k, leafOnScreen, false)) continue;
+        if (link.kind !== "spoke" && !onScreen(source.x, source.y) && !onScreen(target.x, target.y)) continue;
+        ctx.moveTo(source.x, source.y);
+        ctx.lineTo(target.x, target.y);
+      }
+      applyShowAllStrandStroke(ctx, { active: false, viewK: view.k });
+      ctx.strokeStyle = "rgba(160, 160, 160, 0.7)";
+      ctx.globalAlpha = overlapLinkAlpha();
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    for (const link of batchShowAll ? [] : linksToDraw) {
       const { source, target } = linkEnds(link, map);
       if (!source || !target || source.x == null || target.x == null || source.y == null || target.y == null) continue;
       if (source.departing || target.departing) continue;
@@ -366,7 +417,7 @@ export function mountForceGraph(
       const fade = Math.min(source.opacity ?? 1, target.opacity ?? 1);
 
       ctx.beginPath();
-      if (showAll && link.kind === "spoke") {
+      if (showAll) {
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
       } else {
@@ -416,6 +467,7 @@ export function mountForceGraph(
     }
 
     if (showAll) {
+      const drawRings = showAllDrawRings(view.k);
       for (const node of simNodes) {
         if (node.x == null || node.y == null) continue;
         if (!onScreen(node.x, node.y)) continue;
@@ -428,11 +480,13 @@ export function mountForceGraph(
         ctx.fillStyle = node.color;
         ctx.globalAlpha = (dim ? 0.18 : hot ? 1 : 0.84) * fade;
         ctx.fill();
-        ctx.globalAlpha = fade;
-        ctx.lineWidth = 1 / view.k;
-        ctx.strokeStyle = "#fff";
-        ctx.stroke();
-        if (showAllLabelVisible(node, view.k, hover === node) || (hot && node.kind !== "leaf" && view.k > 0.28)) {
+        if (drawRings) {
+          ctx.globalAlpha = fade;
+          ctx.lineWidth = 1 / view.k;
+          ctx.strokeStyle = "#fff";
+          ctx.stroke();
+        }
+        if (showAllLabelVisible(node, view.k, hover === node)) {
           ctx.fillStyle = node.ink;
           ctx.globalAlpha = fade;
           ctx.font = `500 ${Math.max(10, 11 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
@@ -440,28 +494,6 @@ export function mountForceGraph(
           ctx.textBaseline = "middle";
           const text = node.label.length > 32 ? `${node.label.slice(0, 31)}…` : node.label;
           ctx.fillText(text, node.x + drawR + 6, node.y);
-        }
-        ctx.globalAlpha = 1;
-      }
-      if (view.k < 0.55) {
-        const sums = new Map<string, { x: number; y: number; n: number; ink: string; label: string }>();
-        for (const node of simNodes) {
-          if (node.kind !== "leaf" || !node.communityLabel || node.x == null || node.y == null) continue;
-          const key = `${node.community ?? 0}:${node.communityLabel}`;
-          const cur = sums.get(key) ?? { x: 0, y: 0, n: 0, ink: node.ink, label: node.communityLabel };
-          cur.x += node.x;
-          cur.y += node.y;
-          cur.n += 1;
-          sums.set(key, cur);
-        }
-        for (const sum of sums.values()) {
-          if (sum.n < 24 || !sum.label) continue;
-          ctx.fillStyle = sum.ink;
-          ctx.globalAlpha = 0.55;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.font = `600 ${Math.max(13, 16 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
-          ctx.fillText(sum.label, sum.x / sum.n, sum.y / sum.n);
         }
         ctx.globalAlpha = 1;
       }

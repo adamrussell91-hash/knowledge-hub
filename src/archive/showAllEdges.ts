@@ -3,9 +3,9 @@ import type { PageManifestEntry } from "../domain/page";
 import type { GraphLinkDatum } from "./keywordGraph";
 import { UnionFind } from "./showAllCommunities";
 
-export const SHOW_ALL_KNN = 8;
-export const SHOW_ALL_DEGREE_CAP = 30;
-const SMALL_TAG = 80;
+export const SHOW_ALL_KNN = 5;
+export const SHOW_ALL_DEGREE_CAP = 16;
+const SMALL_TAG = 48;
 const RARE_TOKEN_DF = 16;
 
 export type ScoredPair = { a: number; b: number; score: number };
