@@ -74,6 +74,6 @@ describe("show all grouping scope", () => {
     expect(showAllGroupingMeta("notebooks")).toContain("university notes hidden");
     expect(showAllGroupingMeta("degrees")).toContain("notebook notes hidden");
     expect(showAllGroupingMeta("tags")).toContain("Twenty topics");
-    expect(showAllGroupingMeta("tags")).toContain("at most 3 other notes");
+    expect(showAllGroupingMeta("tags")).toContain("click a note to see its connections");
   });
 });

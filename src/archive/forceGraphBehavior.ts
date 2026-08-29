@@ -246,9 +246,9 @@ export function showAllLinkShouldDraw(
   leafOnScreen: boolean,
   emphasized = false,
 ) {
+  if (kind === "overlap" || kind === "backbone") return emphasized;
   if (emphasized) return true;
   if (kind === "spoke") return viewK >= 0.1 && leafOnScreen;
-  if (kind === "overlap" || kind === "backbone") return true;
   return true;
 }
 
@@ -298,7 +298,7 @@ export function nodeHoverTip(node: GraphNodeDatum) {
     const action = node.expanded ? "click to close" : "click to see its notes";
     return `${node.label} · ${count}${extra} · ${action}`;
   }
-  return node.label;
+  return `${node.label} · click to see connected notes`;
 }
 
 export function forceStageSize(
@@ -347,6 +347,8 @@ type DrawArgs = {
   nodes: GraphNodeDatum[];
   selected: string | null;
   hover: GraphNodeDatum | null;
+  links?: GraphLinkDatum[];
+  cluster?: Set<string>;
 };
 
 export function nodeDrawState(node: GraphNodeDatum, args: DrawArgs): DrawEmphasis {
@@ -354,7 +356,7 @@ export function nodeDrawState(node: GraphNodeDatum, args: DrawArgs): DrawEmphasi
     const hot = isSearchHot(node, args.query, args.nodes);
     return { hot, dim: !hot };
   }
-  const cluster = selectionCluster(args.nodes, args.selected);
+  const cluster = args.cluster ?? selectionCluster(args.nodes, args.selected, args.links);
   const focusing = Boolean(args.selected);
   const inFocus = isFocusNode(node, cluster);
   return {
@@ -378,7 +380,7 @@ export function linkDrawState(
     const active = leafHot || spokeFromHotHub || (sourceHot && targetHot);
     return { active, dim: !active };
   }
-  const cluster = selectionCluster(args.nodes, args.selected);
+  const cluster = args.cluster ?? selectionCluster(args.nodes, args.selected, args.links);
   const focusing = Boolean(args.selected);
   const selectedActive = isFocusLink(link, args.nodes, cluster, args.selected);
   const hoverActive = args.hover != null && (source.id === args.hover.id || target.id === args.hover.id);

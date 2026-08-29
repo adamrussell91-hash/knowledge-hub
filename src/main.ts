@@ -666,7 +666,7 @@ function showAllMetaText() {
   const hubs = model.nodes.filter(node => node.kind === "major").length;
   const noteLinks = model.links.filter(link => link.kind === "overlap" || link.kind === "backbone").length;
   const hidden = Math.max(0, entries.length - notes);
-  const line = `${hubs} topics · ${notes} notes · ${noteLinks} note links · at most 3 per note`;
+  const line = `${hubs} topics · ${notes} notes · ${noteLinks} links waiting on a click · at most 3 per note`;
   return hidden ? `${line} · ${hidden} still untagged` : line;
 }
 

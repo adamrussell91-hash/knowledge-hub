@@ -31,7 +31,31 @@ export function searchCluster(nodes: GraphNodeDatum[], query: string) {
   return cluster;
 }
 
-export function selectionCluster(nodes: GraphNodeDatum[], selected: string | null) {
+function addNoteNeighbors(
+  nodes: GraphNodeDatum[],
+  links: GraphLinkDatum[],
+  cluster: Set<string>,
+  pageIds: Set<string>,
+) {
+  if (!links.length || !pageIds.size) return;
+  const byId = new Map(nodes.map(node => [node.id, node]));
+  for (const link of links) {
+    if (link.kind !== "overlap") continue;
+    const source = typeof link.source === "string" ? byId.get(link.source) ?? null : link.source;
+    const target = typeof link.target === "string" ? byId.get(link.target) ?? null : link.target;
+    if (!source || !target) continue;
+    const sourceHit = Boolean(source.pageId && pageIds.has(source.pageId));
+    const targetHit = Boolean(target.pageId && pageIds.has(target.pageId));
+    if (sourceHit) cluster.add(target.label);
+    if (targetHit) cluster.add(source.label);
+  }
+}
+
+export function selectionCluster(
+  nodes: GraphNodeDatum[],
+  selected: string | null,
+  links: GraphLinkDatum[] = [],
+) {
   const cluster = new Set<string>();
   if (!selected) return cluster;
 
@@ -47,6 +71,7 @@ export function selectionCluster(nodes: GraphNodeDatum[], selected: string | nul
         for (const hub of node.hubLabels ?? []) cluster.add(hub);
       }
     }
+    addNoteNeighbors(nodes, links, cluster, pageIds);
     return cluster;
   }
 
@@ -74,6 +99,18 @@ export function isFocusLink(
 ) {
   if (cluster.size === 0) return false;
   if (link.kind === "backbone") return false;
+  if (link.kind === "overlap") {
+    if (!selected) return false;
+    const selectedLeaves = nodes.filter(
+      node => node.kind === "leaf" && (node.label === selected || node.id === selected),
+    );
+    if (!selectedLeaves.length) return false;
+    const leafIds = new Set(selectedLeaves.map(node => node.id));
+    const pageIds = new Set(selectedLeaves.map(node => node.pageId).filter(Boolean) as string[]);
+    const touchesSelectedLeaf = (node: GraphNodeDatum | null) =>
+      Boolean(node && (leafIds.has(node.id) || (node.pageId && pageIds.has(node.pageId))));
+    return touchesSelectedLeaf(resolveEnd(link.source, nodes)) || touchesSelectedLeaf(resolveEnd(link.target, nodes));
+  }
   const sourceLabel = nodeLabel(link.source, nodes);
   const targetLabel = nodeLabel(link.target, nodes);
   if (cluster.has(sourceLabel) && cluster.has(targetLabel)) return true;

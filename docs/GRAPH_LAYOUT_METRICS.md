@@ -15,3 +15,4 @@ Measured with `npx tsx scripts/graph-metrics.ts` against `knowledge-hub-data/man
 | Build time | ~0.6s |
 
 The 20 closed topic tags are the geography. A note may link to at most three other notes.
+The overview hides those note–note edges until a note is hovered or selected.

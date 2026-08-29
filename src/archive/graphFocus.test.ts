@@ -160,7 +160,28 @@ describe("leaf selection by page", () => {
     expect(isFocusLink(spokeB, graph, cluster, zimmerman.label)).toBe(true);
     expect(isFocusLink(overlap, graph, cluster, zimmerman.label)).toBe(true);
 
+    const withLinks = selectionCluster(graph, zimmerman.label, [overlap]);
+    expect(withLinks.has("Other note")).toBe(true);
+    expect(withLinks.has("Motivation and Self Regulation")).toBe(true);
+
     const hubCluster = selectionCluster(graph, "Motivation and Self Regulation");
     expect(isFocusLink(overlap, graph, hubCluster, "Motivation and Self Regulation")).toBe(false);
+  });
+
+  it("opens a one-hop neighborhood for a selected note when links are given", () => {
+    const a = node({ id: "leaf:a", kind: "leaf", label: "Alpha", pageId: "a", parentKeyword: "A" });
+    const b = node({ id: "leaf:b", kind: "leaf", label: "Beta", pageId: "b", parentKeyword: "B" });
+    const c = node({ id: "leaf:c", kind: "leaf", label: "Gamma", pageId: "c", parentKeyword: "A" });
+    const hubA = node({ id: "major:A", kind: "major", label: "A" });
+    const graph = [hubA, a, b, c];
+    const links: GraphLinkDatum[] = [
+      { source: a.id, target: b.id, kind: "overlap", weight: 1, color: "#ccc" },
+      { source: b.id, target: c.id, kind: "overlap", weight: 1, color: "#ccc" },
+    ];
+    const cluster = selectionCluster(graph, "Alpha", links);
+    expect(cluster.has("Alpha")).toBe(true);
+    expect(cluster.has("Beta")).toBe(true);
+    expect(cluster.has("Gamma")).toBe(false);
+    expect(cluster.has("A")).toBe(true);
   });
 });
