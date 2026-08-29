@@ -29,7 +29,10 @@ export function mountUniversityTimeline(
 
   let width = Math.max(480, host.clientWidth - 180);
   let dragging = false;
+  let dragReady = false;
+  let suppressClick = false;
   let lastX = 0;
+  let originX = 0;
 
   const chartWidth = () => {
     const viewport = host.querySelector<HTMLElement>("[data-tl-viewport]");
@@ -128,22 +131,36 @@ export function mountUniversityTimeline(
     };
 
     viewport.onpointerdown = event => {
-      if ((event.target as HTMLElement).closest("button")) return;
-      dragging = true;
+      if (event.button !== 0) return;
+      dragReady = true;
+      dragging = false;
       lastX = event.clientX;
+      originX = event.clientX;
       viewport.setPointerCapture(event.pointerId);
     };
     viewport.onpointermove = event => {
-      if (!dragging) return;
+      if (!dragReady) return;
+      if (!dragging && Math.abs(event.clientX - originX) < 6) return;
+      dragging = true;
       const rect = chart.getBoundingClientRect();
       const deltaMs = ((lastX - event.clientX) / Math.max(1, rect.width)) * (state.camera.endMs - state.camera.startMs);
       lastX = event.clientX;
       state.camera = panCamera(state.camera.startMs, state.camera.endMs, deltaMs, bounds);
       viewport.innerHTML = timelineChartHtml(degrees, state.camera, chartWidth(), state.selection);
     };
+    viewport.onclick = event => {
+      if (!suppressClick) return;
+      event.preventDefault();
+      event.stopPropagation();
+      suppressClick = false;
+    };
+
     viewport.onpointerup = () => {
-      if (dragging) {
-        dragging = false;
+      const wasDragging = dragging;
+      dragReady = false;
+      dragging = false;
+      if (wasDragging) {
+        suppressClick = true;
         paint();
       }
     };

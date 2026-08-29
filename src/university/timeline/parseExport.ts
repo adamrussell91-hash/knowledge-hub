@@ -15,7 +15,7 @@ const TABLE_ROW = /^\| ([^|]+) \| (.+) \|$/;
 const TITLE_OVERRIDES: Record<string, string> = {
   "Graduate Certificate in Child and Adolescent|Charles Sturt University":
     "Graduate Certificate in Child and Adolescent Welfare",
-  "Graduate Certificate in Child and Adolescent|Victoria University-Footscray Park Campus":
+  "Graduate Certificate in Child and Adolescent|Victoria University":
     "Graduate Certificate in Child and Adolescent Mental Health",
 };
 
@@ -75,16 +75,9 @@ function unitCode(name: string, unitNumber: string | null): string | null {
   return match?.[1] ?? null;
 }
 
-function displayTitle(name: string, description: string | null, institution: string | null) {
+function displayTitle(name: string, _description: string | null, institution: string | null) {
   const key = `${name}|${institution ?? ""}`;
   if (TITLE_OVERRIDES[key]) return TITLE_OVERRIDES[key];
-  if (description) {
-    const from = description.match(/from (.+)$/i);
-    const trimmed = from ? description.slice(0, from.index).trim() : description.replace(/ Overview$/i, "").trim();
-    if (trimmed.length > name.length && trimmed.toLowerCase().startsWith(name.toLowerCase().slice(0, 20))) {
-      return trimmed;
-    }
-  }
   return name.replace(/\s+/g, " ").trim();
 }
 

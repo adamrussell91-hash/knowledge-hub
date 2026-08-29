@@ -53,6 +53,9 @@ describe("parseUniversityExport", () => {
     const degree = catalogue.degrees[0]!;
     expect(degree.title).toBe("Graduate Certificate in Child and Adolescent Welfare");
     expect(degree.institution).toBe("Charles Sturt University");
+    expect(parseUniversityExport(SAMPLE.replaceAll("Charles Sturt University", "Victoria University")).degrees[0]?.title).toBe(
+      "Graduate Certificate in Child and Adolescent Mental Health",
+    );
     expect(degree.units[0]?.code).toBe("PSY482");
     expect(degree.units[0]?.gpaPoints).toBe(6);
     expect(degree.units[0]?.grade).toBe("Distinction");
