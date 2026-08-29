@@ -146,7 +146,12 @@ The lecture itself.`),
       { kind: "unit", label: "HNO6014" },
     ]);
     expect(applyUnitDegreeMap([{ kind: "unit", label: "EDUC6119" }])).toEqual([
+      { kind: "degree", label: "Graduate Certificate in Transformational Leadership" },
       { kind: "unit", label: "EDUC6119" },
+    ]);
+    expect(applyUnitDegreeMap([{ kind: "unit", label: "EDUC9733" }])).toEqual([
+      { kind: "degree", label: "Master of Cognitive Psychology" },
+      { kind: "unit", label: "EDUC9733" },
     ]);
   });
 });

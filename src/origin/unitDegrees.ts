@@ -6,8 +6,9 @@ import { mergeOrigins } from "./normalize";
  * on Uni Type = Unit pages (2026-08-22). Not used at hub runtime.
  * Two Child-and-Adolescent certificates share a truncated Notion title;
  * labels use the fuller names from each degree page’s Description.
- * Placeholder Notion parents (certificates that are not degrees, cohort
- * pages, and Notebook Cover) are not mapped.
+ * Notion placeholders: Advanced Insights remaps to the Flinders master;
+ * Transformational Leadership Certificate remaps to the Newcastle graduate
+ * certificate. The withdrawn UNE graduate diploma is not mapped.
  */
 export const UNIT_DEGREE_LABELS: Record<string, string> = {
   ABOR3500: "Bachelor of Teaching and Arts Degree",
@@ -52,6 +53,15 @@ export const UNIT_DEGREE_LABELS: Record<string, string> = {
   EDUC3195: "Bachelor of Teaching and Arts Degree",
   EDUC4090: "Bachelor of Teaching and Arts Degree",
   EDUC4136: "Bachelor of Teaching and Arts Degree",
+  EDUC6036: "Graduate Certificate in Transformational Leadership",
+  EDUC6117: "Graduate Certificate in Transformational Leadership",
+  EDUC6119: "Graduate Certificate in Transformational Leadership",
+  EDUC6353: "Graduate Certificate in Transformational Leadership",
+  EDUC9606: "Master of Cognitive Psychology",
+  EDUC9733: "Master of Cognitive Psychology",
+  EDUC9735: "Master of Cognitive Psychology",
+  EDUC9736: "Master of Cognitive Psychology",
+  EDUC9792: "Master of Cognitive Psychology",
   ENGL1002: "Bachelor of Teaching and Arts Degree",
   ENGL1201: "Bachelor of Teaching and Arts Degree",
   ENGL2201: "Bachelor of Teaching and Arts Degree",
@@ -73,10 +83,6 @@ export const UNIT_DEGREE_LABELS: Record<string, string> = {
   HNO6015: "Graduate Certificate in Child and Adolescent Mental Health",
   HNO609: "Graduate Certificate in Child and Adolescent Mental Health",
   PSY482: "Graduate Certificate in Child and Adolescent Welfare",
-  PSYC101: "Graduate Diploma of Psychology",
-  PSYC102: "Graduate Diploma of Psychology",
-  PSYC206: "Graduate Diploma of Psychology",
-  PSYC363: "Graduate Diploma of Psychology",
   SOCA1010: "Bachelor of Teaching and Arts Degree",
   TEAC7145: "Graduate Certificate of Teaching and Technology",
   TEAC7146: "Graduate Certificate of Teaching and Technology",

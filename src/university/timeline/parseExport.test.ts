@@ -62,4 +62,57 @@ describe("parseUniversityExport", () => {
     expect(degree.units[0]?.assessments[0]?.title).toBe("Assessment 1 - Essay");
     expect(degree.units[0]?.assessments[0]?.kind).toBe("assessment");
   });
+
+  it("renames the Flinders master and Newcastle graduate certificate, and drops the UNE diploma", () => {
+    const catalogue = parseUniversityExport(`# University degrees
+
+## 5. Advanced Insights in Cognitive Psychology
+
+### Degree properties
+
+| Property | Value |
+|:--|:--|
+| Description | Advanced Insights in Cognitive Psychology and Educational Methods |
+| Name | Advanced Insights in Cognitive Psychology |
+| Place | {"name": "Flinders University"} |
+| Status | Completed |
+
+### Units
+
+#### 5.1 Academic Resources and Assignments for EDUC9736
+
+| Property | Value |
+|:--|:--|
+| Name | Academic Resources and Assignments for EDUC9736 |
+| Status | Completed |
+| Uni Type | Unit |
+
+## 6. Graduate Diploma of Psychology
+
+### Degree properties
+
+| Property | Value |
+|:--|:--|
+| Name | Graduate Diploma of Psychology |
+| Place | {"name": "University of New England-Armidale"} |
+| Status | Withdrawn |
+
+## 8. Transformational Leadership Certificate
+
+### Degree properties
+
+| Property | Value |
+|:--|:--|
+| Name | Transformational Leadership Certificate |
+| Place | {"name": "University of Newcastle"} |
+| Status | Completed |
+`);
+    expect(catalogue.degrees.map(degree => degree.title)).toEqual([
+      "Master of Cognitive Psychology",
+      "Graduate Certificate in Transformational Leadership",
+    ]);
+    expect(catalogue.degrees[0]?.institution).toBe("Flinders University");
+    expect(catalogue.degrees[0]?.units[0]?.code).toBe("EDUC9736");
+    expect(catalogue.degrees.some(degree => /diploma of psychology/i.test(degree.title))).toBe(false);
+  });
 });
