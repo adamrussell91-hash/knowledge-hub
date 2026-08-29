@@ -11,20 +11,13 @@ import {
   type ShowAllGrouping,
 } from "./showAllScope";
 import { buildShowAllNoteEdges } from "./showAllEdges";
-import {
-  assignCommunities,
-  communityPalette,
-  importantByCommunity,
-  nameCommunities,
-} from "./showAllCommunities";
 
 const LAYOUT_CENTRE = { x: 760, y: 560 };
-export const SHOW_ALL_CLUSTER_GAP = 320;
-const CLUSTER_MIN_RADIUS = 380;
-const CLUSTER_RADIUS_PER_ROOT_NOTE = 72;
-const CLUSTER_MAX_RADIUS = 1300;
+export const SHOW_ALL_CLUSTER_GAP = 72;
+const CLUSTER_MIN_RADIUS = 110;
+const CLUSTER_RADIUS_PER_ROOT_NOTE = 14;
+const CLUSTER_MAX_RADIUS = 220;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
-const CLOUD_RADIUS = 720;
 
 export function showAllClusterRadius(noteCount: number) {
   return Math.min(
@@ -53,14 +46,8 @@ function organicSeed(id: string, index: number, count: number, radiusScale = 1) 
   return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
 }
 
-function cloudSeed(id: string, index: number) {
-  const radius = Math.min(CLOUD_RADIUS, 36 + Math.sqrt(index + 1) * 16);
-  const angle = index * GOLDEN_ANGLE + hashUnit(id) * Math.PI * 2;
-  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
-}
-
 function hubRadius(count: number) {
-  return Math.max(7, Math.min(18, 7 + Math.sqrt(Math.max(count, 1)) * 1.6));
+  return Math.max(16, Math.min(28, 16 + Math.sqrt(Math.max(count, 1)) * 1.1));
 }
 
 function placeHubs(nodes: GraphNodeDatum[]) {
@@ -77,6 +64,8 @@ function placeHubs(nodes: GraphNodeDatum[]) {
     node.y = LAYOUT_CENTRE.y + Math.sin(angle) * ringRadius;
     node.homeX = node.x;
     node.homeY = node.y;
+    node.fx = node.x;
+    node.fy = node.y;
   });
 }
 
@@ -97,40 +86,6 @@ function buildHubs(counts: Map<string, number>): GraphNodeDatum[] {
   });
 }
 
-function applyCommunities(leaves: GraphNodeDatum[], links: GraphLinkDatum[]) {
-  const indexOf = new Map(leaves.map((node, index) => [node.id, index]));
-  const edges = links
-    .map(link => {
-      const source = indexOf.get(typeof link.source === "string" ? link.source : link.source.id);
-      const target = indexOf.get(typeof link.target === "string" ? link.target : link.target.id);
-      if (source == null || target == null) return null;
-      return { source, target, weight: Math.max(link.weight, 0.05) };
-    })
-    .filter((edge): edge is { source: number; target: number; weight: number } => edge != null);
-  const assigned = assignCommunities(leaves.length, edges);
-  const names = nameCommunities(
-    leaves.map(node => node.label),
-    assigned.community,
-    assigned.count,
-  );
-  const important = importantByCommunity(
-    leaves.map(node => node.degree ?? 0),
-    assigned.community,
-    assigned.count,
-  );
-  leaves.forEach((node, index) => {
-    const community = assigned.community[index] ?? 0;
-    const palette = communityPalette(community);
-    node.community = community;
-    node.communityLabel = names[community] || node.parentKeyword || "";
-    node.important = important[index];
-    node.color = palette.fill;
-    node.soft = palette.soft;
-    node.ink = palette.ink;
-  });
-  return assigned;
-}
-
 export function buildShowAllGraph(
   entries: PageManifestEntry[],
   grouping: ShowAllGrouping = "tags",
@@ -147,8 +102,7 @@ export function buildShowAllGraph(
   const hubNodes = buildHubs(counts);
   placeHubs(hubNodes);
   const hubByLabel = new Map(hubNodes.map(node => [node.label, node]));
-  const showHubs = grouping !== "tags";
-  const nodes: GraphNodeDatum[] = showHubs ? [...hubNodes] : [];
+  const nodes: GraphNodeDatum[] = [...hubNodes];
   const links: GraphLinkDatum[] = [];
 
   const labelsById = new Map(eligible.map((entry, index) => [entry.id, labelsByEntry[index] ?? []]));
@@ -167,10 +121,8 @@ export function buildShowAllGraph(
 
   for (const group of byHub.values()) {
     group.entries.forEach((entry, index) => {
-      const origin = showHubs ? (group.hub ?? LAYOUT_CENTRE) : LAYOUT_CENTRE;
-      const seed = showHubs
-        ? organicSeed(entry.id, index, group.entries.length)
-        : cloudSeed(entry.id, nodes.filter(node => node.kind === "leaf").length);
+      const origin = group.hub ?? LAYOUT_CENTRE;
+      const seed = organicSeed(entry.id, index, group.entries.length);
       const x = (origin.x ?? LAYOUT_CENTRE.x) + seed.x;
       const y = (origin.y ?? LAYOUT_CENTRE.y) + seed.y;
       const hubLabels = [...new Set(labelsById.get(entry.id) ?? [])].filter(label => hubByLabel.has(label));
@@ -196,18 +148,15 @@ export function buildShowAllGraph(
         homeX: origin.x ?? LAYOUT_CENTRE.x,
         homeY: origin.y ?? LAYOUT_CENTRE.y,
       });
-      if (showHubs) {
-        for (const label of hubLabels) {
-          const hub = hubByLabel.get(label);
-          if (!hub) continue;
-          links.push({
-            source: `leaf:${entry.id}`,
-            target: hub.id,
-            kind: "spoke",
-            weight: 1,
-            color: hub.color,
-          });
-        }
+      const home = group.hub;
+      if (home) {
+        links.push({
+          source: `leaf:${entry.id}`,
+          target: home.id,
+          kind: "spoke",
+          weight: 1,
+          color: home.color,
+        });
       }
     });
   }
@@ -219,17 +168,6 @@ export function buildShowAllGraph(
     if (source) link.color = source.soft;
   }
   links.push(...overlaps);
-
-  if (!showHubs) {
-    applyCommunities(
-      nodes.filter(node => node.kind === "leaf"),
-      overlaps,
-    );
-    for (const link of overlaps) {
-      const source = typeof link.source === "string" ? leafById.get(link.source) : link.source;
-      if (source) link.color = source.soft;
-    }
-  }
 
   return {
     nodes,

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { graphMetrics, formatGraphMetrics } from "../src/archive/graphMetrics";
+import { nodeDegrees, noteToNoteLinks } from "../src/archive/graphMetrics";
 import { buildShowAllGraph } from "../src/archive/showAllGraph";
 import type { PageManifestEntry } from "../src/domain/page";
 
@@ -19,7 +19,24 @@ const entries = raw.map(
 
 const started = Date.now();
 const model = buildShowAllGraph(entries, "tags");
-const metrics = graphMetrics(model.nodes, model.links);
+const leaves = model.nodes.filter(node => node.kind === "leaf");
+const hubs = model.nodes.filter(node => node.kind === "major");
+const noteLinks = noteToNoteLinks(model.links);
+const degrees = [...nodeDegrees(leaves, noteLinks).values()];
 const elapsed = Date.now() - started;
 
-console.log(JSON.stringify({ ...metrics, elapsedMs: elapsed, summary: formatGraphMetrics(metrics) }, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      hubs: hubs.length,
+      notes: leaves.length,
+      noteLinks: noteLinks.length,
+      spokes: model.links.filter(link => link.kind === "spoke").length,
+      maxNoteDegree: degrees.length ? Math.max(...degrees) : 0,
+      meanNoteDegree: degrees.length ? degrees.reduce((sum, value) => sum + value, 0) / degrees.length : 0,
+      elapsedMs: elapsed,
+    },
+    null,
+    2,
+  ),
+);

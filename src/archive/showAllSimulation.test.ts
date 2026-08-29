@@ -38,9 +38,13 @@ describe("Show All settling", () => {
     }
 
     const simulation = createShowAllSimulation(model.nodes, [...model.links, ...bridges]).stop();
-    for (const node of model.nodes) {
+    for (const node of model.nodes.filter(item => item.kind === "leaf")) {
       expect(node.fx).toBeNull();
       expect(node.fy).toBeNull();
+    }
+    for (const hub of model.nodes.filter(item => item.kind === "major")) {
+      expect(hub.fx).toBe(hub.homeX);
+      expect(hub.fy).toBe(hub.homeY);
     }
 
     simulation.tick(SHOW_ALL_SETTLE_TICKS);

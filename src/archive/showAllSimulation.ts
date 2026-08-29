@@ -34,6 +34,11 @@ export function lockShowAllNodes(nodes: GraphNodeDatum[]) {
 export function unlockShowAllNodes(nodes: GraphNodeDatum[]) {
   for (const node of nodes) {
     if (node.departing) continue;
+    if (node.kind === "major") {
+      node.fx = node.homeX ?? node.x ?? 0;
+      node.fy = node.homeY ?? node.y ?? 0;
+      continue;
+    }
     node.fx = null;
     node.fy = null;
   }

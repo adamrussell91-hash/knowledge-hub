@@ -135,17 +135,17 @@ describe("Show All strand drawing", () => {
     const expected = SHOW_ALL_STRAND_WIDTH / viewK;
     const strands = recorded.strokes.filter(stroke => stroke.strokeStyle !== "#fff");
 
-    expect(strands).toHaveLength(1);
-    expect(strands[0]?.lineWidth).toBeCloseTo(expected);
-    expect(strands[0]?.dash).toEqual([]);
-    expect(strands[0]?.lineCap).toBe("round");
+    expect(strands.length).toBeGreaterThanOrEqual(1);
+    expect(strands.every(stroke => Math.abs(stroke.lineWidth - expected) < 0.01)).toBe(true);
+    expect(strands.every(stroke => stroke.dash.length === 0)).toBe(true);
+    expect(strands.every(stroke => stroke.lineCap === "round")).toBe(true);
     expect(recorded.paths.filter(path => path === "line").length).toBeGreaterThanOrEqual(5);
     expect(recorded.paths).not.toContain("curve");
 
     stop();
   });
 
-  it("does not draw topic hubs or straight spokes in the tags view", () => {
+  it("draws the 20-tag hubs and spokes, but never paints note titles", () => {
     stubFrame();
     const recorded = installCanvas();
     const host = document.createElement("div");
@@ -162,15 +162,19 @@ describe("Show All strand drawing", () => {
       })),
     );
     const graph = buildShowAllGraph(pages, "tags");
-    expect(graph.nodes.every(node => node.kind === "leaf")).toBe(true);
-    expect(graph.links.every(link => link.kind === "overlap" || link.kind === "backbone")).toBe(true);
-    expect(graph.links.some(link => link.kind === "spoke")).toBe(false);
+    const hubs = graph.nodes.filter(node => node.kind === "major");
+    expect(hubs).toHaveLength(3);
+    expect(graph.links.some(link => link.kind === "spoke")).toBe(true);
+    expect(graph.links.filter(link => link.kind === "overlap" || link.kind === "backbone").length).toBeGreaterThan(0);
 
     const stop = mountForceGraph(host, graph, {}, { variant: "showAll", search: "", excerptFor: () => "" });
     expect(recorded.paths.length).toBeGreaterThan(0);
     expect(recorded.paths.every(path => path === "line")).toBe(true);
-    expect(recorded.texts).toEqual([]);
-    expect(graph.nodes.map(node => node.label).some(label => recorded.texts.includes(label))).toBe(false);
+    expect(hubs.every(hub => recorded.texts.some(text => hub.label.startsWith(text.replace(/…$/, ""))))).toBe(
+      true,
+    );
+    const leafTitles = new Set(graph.nodes.filter(node => node.kind === "leaf").map(node => node.label));
+    expect(recorded.texts.some(text => leafTitles.has(text))).toBe(false);
 
     stop();
   });

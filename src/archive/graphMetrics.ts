@@ -15,6 +15,10 @@ function endpointId(end: GraphLinkDatum["source"] | GraphLinkDatum["target"]) {
   return typeof end === "string" ? end : end.id;
 }
 
+export function noteToNoteLinks(links: GraphLinkDatum[]) {
+  return links.filter(link => link.kind === "overlap" || link.kind === "backbone");
+}
+
 export function nodeDegrees(nodes: GraphNodeDatum[], links: GraphLinkDatum[]) {
   const degree = new Map<string, number>(nodes.map(node => [node.id, 0]));
   for (const link of links) {
