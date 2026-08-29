@@ -123,7 +123,7 @@ describe("Show All strand drawing", () => {
     vi.unstubAllGlobals();
   });
 
-  it("strokes every on-screen strand at one solid rounded width, including heavy overlaps", () => {
+  it("batches Show All strands into one solid rounded stroke", () => {
     stubFrame();
     const recorded = installCanvas();
     const host = document.createElement("div");
@@ -135,10 +135,12 @@ describe("Show All strand drawing", () => {
     const expected = SHOW_ALL_STRAND_WIDTH / viewK;
     const strands = recorded.strokes.filter(stroke => stroke.strokeStyle !== "#fff");
 
-    expect(strands.length).toBeGreaterThanOrEqual(5);
-    expect(new Set(strands.map(stroke => stroke.lineWidth))).toEqual(new Set([expected]));
-    expect(strands.every(stroke => stroke.dash.length === 0)).toBe(true);
-    expect(strands.every(stroke => stroke.lineCap === "round")).toBe(true);
+    expect(strands).toHaveLength(1);
+    expect(strands[0]?.lineWidth).toBeCloseTo(expected);
+    expect(strands[0]?.dash).toEqual([]);
+    expect(strands[0]?.lineCap).toBe("round");
+    expect(recorded.paths.filter(path => path === "line").length).toBeGreaterThanOrEqual(5);
+    expect(recorded.paths).not.toContain("curve");
 
     stop();
   });
@@ -166,8 +168,9 @@ describe("Show All strand drawing", () => {
 
     const stop = mountForceGraph(host, graph, {}, { variant: "showAll", search: "", excerptFor: () => "" });
     expect(recorded.paths.length).toBeGreaterThan(0);
-    expect(recorded.paths.every(path => path === "curve")).toBe(true);
-    expect(recorded.texts.length).toBeLessThan(graph.nodes.length / 4);
+    expect(recorded.paths.every(path => path === "line")).toBe(true);
+    expect(recorded.texts).toEqual([]);
+    expect(graph.nodes.map(node => node.label).some(label => recorded.texts.includes(label))).toBe(false);
 
     stop();
   });

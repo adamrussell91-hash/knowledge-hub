@@ -22,12 +22,12 @@ per-tag centroid. On this vault that produced the screenshot blobs:
 | Metric | Value | Target |
 |---|---|---|
 | Node count | 4240 | same |
-| Edge count | 24720 | 15,000–35,000 |
-| Mean degree | 11.66 | 6–12 |
-| Median degree | 10 | 5–10 |
+| Edge count | 15495 | 12,000–25,000 |
+| Mean degree | 7.31 | 6–12 |
+| Median degree | 7 | 5–10 |
 | Orphans | 0 | 0 |
 | Connected components | 1 | 1 |
 | Largest component % | 100 | > 99 |
-| Build time | 6.8s | interactive-enough |
+| Build time | 0.85s | interactive-enough |
 
-Degree histogram is a long tail: most notes sit at 8–12 neighbours, with 313 nodes at 20+.
+Degree histogram is a long tail: most notes sit at 5–9 neighbours. The canvas then draws a zoom-budgeted subset (about 2,200 edges when zoomed out) as batched straight lines, with no note-name labels.

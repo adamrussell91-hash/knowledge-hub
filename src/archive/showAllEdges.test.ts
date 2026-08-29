@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SHOW_ALL_DEGREE_CAP,
+  candidatePairs,
   capDegree,
   knnUnion,
   maximumSpanningTree,
@@ -44,6 +45,14 @@ describe("show all edge helpers", () => {
     for (let i = 0; i < 4; i++) uf.set(i, i);
     for (const pair of tree) uf.set(find(pair.a), find(pair.b));
     expect(new Set([0, 1, 2, 3].map(find)).size).toBe(1);
+  });
+
+  it("does not enumerate every pair inside a huge shared tag", () => {
+    const tagSets = Array.from({ length: 80 }, () => new Set(["shared"]));
+    const tokens = tagSets.map((_, index) => new Set([`tok-${index}`]));
+    const { candidates } = candidatePairs(tagSets, tokens);
+    expect(candidates.size).toBeLessThan((80 * 79) / 2);
+    expect(candidates.size).toBeGreaterThanOrEqual(79);
   });
 
   it("never drops protected backbone edges when capping degree", () => {
