@@ -508,11 +508,11 @@ export function mountForceGraph(
         ctx.globalAlpha = (dim ? 0.35 : 0.92) * fade;
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
-        ctx.font = `600 ${Math.max(11, 13 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
+        ctx.font = `600 ${Math.max(13, 18 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
         const text = node.label.length > 28 ? `${node.label.slice(0, 27)}…` : node.label;
-        ctx.fillText(text, node.x, node.y - drawR - 8 / view.k);
-        ctx.font = `500 ${Math.max(10, 11 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
-        ctx.fillText(`${node.count}`, node.x, node.y - drawR - 22 / Math.sqrt(view.k));
+        ctx.fillText(text, node.x, node.y - drawR - 10 / view.k);
+        ctx.font = `500 ${Math.max(11, 13 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
+        ctx.fillText(`${node.count}`, node.x, node.y - drawR - 26 / Math.sqrt(view.k));
         ctx.globalAlpha = 1;
       }
       ctx.restore();

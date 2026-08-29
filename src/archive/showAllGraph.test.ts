@@ -43,7 +43,7 @@ describe("buildShowAllGraph", () => {
     const hubs = model.nodes.filter(node => node.kind === "major");
     expect(leaves.map(node => node.pageId).sort()).toEqual(["p1", "p2", "p3"]);
     expect(hubs.map(node => node.label).sort()).toEqual([V[0], V[2], V[7]].sort());
-    expect(model.links.some(link => link.kind === "spoke")).toBe(true);
+    expect(model.links.filter(link => link.kind === "spoke" && String(link.source) === "leaf:p1")).toHaveLength(1);
     expect(leaves.find(node => node.pageId === "p1")?.hubLabels).toEqual([V[0], V[2]]);
     expect(leaves.find(node => node.pageId === "p1")?.parentKeyword).toBe(V[0]);
     expect(leaves.find(node => node.pageId === "p1")?.color).toBe(hubs.find(hub => hub.label === V[0])?.color);

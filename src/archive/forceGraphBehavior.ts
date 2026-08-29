@@ -212,7 +212,7 @@ export function showAllLinkDistance(linkOrKind: GraphLinkKind | GraphLinkDatum) 
 }
 
 export function showAllLinkStrength(kind: GraphLinkKind) {
-  if (kind === "spoke") return 0.02;
+  if (kind === "spoke") return 0.32;
   if (kind === "overlap" || kind === "backbone") return showAllTuning.overlapLinkStrength;
   if (kind === "orbit") return 0.02;
   return 0.01;
@@ -231,9 +231,9 @@ export function showAllCollisionRadius(node: GraphNodeDatum) {
 }
 
 export function showAllTargetStrength(node: GraphNodeDatum) {
-  if (node.kind === "major") return 0.018;
+  if (node.kind === "major") return 0;
   if (node.kind === "minor") return 0.02;
-  return 0.006;
+  return 0.05;
 }
 
 export function shouldLockShowAll(tickCount: number) {

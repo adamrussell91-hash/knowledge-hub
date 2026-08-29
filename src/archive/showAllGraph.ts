@@ -47,7 +47,7 @@ function organicSeed(id: string, index: number, count: number, radiusScale = 1) 
 }
 
 function hubRadius(count: number) {
-  return Math.max(7, Math.min(18, 7 + Math.sqrt(Math.max(count, 1)) * 1.6));
+  return Math.max(16, Math.min(28, 16 + Math.sqrt(Math.max(count, 1)) * 1.1));
 }
 
 function placeHubs(nodes: GraphNodeDatum[]) {
@@ -64,6 +64,8 @@ function placeHubs(nodes: GraphNodeDatum[]) {
     node.y = LAYOUT_CENTRE.y + Math.sin(angle) * ringRadius;
     node.homeX = node.x;
     node.homeY = node.y;
+    node.fx = node.x;
+    node.fy = node.y;
   });
 }
 
@@ -146,15 +148,14 @@ export function buildShowAllGraph(
         homeX: origin.x ?? LAYOUT_CENTRE.x,
         homeY: origin.y ?? LAYOUT_CENTRE.y,
       });
-      for (const label of hubLabels) {
-        const hub = hubByLabel.get(label);
-        if (!hub) continue;
+      const home = group.hub;
+      if (home) {
         links.push({
           source: `leaf:${entry.id}`,
-          target: hub.id,
+          target: home.id,
           kind: "spoke",
           weight: 1,
-          color: hub.color,
+          color: home.color,
         });
       }
     });
