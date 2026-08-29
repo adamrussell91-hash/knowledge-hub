@@ -1,4 +1,4 @@
-import { formatDisplayDateRange } from "../../../design-kit/js/format-display-date.js";
+import { formatDisplayDate, formatDisplayDateRange } from "../../../design-kit/js/format-display-date.js";
 import { escapeHtml } from "../../lib/dom";
 import { formatGpa, statusLabel, summariseGpa } from "./gpa";
 import { resolveAssessmentGrade } from "./grade";
@@ -99,6 +99,14 @@ export function gpaChipHtml(degrees: DegreeRecord[], includeUngraded: boolean, o
   </aside>`;
 }
 
+function degreeMeta(degree: DegreeRecord) {
+  const parts = [degree.institution, statusLabel(degree.status)];
+  if (degree.status === "in-progress" && degree.end) {
+    parts.push(`until ${formatDisplayDate(degree.end)}`);
+  }
+  return parts.filter(Boolean).join(" · ");
+}
+
 function degreeBarHtml(
   degree: DegreeRecord,
   index: number,
@@ -110,9 +118,11 @@ function degreeBarHtml(
   if (!span || !visibleOverlap(span.startMs, span.endMs, camera.startMs, camera.endMs)) return "";
   const left = xAt(span.startMs, camera.startMs, camera.endMs, width);
   const right = xAt(span.endMs, camera.startMs, camera.endMs, width);
-  return `<button type="button" class="uni-tl__degree is-${swatchFor(index)} ${selected ? "is-selected" : ""}" data-tl-degree="${escapeHtml(degree.id)}" style="left:${left}px;width:${Math.max(28, right - left)}px">
+  const meta = degreeMeta(degree);
+  const hint = [degree.title, meta, dateLabel(degree.start, degree.end)].filter(Boolean).join(" · ");
+  return `<button type="button" class="uni-tl__degree is-${swatchFor(index)} ${selected ? "is-selected" : ""}" data-tl-degree="${escapeHtml(degree.id)}" title="${escapeHtml(hint)}" style="left:${left}px;width:${Math.max(28, right - left)}px">
     <span class="uni-tl__degree-title">${escapeHtml(degree.title)}</span>
-    <span class="uni-tl__degree-meta">${escapeHtml(degree.institution ?? "")}${degree.institution ? " · " : ""}${escapeHtml(statusLabel(degree.status))}</span>
+    <span class="uni-tl__degree-meta">${escapeHtml(meta)}</span>
   </button>`;
 }
 

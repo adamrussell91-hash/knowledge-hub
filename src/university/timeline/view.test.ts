@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { catalogueSpan, zoomCamera } from "./layout";
 import type { DegreeRecord } from "./types";
+import data from "./data.json";
 import { gpaChipHtml, layerFromCamera, selectionCardHtml, timelineChartHtml } from "./view";
 
 const degrees: DegreeRecord[] = [
@@ -93,6 +94,25 @@ describe("university timeline view", () => {
     expect(html).toContain("High Distinction");
     expect(html).toContain("7 / 7");
     expect(html).toContain("Assessment grade");
+  });
+
+  it("keeps official university names and shows when an in-progress degree finishes", () => {
+    const catalogue = data.degrees as DegreeRecord[];
+    const html = timelineChartHtml(catalogue, catalogueSpan(catalogue), 1400, null);
+    const byTitle = Object.fromEntries(catalogue.map(degree => [degree.title, degree]));
+    expect(byTitle["Bachelor of Teaching and Arts Degree"]?.institution).toBe("University of Newcastle");
+    expect(byTitle["Graduate Certificate in Transformational Leadership"]?.institution).toBe(
+      "University of Newcastle",
+    );
+    expect(byTitle["Master of Cognitive Psychology"]?.institution).toBe("Flinders University");
+    expect(byTitle["Master of Education (Educational Leadership)"]).toMatchObject({
+      institution: "University of Wollongong",
+      status: "in-progress",
+      end: "2027-06-25",
+    });
+    expect(html).toContain("University of Newcastle");
+    expect(html).toContain("Flinders University");
+    expect(html).toContain("until 25/06/27");
   });
 
   it("renders a hovering GPA calculator chip", () => {
