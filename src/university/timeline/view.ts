@@ -203,19 +203,8 @@ export function timelineChartHtml(
     return `<div class="uni-tl__lane is-${layer}">${items}</div>`;
   }).join("");
 
-  const labels = Array.from({ length: packed.laneCount }, (_, lane) => {
-    const names = degrees
-      .filter(degree => laneOf.get(degree.id) === lane)
-      .map(degree => `<span>${escapeHtml(degree.title)}</span>`)
-      .join("");
-    return `<div class="uni-tl__label">${names}</div>`;
-  }).join("");
-
   return `<div class="uni-tl__axis">${ticks}</div>
-    <div class="uni-tl__board">
-      <div class="uni-tl__labels">${labels}</div>
-      <div class="uni-tl__chart" data-tl-chart style="--tl-width:${width}px">${lanes}</div>
-    </div>`;
+    <div class="uni-tl__chart" data-tl-chart style="--tl-width:${width}px">${lanes}</div>`;
 }
 
 export function selectionCardHtml(degrees: DegreeRecord[], selection: TimelineSelection | null) {

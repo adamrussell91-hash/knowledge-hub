@@ -39,10 +39,13 @@ describe("timeline layout", () => {
     expect(layerForScale(ASSESSMENT_SCALE)).toBe("assessments");
   });
 
-  it("packs non-overlapping degrees onto one lane", () => {
-    const packed = packLanes([bachelor, later]);
-    expect(packed.laneCount).toBe(1);
-    expect(packed.lanes.map(row => row.lane)).toEqual([0, 0]);
+  it("gives each degree its own row in start order", () => {
+    const packed = packLanes([later, bachelor]);
+    expect(packed.laneCount).toBe(2);
+    expect(packed.lanes).toEqual([
+      { id: "ba", lane: 0 },
+      { id: "gc", lane: 1 },
+    ]);
   });
 
   it("tightens the camera until a requested layer is visible", () => {

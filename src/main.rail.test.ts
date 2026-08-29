@@ -33,6 +33,8 @@ describe("Knowledge Hub rail", () => {
     expect(main).toContain("mountUniversityTimeline");
     expect(css).toContain(".uni-tl");
     expect(css).toContain(".gpa-chip");
+    expect(css).not.toContain(".uni-tl__labels");
+    expect(css).toContain("overflow-y: auto");
   });
 
   it("offers a quiet Clean up control beside Edit in the reader", () => {

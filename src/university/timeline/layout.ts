@@ -138,19 +138,10 @@ export function packLanes(degrees: DegreeRecord[]): { lanes: PackedLane[]; laneC
   const items = degrees
     .map(degree => ({ degree, span: spanOf(degree) ?? { startMs: 0, endMs: 1 } }))
     .sort((a, b) => a.span.startMs - b.span.startMs || a.span.endMs - b.span.endMs);
-  const laneEnds: number[] = [];
-  const lanes: PackedLane[] = [];
-  for (const item of items) {
-    let lane = laneEnds.findIndex(end => end <= item.span.startMs);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(item.span.endMs);
-    } else {
-      laneEnds[lane] = item.span.endMs;
-    }
-    lanes.push({ id: item.degree.id, lane });
-  }
-  return { lanes, laneCount: Math.max(1, laneEnds.length) };
+  return {
+    lanes: items.map((item, lane) => ({ id: item.degree.id, lane })),
+    laneCount: Math.max(1, items.length),
+  };
 }
 
 export function assessmentMarks(unit: UnitRecord, unitSpan: { startMs: number; endMs: number }): Array<AssessmentRecord & { startMs: number; endMs: number }> {

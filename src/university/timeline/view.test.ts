@@ -71,6 +71,8 @@ describe("university timeline view", () => {
     const bounds = catalogueSpan(degrees);
     const wide = timelineChartHtml(degrees, bounds, 900, null);
     expect(wide).toContain("Bachelor of Teaching and Arts Degree");
+    expect(wide).not.toContain("uni-tl__labels");
+    expect(wide).not.toContain("uni-tl__label");
     expect(wide).not.toContain("data-tl-unit");
     expect(layerFromCamera(degrees, bounds)).toBe("degrees");
 

@@ -3231,12 +3231,14 @@ body.is-universe-fullscreen .local-banner {
   position: relative;
   flex: 1 1 auto;
   min-height: 28rem;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: var(--radius-md);
   background: var(--glass);
   box-shadow: var(--hub-elev-card);
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .uni-tl__viewport:active {
@@ -3262,19 +3264,12 @@ body.is-universe-fullscreen .local-banner {
   transform: translateX(-50%);
 }
 
-.uni-tl__board {
-  display: grid;
-  grid-template-columns: 11rem minmax(0, 1fr);
-  min-height: calc(100% - 2rem);
-}
-
-.uni-tl__labels,
 .uni-tl__chart {
   display: flex;
   flex-direction: column;
+  min-height: calc(100% - 2rem);
 }
 
-.uni-tl__label,
 .uni-tl__lane {
   position: relative;
   min-height: 4.5rem;
@@ -3288,23 +3283,6 @@ body.is-universe-fullscreen .local-banner {
 
 .uni-tl__lane.is-assessments {
   min-height: 9.5rem;
-}
-
-.uni-tl__label {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--space-1);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--muted);
-}
-
-.uni-tl__label span {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .uni-tl__degree,
@@ -3523,14 +3501,6 @@ body.is-universe-fullscreen .local-banner {
 }
 
 @media (max-width: 720px) {
-  .uni-tl__board {
-    grid-template-columns: 1fr;
-  }
-
-  .uni-tl__labels {
-    display: none;
-  }
-
   .gpa-chip {
     position: static;
     justify-items: stretch;
