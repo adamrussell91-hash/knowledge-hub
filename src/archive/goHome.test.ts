@@ -22,6 +22,19 @@ describe("goHome", () => {
     });
   });
 
+  it("returns to the unfiltered archive list from the university timeline", () => {
+    expect(
+      goHome({
+        view: "timeline",
+        query: "",
+        keywordFilter: "",
+        originFilter: { kind: "", label: "" },
+        activePage: null,
+        compose: null,
+      }),
+    ).toMatchObject({ view: "list", activePage: null, compose: null });
+  });
+
   it("returns to the unfiltered archive list from quiz", () => {
     expect(
       goHome({
