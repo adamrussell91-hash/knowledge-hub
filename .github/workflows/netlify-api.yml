@@ -1,5 +1,5 @@
 name: Deploy Netlify API
-# Needs repo Actions secrets NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID.
+# Needs repo Actions secrets NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID (repository secrets, not environment).
 
 on:
   push:
