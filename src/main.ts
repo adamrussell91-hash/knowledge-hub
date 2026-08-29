@@ -80,6 +80,7 @@ import {
 import { bindUniverseKey, universeKeyHtml } from "./archive/universeKey";
 import { enterPodcastRail, leavePodcastRail, renderPodcastRail } from "./podcast/rail";
 import { enterQuizRail, leaveQuizRail, renderQuizRail } from "./quiz/view";
+import { mountUniversityTimeline } from "./university/timeline/mount";
 import { enterChatRail, leaveChatRail, renderChatRail } from "./chat/rail";
 import { currentVisualiserIdea, enterChatVisualiser, isPortraitIdeaId, renderChatVisualiser } from "./chat/visualiser";
 import { ensureChatOverlay, hideChatOverlay, openChatOverlay, pinChatOverlayNote } from "./chat/overlay";
@@ -95,6 +96,7 @@ import { filterPickerOptions, optionPickerListHtml } from "./ui/optionPicker";
 type View =
   | "list"
   | "graph"
+  | "timeline"
   | "page"
   | "compose"
   | "chat"
@@ -204,6 +206,7 @@ const icons = {
   chat: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h11v8H5z"/><path d="M8 14v3l3-3h5"/></svg>`,
   podcast: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="3"/><path d="M8 10a4 4 0 0 0 8 0"/><path d="M6 10a6 6 0 0 0 12 0"/><path d="M12 13v6M9 19h6"/></svg>`,
   quiz: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v16H8z"/><path d="M11 8h2M11 12h2M11 16h1"/></svg>`,
+  timeline: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>`,
 };
 
 function kindBadge(attachment: Attachment) {
@@ -374,6 +377,7 @@ function shell(main: string) {
       <nav class="rail__nav hub-rail__nav">
         <button class="rail__btn hub-rail__link ${view === "list" && archiveIsUnfiltered() ? "is-current" : ""}" data-nav="all" type="button">${icons.archive}<span>Archive</span></button>
         <button class="rail__btn hub-rail__link ${view === "graph" ? "is-current" : ""}" data-nav="graph" type="button">${icons.graph}<span>Graph</span></button>
+        <button class="rail__btn hub-rail__link ${view === "timeline" ? "is-current" : ""}" data-nav="timeline" type="button">${icons.timeline}<span>Timeline</span></button>
         <button class="rail__btn hub-rail__link ${view === "chat" || view === "visualiser" ? "is-current" : ""}" data-nav="chat" type="button">${icons.chat}<span>Chat</span></button>
         <button class="rail__btn hub-rail__link ${view === "podcast" ? "is-current" : ""}" data-nav="podcast" type="button">${icons.podcast}<span>Podcast</span></button>
         <button class="rail__btn hub-rail__link ${view === "quiz" ? "is-current" : ""}" data-nav="quiz" type="button">${icons.quiz}<span>Quiz</span></button>
@@ -389,6 +393,7 @@ function shell(main: string) {
       const next = button.dataset.nav!;
       const special: Record<string, View> = {
         graph: "graph",
+        timeline: "timeline",
         chat: "chat",
         podcast: "podcast",
         quiz: "quiz",
@@ -698,6 +703,16 @@ function writeGraphChrome() {
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+}
+
+function renderTimeline() {
+  shell(`
+    ${USE_LOCAL_DATA ? `<p class="local-banner">Local preview · university timeline stays on this canvas</p>` : ""}
+    ${pageHeader("University", "Study timeline")}
+    <section class="uni-tl" data-uni-timeline></section>
+  `);
+  const host = app.querySelector<HTMLElement>("[data-uni-timeline]");
+  if (host) graphTeardown = mountUniversityTimeline(host);
 }
 
 function renderGraph() {
@@ -1380,6 +1395,7 @@ function render() {
   if (view === "compose" && compose) renderCompose(compose);
   else if (view === "page" && activePage) renderPage(activePage);
   else if (view === "graph") renderGraph();
+  else if (view === "timeline") renderTimeline();
   else if (view === "chat") {
     renderChatRail({
       app,

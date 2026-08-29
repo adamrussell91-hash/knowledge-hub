@@ -1,0 +1,1938 @@
+{
+  "generated": "2026-08-28T21:02:19+10:00 in Sydney local time.",
+  "degrees": [
+    {
+      "id": "degree-1-bachelor-of-teaching-and-arts-degree",
+      "title": "Bachelor of Teaching and Arts Degree",
+      "institution": "University of Newcastle",
+      "status": "completed",
+      "start": "2009-02-01",
+      "end": "2013-12-01",
+      "description": "Bachelor of Teaching and Arts Degree from University of Newcastle",
+      "units": [
+        {
+          "id": "unit-1-1-ahis1040-war-in-the-ancient-world",
+          "title": "AHIS1040 - War in the Ancient World",
+          "code": "AHIS1040",
+          "status": "completed",
+          "start": "2009-02-01",
+          "end": "2009-07-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-2-educ1003-learners-and-the-learning-process-1",
+          "title": "EDUC1003- Learners and the Learning Process 1",
+          "code": "EDUC1003",
+          "status": "completed",
+          "start": "2009-02-01",
+          "end": "2009-07-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-3-soca1010-society-and-culture",
+          "title": "SOCA1010 - Society and Culture",
+          "code": "SOCA1010",
+          "status": "completed",
+          "start": "2009-02-01",
+          "end": "2009-07-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "SOCA1010 - Society and Culture: A Sociological Introduction",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-4-educ1008-foundations-of-primary-and-secondary",
+          "title": "EDUC1008 - Foundations of Primary and Secondary",
+          "code": "EDUC1008",
+          "status": "completed",
+          "start": "2009-08-01",
+          "end": "2009-12-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "EDUC1008 - Foundations of Primary and Secondary Education",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-5-educ2101-introduction-to-specialist-studies",
+          "title": "EDUC2101 - Introduction to Specialist Studies",
+          "code": "EDUC2101",
+          "status": "completed",
+          "start": "2009-08-01",
+          "end": "2009-12-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-6-engl1002-romantic-and-victorian-literature",
+          "title": "ENGL1002 - Romantic and Victorian Literature",
+          "code": "ENGL1002",
+          "status": "completed",
+          "start": "2009-08-01",
+          "end": "2009-12-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-7-ahis3310-greek-and-roman-epics",
+          "title": "AHIS3310 - Greek and Roman Epics",
+          "code": "AHIS3310",
+          "status": "completed",
+          "start": "2010-08-01",
+          "end": "2010-12-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-8-educ1751-knowledge-and-communication",
+          "title": "EDUC1751 - Knowledge and Communication",
+          "code": "EDUC1751",
+          "status": "completed",
+          "start": "2010-08-01",
+          "end": "2010-12-01",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "EDUC1751 - Knowledge and Communication Technologies",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-9-engl1201-creative-reading-and-writing",
+          "title": "ENGL1201 - Creative Reading and Writing",
+          "code": "ENGL1201",
+          "status": "completed",
+          "start": "2010-08-01",
+          "end": "2010-12-01",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": "Exploring Narratives: A Collection of Short Stories",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-10-educ2012-educational-psychology-learners",
+          "title": "EDUC2012 Educational Psychology - Learners",
+          "code": "EDUC2012",
+          "status": "completed",
+          "start": "2011-01-02",
+          "end": "2011-01-06",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "EDUC2012 Educational Psychology - Learners and Learning Processes",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-11-ahis3130-roman-britain-and-anglo-saxon-england",
+          "title": "AHIS3130 - Roman Britain and Anglo-Saxon England",
+          "code": "AHIS3130",
+          "status": "completed",
+          "start": "2011-02-01",
+          "end": "2011-06-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-12-ahis3510-greek-society",
+          "title": "AHIS3510 - Greek Society",
+          "code": "AHIS3510",
+          "status": "completed",
+          "start": "2011-02-01",
+          "end": "2011-06-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-13-engl2201-intermediate-creative-writing-1",
+          "title": "ENGL2201 - Intermediate Creative Writing 1",
+          "code": "ENGL2201",
+          "status": "completed",
+          "start": "2011-02-01",
+          "end": "2011-06-01",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": "Exploring Creativity Through Intermediate Writing Techniques",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-14-educ2036-specialist-studies-in-history-1",
+          "title": "EDUC2036 - Specialist Studies in History 1",
+          "code": "EDUC2036",
+          "status": "completed",
+          "start": "2011-08-01",
+          "end": "2011-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-15-educ2050-specialist-studies-in-junior-history-a1",
+          "title": "EDUC2050 - Specialist Studies in Junior History A1",
+          "code": "EDUC2050",
+          "status": "completed",
+          "start": "2011-08-01",
+          "end": "2011-12-01",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-16-educ2103-schooling-identity-and-society",
+          "title": "EDUC2103 - Schooling, Identity and Society",
+          "code": "EDUC2103",
+          "status": "completed",
+          "start": "2011-08-01",
+          "end": "2011-12-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-17-engl3656-issues-in-speculative-fiction",
+          "title": "ENGL3656 - Issues in Speculative Fiction",
+          "code": "ENGL3656",
+          "status": "completed",
+          "start": "2011-08-01",
+          "end": "2011-12-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "Exploring Themes and Concepts in Speculative Fiction Literature",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-18-educ2195-managing-the-7-12-learning-environment",
+          "title": "EDUC2195 - Managing the 7-12 Learning Environment",
+          "code": "EDUC2195",
+          "status": "completed",
+          "start": "2012-02-01",
+          "end": "2012-06-01",
+          "gpaPoints": 4,
+          "grade": "Ungraded Pass",
+          "description": "Strategies for Effective Learning Environment Management in Grades 7-12",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-19-educ3038-extended-studies-in-the-humanities",
+          "title": "EDUC3038 - Extended Studies in the Humanities",
+          "code": "EDUC3038",
+          "status": "completed",
+          "start": "2012-02-01",
+          "end": "2012-06-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "Exploring Humanities: A Comprehensive Learning Experience",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-20-engl3006-writing-the-self",
+          "title": "ENGL3006 - Writing the Self",
+          "code": "ENGL3006",
+          "status": "completed",
+          "start": "2012-02-01",
+          "end": "2012-06-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-21-engl3045-indigenous-australia-in-literature",
+          "title": "ENGL3045 Indigenous Australia in Literature",
+          "code": "ENGL3045",
+          "status": "completed",
+          "start": "2012-02-01",
+          "end": "2012-06-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "ENGL3045 Indigenous Australia in Literature - Listenin’ Up",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-22-abor3500-aboriginal-education-policies",
+          "title": "ABOR3500 - Aboriginal Education, Policies",
+          "code": "ABOR3500",
+          "status": "completed",
+          "start": "2012-08-01",
+          "end": "2012-12-01",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": "ABOR3500 - Aboriginal Education, Policies and Issues",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-23-educ3026-special-education",
+          "title": "EDUC3026 - Special Education",
+          "code": "EDUC3026",
+          "status": "completed",
+          "start": "2012-08-01",
+          "end": "2012-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-24-educ3195-pedagogy-and-inclusion",
+          "title": "EDUC3195 - Pedagogy and Inclusion",
+          "code": "EDUC3195",
+          "status": "completed",
+          "start": "2012-08-01",
+          "end": "2012-12-01",
+          "gpaPoints": 4,
+          "grade": "Ungraded Pass",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-25-engl3202-advanced-creative-writing-2",
+          "title": "ENGL3202 - Advanced Creative Writing 2",
+          "code": "ENGL3202",
+          "status": "completed",
+          "start": "2012-08-01",
+          "end": "2012-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Creative Exploration in Advanced Writing Techniques",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-26-engl3730-poetry-in-action",
+          "title": "ENGL3730 - Poetry in Action",
+          "code": "ENGL3730",
+          "status": "completed",
+          "start": "2012-08-01",
+          "end": "2012-12-01",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-1-27-educ4090-specialist-studies-in-english-2",
+          "title": "EDUC4090 - Specialist Studies in English 2",
+          "code": "EDUC4090",
+          "status": "completed",
+          "start": "2013-02-01",
+          "end": "2013-06-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Advanced English Studies: Achieving Distinction in EDUC4090",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-28-educ4136-specialist-studies-in-history-2",
+          "title": "EDUC4136 - Specialist Studies in History 2",
+          "code": "EDUC4136",
+          "status": "completed",
+          "start": "2013-02-01",
+          "end": "2013-06-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "Exploring Historical Perspectives: EDUC4136 Specialist Studies Overview",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-29-the-evolution-of-the-united-states",
+          "title": "The Evolution of the United States",
+          "code": null,
+          "status": "completed",
+          "start": "2013-02-01",
+          "end": "2013-06-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "The Evolution of the United States: From Civil War to Global Power",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-30-ethics-and-professionalism-in-teacher-internship",
+          "title": "Ethics and Professionalism in Teacher Internship",
+          "code": null,
+          "status": "completed",
+          "start": "2013-08-01",
+          "end": "2013-12-01",
+          "gpaPoints": 4,
+          "grade": "Ungraded Pass",
+          "description": "Ethics and Professionalism in Teacher Internship Experience",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-31-hist1001-europe-and-the-world",
+          "title": "HIST1001 - Europe and the World",
+          "code": "HIST1001",
+          "status": "completed",
+          "start": "2013-08-01",
+          "end": "2013-12-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "Exploring European History: Key Themes and Global Interactions",
+          "assessments": []
+        },
+        {
+          "id": "unit-1-32-understanding-the-historical-roots-of-israel",
+          "title": "Understanding the Historical Roots of Israel",
+          "code": null,
+          "status": "completed",
+          "start": "2013-08-01",
+          "end": "2013-12-01",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "Understanding the Historical Roots of Israel and Middle East Conflicts",
+          "assessments": []
+        }
+      ]
+    },
+    {
+      "id": "degree-2-graduate-certificate-of-teaching-and-technology",
+      "title": "Graduate Certificate of Teaching and Technology",
+      "institution": "Western Sydney University",
+      "status": "completed",
+      "start": "2015-03-01",
+      "end": "2016-08-30",
+      "description": "Teaching and Technology Graduate Certificate from Western Sydney University",
+      "units": [
+        {
+          "id": "unit-2-1-teac7145-technology-learning-and-design",
+          "title": "TEAC7145 - Technology Learning and Design",
+          "code": "TEAC7145",
+          "status": "completed",
+          "start": "2015-03-01",
+          "end": "2015-08-01",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": "Innovative Approaches in Technology Learning and Design",
+          "assessments": []
+        },
+        {
+          "id": "unit-2-2-teac7146-technology-and-learning-futures",
+          "title": "TEAC7146 - Technology and Learning Futures",
+          "code": "TEAC7146",
+          "status": "completed",
+          "start": "2016-05-01",
+          "end": "2016-08-30",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": null,
+          "assessments": []
+        }
+      ]
+    },
+    {
+      "id": "degree-3-graduate-certificate-of-geography-teaching",
+      "title": "Graduate Certificate in Geography Education",
+      "institution": "Curtin University",
+      "status": "completed",
+      "start": "2015-08-01",
+      "end": "2016-12-01",
+      "description": "Graduate Certificate in Geography Education from Curtin University",
+      "units": [
+        {
+          "id": "unit-3-1-gph510-human-geography",
+          "title": "GPH510 - Human Geography",
+          "code": "GPH510",
+          "status": "completed",
+          "start": "2015-08-01",
+          "end": "2015-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Human Geography: Insights and Perspectives on Global Dynamics",
+          "assessments": []
+        },
+        {
+          "id": "unit-3-2-gph514-geographies-of-food-security",
+          "title": "GPH514 - Geographies of Food Security",
+          "code": "GPH514",
+          "status": "completed",
+          "start": "2015-08-01",
+          "end": "2015-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-3-3-gph512-physical-geography",
+          "title": "GPH512 - Physical Geography",
+          "code": "GPH512",
+          "status": "completed",
+          "start": "2016-01-31",
+          "end": "2016-06-30",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-3-4-gph513-global-cities-and-regions",
+          "title": "GPH513 - Global Cities and Regions",
+          "code": "GPH513",
+          "status": "completed",
+          "start": "2016-08-01",
+          "end": "2016-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Exploring Global Cities and Regions: Insights and Perspectives",
+          "assessments": []
+        }
+      ]
+    },
+    {
+      "id": "degree-4-graduate-certificate-in-child-and-adolescent",
+      "title": "Graduate Certificate in Child and Adolescent Welfare",
+      "institution": "Charles Sturt University",
+      "status": "completed",
+      "start": "2018-01-31",
+      "end": "2019-12-31",
+      "description": "Graduate Certificate in Child and Adolescent Welfare from Charles Sturt University",
+      "units": [
+        {
+          "id": "unit-4-1-psy482-psychology-of-human-development",
+          "title": "PSY482 - Psychology of Human Development",
+          "code": "PSY482",
+          "status": "completed",
+          "start": "2018-02-01",
+          "end": "2018-06-21",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Exploring Human Growth and Developmental Psychology",
+          "assessments": []
+        },
+        {
+          "id": "unit-4-2-wel407-child-and-adolescent-welfare-in-aboriginal",
+          "title": "WEL407- Child and Adolescent Welfare in Aboriginal",
+          "code": "WEL407",
+          "status": "completed",
+          "start": "2018-02-01",
+          "end": "2018-06-21",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "WEL407- Child and Adolescent Welfare in Aboriginal Communities",
+          "assessments": []
+        },
+        {
+          "id": "unit-4-3-hcs513-understanding-children-from-adversity",
+          "title": "HCS513 - Understanding Children from Adversity",
+          "code": "HCS513",
+          "status": "completed",
+          "start": "2019-01-27",
+          "end": "2019-07-01",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": null,
+          "assessments": []
+        },
+        {
+          "id": "unit-4-4-hcs409-social-welfare-in-human-services",
+          "title": "HCS409 - Social Welfare in Human Services",
+          "code": "HCS409",
+          "status": "completed",
+          "start": "2019-07-27",
+          "end": "2019-11-27",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Social Welfare Dynamics in Human Services Education",
+          "assessments": []
+        }
+      ]
+    },
+    {
+      "id": "degree-5-advanced-insights-in-cognitive-psychology",
+      "title": "Advanced Insights in Cognitive Psychology and Educational Methods",
+      "institution": "Flinders University",
+      "status": "completed",
+      "start": "2020-01-01",
+      "end": "2023-06-02",
+      "description": "Advanced Insights in Cognitive Psychology and Educational Methods",
+      "units": [
+        {
+          "id": "unit-5-1-engaging-strategies-for-gifted-education",
+          "title": "Engaging Strategies for Gifted Education",
+          "code": null,
+          "status": "completed",
+          "start": "2020-01-31",
+          "end": "2020-06-30",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": "Engaging Strategies for Gifted Education Curriculum Development",
+          "assessments": [
+            {
+              "id": "item-5-1-1-assessment-1-essay",
+              "title": "Assessment 1 - Essay",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Exploring Gifted Education: Curriculum and Differentiation Strategies",
+              "unitNumber": "EDUC9792: Gifted Education Curriculum and Differentiation"
+            },
+            {
+              "id": "item-5-1-2-assessment-2",
+              "title": "Assessment 2",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Gifted Education: Curriculum and Differentiation Assessment Overview",
+              "unitNumber": "EDUC9792: Gifted Education Curriculum and Differentiation"
+            }
+          ]
+        },
+        {
+          "id": "unit-5-2-exploring-the-intersection-of-motivation",
+          "title": "Exploring the Intersection of Motivation",
+          "code": null,
+          "status": "completed",
+          "start": "2020-08-01",
+          "end": "2020-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Exploring the Intersection of Motivation and Learning Strategies",
+          "assessments": []
+        },
+        {
+          "id": "unit-5-3-educ9606-planning-change-in-organisations",
+          "title": "EDUC9606 - Planning Change in Organisations",
+          "code": "EDUC9606",
+          "status": "completed",
+          "start": "2021-01-31",
+          "end": "2021-06-30",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "Insights on Change Management and Organizational Dynamics",
+          "assessments": []
+        },
+        {
+          "id": "unit-5-4-educ9733-psychology-of-learning-and-instruction",
+          "title": "EDUC9733 - Psychology of Learning and Instruction",
+          "code": "EDUC9733",
+          "status": "completed",
+          "start": "2021-08-01",
+          "end": "2021-12-01",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": "Learning Psychology and Instructional Strategies for Educators",
+          "assessments": []
+        },
+        {
+          "id": "unit-5-5-transforming-student-mindsets-through-goal",
+          "title": "Transforming Student Mindsets Through Goal",
+          "code": null,
+          "status": "completed",
+          "start": "2022-01-31",
+          "end": "2022-06-30",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Transforming Student Mindsets Through Goal Orientation and Attribution Interventions",
+          "assessments": []
+        },
+        {
+          "id": "unit-5-6-psychological-approaches-to-enhancing-learning",
+          "title": "Psychological Approaches to Enhancing Learning",
+          "code": null,
+          "status": "completed",
+          "start": "2022-08-01",
+          "end": "2022-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Psychological Approaches to Enhancing Learning and Instruction",
+          "assessments": []
+        },
+        {
+          "id": "unit-5-7-academic-resources-and-assignments-for-educ9736",
+          "title": "Academic Resources and Assignments for EDUC9736",
+          "code": null,
+          "status": "completed",
+          "start": "2023-01-31",
+          "end": "2023-07-10",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "Academic Resources and Assignments for EDUC9736 Course",
+          "assessments": []
+        },
+        {
+          "id": "unit-5-8-course-materials-and-resources-for-educ9735",
+          "title": "Course Materials and Resources for EDUC9735",
+          "code": null,
+          "status": "completed",
+          "start": "2023-01-31",
+          "end": "2023-07-10",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "Course Materials and Resources for EDUC9735 Research Design",
+          "assessments": []
+        }
+      ]
+    },
+    {
+      "id": "degree-6-graduate-diploma-of-psychology",
+      "title": "Graduate Diploma of Psychology",
+      "institution": "University of New England",
+      "status": "withdrawn",
+      "start": "2020-07-16",
+      "end": null,
+      "description": "Graduate Diploma in Psychology: Program Withdrawal Overview",
+      "units": [
+        {
+          "id": "unit-6-1-psyc101-introductory-psychology-1",
+          "title": "PSYC101 - Introductory Psychology 1",
+          "code": "PSYC101",
+          "status": "completed",
+          "start": "2018-02-26",
+          "end": "2018-06-08",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Foundations of Psychology: Insights and Connections",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-2-psyc202-research-methods-and-statistics",
+          "title": "PSYC202 - Research Methods and Statistics",
+          "code": "PSYC202",
+          "status": "withdrawn",
+          "start": "2018-03-05",
+          "end": "2018-06-09",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Research Methods and Statistics Course Overview",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-3-psyc102-introductory-psychology-2",
+          "title": "PSYC102 - Introductory Psychology 2",
+          "code": "PSYC102",
+          "status": "completed",
+          "start": "2018-06-25",
+          "end": "2018-10-12",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Exploring the Fundamentals of Psychology: A Comprehensive Overview",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-4-psyc102-introductory-psychology-2",
+          "title": "PSYC102 - Introductory Psychology 2",
+          "code": "PSYC102",
+          "status": "withdrawn",
+          "start": "2018-07-09",
+          "end": "2018-10-18",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Introduction to Psychology: Key Concepts and Foundations",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-5-psyc101-introductory-psychology-1",
+          "title": "PSYC101 - Introductory Psychology 1",
+          "code": "PSYC101",
+          "status": "withdrawn",
+          "start": "2019-03-04",
+          "end": "2019-05-31",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Introduction to Psychology: Exploring Human Behavior and Thought Processes",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-6-psyc206-developmental-and-social-psychology",
+          "title": "PSYC206 - Developmental and Social Psychology",
+          "code": "PSYC206",
+          "status": "completed",
+          "start": "2019-06-24",
+          "end": "2019-10-11",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Exploring Developmental and Social Psychology: Insights and Connections",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-7-psyc213-lifespan-developmental-psychology",
+          "title": "PSYC213 - Lifespan Developmental Psychology",
+          "code": "PSYC213",
+          "status": "withdrawn",
+          "start": "2019-07-08",
+          "end": "2019-10-14",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Understanding Human Development Across the Lifespan",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-8-psyc363-abnormal-psychology",
+          "title": "PSYC363 - Abnormal Psychology",
+          "code": "PSYC363",
+          "status": "completed",
+          "start": "2019-10-28",
+          "end": "2019-11-22",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Exploring the Complexities of Abnormal Psychology in PSYC363 Course",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-9-psyc206-cognitive-psychology",
+          "title": "PSYC206 - Cognitive Psychology",
+          "code": "PSYC206",
+          "status": "withdrawn",
+          "start": "2019-11-04",
+          "end": "2020-02-10",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Cognitive Psychology: An Overview of PSYC206 Course Experience",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-10-psyc363-abnormal-psychology",
+          "title": "PSYC363 - Abnormal Psychology",
+          "code": "PSYC363",
+          "status": "withdrawn",
+          "start": "2019-11-04",
+          "end": "2020-02-10",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Exploring the Complexities of Abnormal Psychology",
+          "assessments": []
+        },
+        {
+          "id": "unit-6-11-psy70010-introduction-to-research-methods",
+          "title": "PSY70010 - Introduction to Research Methods",
+          "code": "PSY70010",
+          "status": "withdrawn",
+          "start": "2020-07-16",
+          "end": "2020-08-30",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Introduction to Research Methods at Swinburne University",
+          "assessments": []
+        }
+      ]
+    },
+    {
+      "id": "degree-7-master-of-educational-neuroscience",
+      "title": "Master of Educational Neuroscience",
+      "institution": "Central Queensland University",
+      "status": "completed",
+      "start": "2021-01-01",
+      "end": "2023-12-01",
+      "description": null,
+      "units": [
+        {
+          "id": "unit-7-1-eded20515-orientation-to-educational",
+          "title": "EDED20515 - Orientation to Educational",
+          "code": "EDED20515",
+          "status": "completed",
+          "start": "2021-01-31",
+          "end": "2021-09-30",
+          "gpaPoints": 4,
+          "grade": "Ungraded Pass",
+          "description": "EDED20515 - Orientation to Educational Neuroscience",
+          "assessments": []
+        },
+        {
+          "id": "unit-7-2-neuroscience-insights",
+          "title": "Neuroscience Insights",
+          "code": null,
+          "status": "completed",
+          "start": "2022-01-31",
+          "end": "2022-07-31",
+          "gpaPoints": 4,
+          "grade": "Ungraded Pass",
+          "description": "Neuroscience Insights: Understanding Stress, Emotion, and Leadership Dynamics",
+          "assessments": [
+            {
+              "id": "item-7-2-1-neuroscience-driven-leadership-model-enhancing",
+              "title": "Neuroscience-Driven Leadership Model Enhancing",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Neuroleadership Insights: ICECAPPS Model Enhancing Educational Leadership Practices",
+              "unitNumber": "EDED20516: Neuroleadership and Conceptual Approaches in Neuroscience"
+            }
+          ]
+        },
+        {
+          "id": "unit-7-3-eded20517-neuroplasticians-and-neuromyths",
+          "title": "EDED20517 - Neuroplasticians and Neuromyths",
+          "code": "EDED20517",
+          "status": "completed",
+          "start": "2022-08-24",
+          "end": "2023-05-28",
+          "gpaPoints": 4,
+          "grade": "Ungraded Pass",
+          "description": "Navigation and Academic Resources for EDED20517 Course",
+          "assessments": [
+            {
+              "id": "item-7-3-1-learning-styles-and-meshing-theory",
+              "title": "Learning Styles and Meshing Theory",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Debunking Learning Styles: Evidence, Impact, and Alternative Strategies",
+              "unitNumber": "EDED20517: Neuroplasticians and Neuromyths"
+            }
+          ]
+        },
+        {
+          "id": "unit-7-4-learning-and-memory-through-a-neuroscientific-lens",
+          "title": "Learning and Memory Through a Neuroscientific Lens",
+          "code": null,
+          "status": "completed",
+          "start": "2023-01-03",
+          "end": "2023-08-29",
+          "gpaPoints": 4,
+          "grade": "Ungraded Pass",
+          "description": "EDED20513 - Learning and Memory - A Neuroscientific View",
+          "assessments": [
+            {
+              "id": "item-7-4-1-making-it-memorable",
+              "title": "Making It Memorable",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Neuroscience‑Based Strategies for Enhancing Learning and Memory",
+              "unitNumber": "EDED20513: Learning and Memory - A Neuroscientific View"
+            }
+          ]
+        },
+        {
+          "id": "unit-7-5-advancing-research-in-educational-neuroscience",
+          "title": "Advancing Research in Educational Neuroscience",
+          "code": null,
+          "status": "completed",
+          "start": "2023-08-30",
+          "end": "2023-10-22",
+          "gpaPoints": 4,
+          "grade": "Ungraded Pass",
+          "description": "Advancing Research in Educational Neuroscience: Insights and Innovations",
+          "assessments": []
+        },
+        {
+          "id": "unit-7-6-neuroscience-capstone-research-project-overview",
+          "title": "Neuroscience Capstone Research Project Overview",
+          "code": "EDED20514",
+          "status": "completed",
+          "start": "2023-08-30",
+          "end": "2023-12-01",
+          "gpaPoints": 4,
+          "grade": "Ungraded Pass",
+          "description": "Neuroscience Capstone Research Project Overview and Insights",
+          "assessments": [
+            {
+              "id": "item-7-6-1-ai-vs-human-feedback",
+              "title": "AI vs Human Feedback",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "AI-Generated Feedback vs Human: Impact on Student Trust",
+              "unitNumber": "EDED20514: Capstone Research Project"
+            },
+            {
+              "id": "item-7-6-2-ai-vs-human-feedback",
+              "title": "AI vs Human Feedback",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "AI Feedback vs Human Feedback in Education Research Proposal",
+              "unitNumber": "EDED20514: Capstone Research Project"
+            },
+            {
+              "id": "item-7-6-3-assessing-gamified-learning-effects-on-high-school",
+              "title": "Assessing Gamified Learning Effects on High School",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Gamified Learning Impact on High School Students",
+              "unitNumber": "EDED20514: Capstone Research Project"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "degree-8-transformational-leadership-certificate",
+      "title": "Transformational Leadership Certificate: Structured Study Plan",
+      "institution": "University of Newcastle",
+      "status": "completed",
+      "start": "2021-08-01",
+      "end": "2022-12-01",
+      "description": "Transformational Leadership Certificate: Structured Study Plan",
+      "units": [
+        {
+          "id": "unit-8-1-educ6119-leading-for-learning",
+          "title": "EDUC6119 - Leading for Learning",
+          "code": "EDUC6119",
+          "status": "completed",
+          "start": "2021-08-01",
+          "end": "2021-12-01",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "Comprehensive Assessment Resources for EDUC6119 Course",
+          "assessments": []
+        },
+        {
+          "id": "unit-8-2-educ6353-leading-and-managing-educational-change",
+          "title": "EDUC6353 - Leading and Managing Educational Change",
+          "code": "EDUC6353",
+          "status": "completed",
+          "start": "2021-08-01",
+          "end": "2021-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Leading Educational Transformation: Strategies and Insights",
+          "assessments": []
+        },
+        {
+          "id": "unit-8-3-high-quality-learning-environments",
+          "title": "High-Quality Learning Environments",
+          "code": null,
+          "status": "completed",
+          "start": "2022-01-31",
+          "end": "2022-06-30",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "High-Quality Learning Environments: Assignment and Assessment Overview",
+          "assessments": [
+            {
+              "id": "item-8-3-1-assessment-1",
+              "title": "Assessment 1",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Educational Assessment Strategies for High-Quality Learning Environments",
+              "unitNumber": "EDUC6117: Building High-Quality Learning Environments"
+            },
+            {
+              "id": "item-8-3-2-assessment-2",
+              "title": "Assessment 2",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Resources for Building High-Quality Learning Environments",
+              "unitNumber": "EDUC6117: Building High-Quality Learning Environments"
+            },
+            {
+              "id": "item-8-3-3-assessment-3",
+              "title": "Assessment 3",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Resources for Building Effective Learning Environments",
+              "unitNumber": "EDUC6117: Building High-Quality Learning Environments"
+            }
+          ]
+        },
+        {
+          "id": "unit-8-4-educ6036-educational-leadership-and-ict",
+          "title": "EDUC6036 - Educational Leadership and ICT",
+          "code": "EDUC6036",
+          "status": "completed",
+          "start": "2022-08-01",
+          "end": "2022-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Educational Leadership and ICT: Assignments and Resources Overview",
+          "assessments": []
+        }
+      ]
+    },
+    {
+      "id": "degree-9-graduate-certificate-in-educational-leadership",
+      "title": "Graduate Certificate in Educational Leadership and Practice Excellence",
+      "institution": "Australian Catholic University",
+      "status": "completed",
+      "start": "2022-02-03",
+      "end": "2022-12-04",
+      "description": "Graduate Certificate in Educational Leadership and Practice Excellence",
+      "units": [
+        {
+          "id": "unit-9-1-edep600-highly-accomplished-lead-educational",
+          "title": "EDEP600 - Highly Accomplished/Lead Educational",
+          "code": "EDEP600",
+          "status": "completed",
+          "start": "2022-01-31",
+          "end": "2022-06-30",
+          "gpaPoints": 4,
+          "grade": "Pass",
+          "description": "EDEP600 - Highly Accomplished/Lead Educational Practice 1",
+          "assessments": [
+            {
+              "id": "item-9-1-1-enhancing-educational-practices-through-effective",
+              "title": "Enhancing Educational Practices Through Effective",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Enhancing Educational Practices Through Effective Mentoring and Literacy Strategies",
+              "unitNumber": "EDEP600: Highly Accomplished/Lead Educational Practice 1"
+            },
+            {
+              "id": "item-9-1-2-professional-development-audit-and-action-plan",
+              "title": "Professional Development Audit and Action Plan",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Professional Development Audit and Action Plan for Educators",
+              "unitNumber": "EDEP600: Highly Accomplished/Lead Educational Practice 1"
+            }
+          ]
+        },
+        {
+          "id": "unit-9-2-edep601-course-completion-details-and-grade",
+          "title": "EDEP601 Course Completion Details and Grade",
+          "code": "EDEP601",
+          "status": "completed",
+          "start": "2022-08-01",
+          "end": "2022-12-01",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "EDEP601 Course Completion Details and Grade Information",
+          "assessments": [
+            {
+              "id": "item-9-2-1-enhancing-reading-comprehension-strategies",
+              "title": "Enhancing Reading Comprehension Strategies",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Enhancing Reading Comprehension Strategies for Year 8 Students",
+              "unitNumber": "EDEP601: Highly Accomplished/Lead Educational Practice 2"
+            },
+            {
+              "id": "item-9-2-2-enhancing-reading-comprehension-through",
+              "title": "Enhancing Reading Comprehension Through",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Enhancing Reading Comprehension Through Research-Based Interventions",
+              "unitNumber": "EDEP601: Highly Accomplished/Lead Educational Practice 2"
+            },
+            {
+              "id": "item-9-2-3-pathway-to-highly-accomplished-accreditation",
+              "title": "Pathway to Highly Accomplished Accreditation",
+              "kind": "assessment",
+              "status": "completed",
+              "start": null,
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Pathway to Highly Accomplished Accreditation: Evidence and Future Steps",
+              "unitNumber": "EDEP601: Highly Accomplished/Lead Educational Practice 2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "degree-10-master-of-education-educational-leadership",
+      "title": "Master of Education (Educational Leadership)",
+      "institution": "University of Wollongong",
+      "status": "in-progress",
+      "start": "2023-07-24",
+      "end": "2027-06-25",
+      "description": "UOW Educational Leadership Degree Overview",
+      "units": [
+        {
+          "id": "unit-10-1-edgl903-introduction-to-educational-management",
+          "title": "EDGL903 - Introduction to Educational Management",
+          "code": "EDGL903",
+          "status": "completed",
+          "start": "2023-07-24",
+          "end": "2023-11-16",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": "No content",
+          "assessments": []
+        },
+        {
+          "id": "unit-10-2-edgl901-foundations-of-educational-leadership",
+          "title": "EDGL901 - Foundations of Educational Leadership",
+          "code": "EDGL901",
+          "status": "completed",
+          "start": "2025-03-03",
+          "end": "2025-06-08",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Educational Leadership Podcast and Resources Collection",
+          "assessments": [
+            {
+              "id": "item-10-2-1-critical-analysis-of-educational-leadership",
+              "title": "Critical Analysis of Educational Leadership",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-04-06",
+              "end": null,
+              "gpaPoints": 5,
+              "grade": "Credit",
+              "description": "Critical Analysis of Educational Leadership Concepts and Their Applications",
+              "unitNumber": "EDGL901: Foundations of Educational Leadership"
+            },
+            {
+              "id": "item-10-2-2-assessment-2-leadership-theories",
+              "title": "Assessment 2: Leadership Theories",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-05-18",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Exploring Educational Leadership Theories for Effective Practice",
+              "unitNumber": "EDGL901: Foundations of Educational Leadership"
+            },
+            {
+              "id": "item-10-2-3-assessment-3-leadership-narrative",
+              "title": "Assessment 3: Leadership Narrative",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-06-08",
+              "end": null,
+              "gpaPoints": 6,
+              "grade": "Distinction",
+              "description": "Crafting Your Leadership Identity: A Digital Storytelling Guide",
+              "unitNumber": "EDGL901: Foundations of Educational Leadership"
+            }
+          ]
+        },
+        {
+          "id": "unit-10-3-edgl919-coaching-and-mentoring-educators",
+          "title": "EDGL919 - Coaching and Mentoring Educators",
+          "code": "EDGL919",
+          "status": "completed",
+          "start": "2025-03-03",
+          "end": "2025-06-08",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": "Audio and PDF Resources for EDGL919 Coaching Course",
+          "assessments": [
+            {
+              "id": "item-10-3-1-exploring-mentoring-and-coaching-strategies",
+              "title": "Exploring Mentoring and Coaching Strategies",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-03-30",
+              "end": null,
+              "gpaPoints": 5,
+              "grade": "Credit",
+              "description": "Exploring Mentoring and Coaching Strategies in Educational Settings",
+              "unitNumber": "EDGL919: Coaching and Mentoring Educators"
+            },
+            {
+              "id": "item-10-3-2-assessment-2-project-practical-resource",
+              "title": "Assessment 2: Project (Practical Resource)",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-05-04",
+              "end": null,
+              "gpaPoints": 5,
+              "grade": "Credit",
+              "description": "Grant Application for Coaching and Mentoring Program in Education",
+              "unitNumber": "EDGL919: Coaching and Mentoring Educators"
+            },
+            {
+              "id": "item-10-3-3-professional-conversations",
+              "title": "Professional Conversations",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-06-08",
+              "end": null,
+              "gpaPoints": 5,
+              "grade": "Credit",
+              "description": "Professional Conversations: Coaching and Mentoring Educators Assessment",
+              "unitNumber": "EDGL919: Coaching and Mentoring Educators"
+            }
+          ]
+        },
+        {
+          "id": "unit-10-4-social-emotional-competencies-and-leadership",
+          "title": "Social-Emotional Competencies and Leadership",
+          "code": "EDGL923",
+          "status": "completed",
+          "start": "2025-07-28",
+          "end": "2025-11-02",
+          "gpaPoints": 5,
+          "grade": "Credit",
+          "description": "Social‑Emotional Competencies and Leadership Development in Education",
+          "assessments": [
+            {
+              "id": "item-10-4-1-assessment-1-personal-attributes",
+              "title": "Assessment 1: Personal Attributes",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-08-24",
+              "end": null,
+              "gpaPoints": 5,
+              "grade": "Credit",
+              "description": "Reflective Exploration of Leadership Attributes and Development",
+              "unitNumber": "EDGL923: Personal Educational Leadership Attributes"
+            },
+            {
+              "id": "item-10-4-2-assessment-2-critical-literature-review",
+              "title": "Assessment 2: Critical Literature Review",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-10-12T17:00:00.000+11:00",
+              "end": "2025-10-12T17:30:00.000+11:00",
+              "gpaPoints": 5,
+              "grade": "Credit",
+              "description": "Critical Review of Self‑Efficacy in Educational Leadership",
+              "unitNumber": "EDGL923: Personal Educational Leadership Attributes"
+            },
+            {
+              "id": "item-10-4-3-assessment-3-self-study",
+              "title": "Assessment 3: Self Study",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-11-02",
+              "end": null,
+              "gpaPoints": 5,
+              "grade": "Credit",
+              "description": "Self-Study Guide for Personal Educational Leadership Development",
+              "unitNumber": "EDGL923: Personal Educational Leadership Attributes"
+            }
+          ]
+        },
+        {
+          "id": "unit-10-5-edgt976-literacy-in-context",
+          "title": "EDGT976 - Literacy in Context",
+          "code": "EDGT976",
+          "status": "in-progress",
+          "start": "2026-07-27",
+          "end": "2026-11-19",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Functional Literacy Strategies for EAL/D Learners in Context",
+          "assessments": [
+            {
+              "id": "item-10-5-1-comparative-analysis-of-traditional-vs-functional",
+              "title": "Comparative Analysis of Traditional vs Functional",
+              "kind": "assessment",
+              "status": "in-progress",
+              "start": "2026-08-23",
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "AI‑Enhanced Grammar Comparison Assignment Guide",
+              "unitNumber": "EDGT976: Literacy and Context"
+            }
+          ]
+        },
+        {
+          "id": "unit-10-6-educational-leadership",
+          "title": "Educational Leadership",
+          "code": "EDGL909",
+          "status": "withdrawn",
+          "start": "2027-03-02",
+          "end": "2027-06-25",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Educational Leadership: Strategies for Change and Innovation in Schools",
+          "assessments": []
+        }
+      ]
+    },
+    {
+      "id": "degree-11-graduate-certificate-in-child-and-adolescent",
+      "title": "Graduate Certificate in Child and Adolescent Mental Health",
+      "institution": "Victoria University",
+      "status": "completed",
+      "start": "2024-07-01",
+      "end": "2025-06-22",
+      "description": "Graduate Certificate in Child and Adolescent Mental Health Overview",
+      "units": [
+        {
+          "id": "unit-11-1-engaging-and-assessing-children-and-adolescents",
+          "title": "Engaging and Assessing Children and Adolescents",
+          "code": null,
+          "status": "completed",
+          "start": "2024-07-01",
+          "end": "2024-08-16",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "Engaging and Assessing Children and Adolescents in Mental Health",
+          "assessments": [
+            {
+              "id": "item-11-1-1-engaging-young-people-in-mental-health",
+              "title": "Engaging Young People in Mental Health",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2024-07-07",
+              "end": null,
+              "gpaPoints": 5,
+              "grade": "Credit",
+              "description": "Engaging Young People in Mental Health: Strategies and Approaches",
+              "unitNumber": "HNO6015: Child and Adolescent Engagement and Assessment"
+            },
+            {
+              "id": "item-11-1-2-comprehensive-biopsychosocial-assessment-plan",
+              "title": "Comprehensive Biopsychosocial Assessment Plan",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2024-07-28",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Comprehensive Biopsychosocial Assessment Plan for a Young Individual",
+              "unitNumber": "HNO6015: Child and Adolescent Engagement and Assessment"
+            },
+            {
+              "id": "item-11-1-3-engaging-adolescents-and-families-in-mental-health",
+              "title": "Engaging Adolescents and Families in Mental Health",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2024-08-11",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Engaging Adolescents and Families in Mental Health Assessment",
+              "unitNumber": "HNO6015: Child and Adolescent Engagement and Assessment"
+            }
+          ]
+        },
+        {
+          "id": "unit-11-2-hno609-mental-health-foundations",
+          "title": "HNO609 - Mental Health Foundations",
+          "code": "HNO609",
+          "status": "completed",
+          "start": "2024-10-14",
+          "end": "2024-12-08",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": null,
+          "assessments": [
+            {
+              "id": "item-11-2-1-exploring-the-perma-model-for-enhancing-mental",
+              "title": "Exploring the PERMA Model for Enhancing Mental",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2024-10-27",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Exploring the PERMA Model for Enhancing Mental Wellbeing",
+              "unitNumber": "HN06009: Mental Health Foundations"
+            },
+            {
+              "id": "item-11-2-2-strategies-for-enhancing-mental-health-in-diverse",
+              "title": "Strategies for Enhancing Mental Health in Diverse",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2024-11-17",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Strategies for Enhancing Mental Health in Diverse Australian Communities",
+              "unitNumber": "HN06009: Mental Health Foundations"
+            },
+            {
+              "id": "item-11-2-3-assessment-3-care-plan-for-mental-health-recovery",
+              "title": "Assessment 3: Care Plan for Mental Health Recovery",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2024-12-01",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Developing a Mental Health Recovery Plan for Diverse Populations",
+              "unitNumber": "HN06009: Mental Health Foundations"
+            }
+          ]
+        },
+        {
+          "id": "unit-11-3-hno6014-introduction-to-child-and-adolescent",
+          "title": "HNO6014 - Introduction to Child and Adolescent",
+          "code": "HNO6014",
+          "status": "completed",
+          "start": "2025-01-13",
+          "end": "2025-03-02",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "HNO6014 - Introduction to Child and Adolescent Mental Health",
+          "assessments": [
+            {
+              "id": "item-11-3-1-challenges-in-youth-mental-health-services",
+              "title": "Challenges in Youth Mental Health Services",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-01-19",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Challenges in Youth Mental Health Services for Diverse Populations",
+              "unitNumber": "HNO6014: Introduction to Child and Adolescent Mental Health"
+            },
+            {
+              "id": "item-11-3-2-understanding-anxiety-disorders-in-children",
+              "title": "Understanding Anxiety Disorders in Children",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-02-09",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Understanding Anxiety Disorders in Children and Adolescents: Development and Impact",
+              "unitNumber": "HNO6014: Introduction to Child and Adolescent Mental Health"
+            },
+            {
+              "id": "item-11-3-3-strategies-for-supporting-adolescent-mental",
+              "title": "Strategies for Supporting Adolescent Mental",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-02-23",
+              "end": null,
+              "gpaPoints": 6,
+              "grade": "Distinction",
+              "description": "Strategies for Supporting Adolescent Mental Wellbeing in Educational Settings",
+              "unitNumber": "HNO6014: Introduction to Child and Adolescent Mental Health"
+            }
+          ]
+        },
+        {
+          "id": "unit-11-4-hno6012-effective-trauma-informed-care",
+          "title": "HNO6012 - Effective Trauma-Informed Care",
+          "code": "HNO6012",
+          "status": "completed",
+          "start": "2025-05-12",
+          "end": "2025-06-22",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "Exploring Healing Approaches for Diverse Student Populations",
+          "assessments": [
+            {
+              "id": "item-11-4-1-behavioral-responses-and-internal-reactions",
+              "title": "Behavioral Responses and Internal Reactions",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-05-18",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Behavioral Responses and Internal Reactions to Specific Stressors",
+              "unitNumber": "HNO6012: Effective Trauma-informed Care"
+            },
+            {
+              "id": "item-11-4-2-exploring-effective-approaches-for-supporting",
+              "title": "Exploring Effective Approaches for Supporting",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-06-08",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Exploring Effective Approaches for Supporting Individuals with Past Adversities",
+              "unitNumber": "HNO6012: Effective Trauma-informed Care"
+            },
+            {
+              "id": "item-11-4-3-implementing-recovery-strategies",
+              "title": "Implementing Recovery Strategies",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-06-22",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Implementing Recovery Strategies: Presentation Plan Overview",
+              "unitNumber": "HNO6012: Effective Trauma-informed Care"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "degree-12-master-of-education-gifted-education",
+      "title": "Master of Education (Gifted Education)",
+      "institution": "University of New South Wales",
+      "status": "completed",
+      "start": "2025-02-10",
+      "end": "2026-04-24",
+      "description": "Complaints and Correspondence for UNSW Master of Education Program",
+      "units": [
+        {
+          "id": "unit-12-1-exploring-key-concepts-in-gifted-education",
+          "title": "Exploring Key Concepts in Gifted Education",
+          "code": "EDST5808",
+          "status": "completed",
+          "start": "2025-02-17",
+          "end": "2025-04-13",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Exploring Key Concepts in Gifted Education for Postgraduate Students",
+          "assessments": [
+            {
+              "id": "item-12-1-1-reflecting-on-gifted-education",
+              "title": "Reflecting on Gifted Education",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-03-07",
+              "end": null,
+              "gpaPoints": 4,
+              "grade": "Pass",
+              "description": "Reflecting on Gifted Education: Insights and Perspectives",
+              "unitNumber": "EDST5808: Key Concepts in Gifted Education"
+            },
+            {
+              "id": "item-12-1-2-debunking-the-myth-of-the-perfect-gifted-student",
+              "title": "Debunking the Myth of the Perfect Gifted Student",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-04-13T17:00:00.000+10:00",
+              "end": "2025-04-13T17:30:00.000+10:00",
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Debunking the Myth of the Perfect Gifted Student Experience",
+              "unitNumber": "EDST5808: Key Concepts in Gifted Education"
+            }
+          ]
+        },
+        {
+          "id": "unit-12-2-exploring-differentiation-in-gifted-education",
+          "title": "Exploring Differentiation in Gifted Education",
+          "code": "EDST5805",
+          "status": "completed",
+          "start": "2025-06-02",
+          "end": "2025-08-15",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Exploring Differentiation in Gifted Education Through Multimedia Resources",
+          "assessments": [
+            {
+              "id": "item-12-2-1-evaluating-curriculum-differentiation-for-gifted",
+              "title": "Evaluating Curriculum Differentiation for Gifted",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-07-02T17:00:00.000+10:00",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Evaluating Curriculum Differentiation for Gifted Education Resources",
+              "unitNumber": "EDST5805: Curriculum Differentiation and Assessment in Gifted Education"
+            },
+            {
+              "id": "item-12-2-2-assessment-2-curriculum-differentiation",
+              "title": "Assessment 2: Curriculum Differentiation",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-08-13T17:00:00.000+10:00",
+              "end": null,
+              "gpaPoints": 6,
+              "grade": "Distinction",
+              "description": "Designing Differentiated Curriculum for Gifted Education Assessment",
+              "unitNumber": "EDST5805: Curriculum Differentiation and Assessment in Gifted Education"
+            }
+          ]
+        },
+        {
+          "id": "unit-12-3-exploring-emotional-growth-in-gifted-children",
+          "title": "Exploring Emotional Growth in Gifted Children",
+          "code": "EDST5807",
+          "status": "completed",
+          "start": "2025-06-02",
+          "end": "2025-08-15",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "Exploring Emotional Growth in Gifted Children Through Podcasts",
+          "assessments": [
+            {
+              "id": "item-12-3-1-assessment-1-reading-response",
+              "title": "Assessment 1: Reading Response",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-07-04T17:00:00.000+10:00",
+              "end": "2025-07-04T17:30:00.000+10:00",
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Reading Response Assignment for Social and Emotional Development",
+              "unitNumber": "EDST5807: Social and Emotional Development of Intellectually Gifted Children"
+            },
+            {
+              "id": "item-12-3-2-program-evaluation-plan-for-supporting-gifted",
+              "title": "Program Evaluation Plan for Supporting Gifted",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-08-15T17:00:00.000+10:00",
+              "end": "2025-08-15T17:30:00.000+10:00",
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Program Evaluation Plan for Supporting Gifted Students' Emotional Needs",
+              "unitNumber": "EDST5807: Social and Emotional Development of Intellectually Gifted Children"
+            }
+          ]
+        },
+        {
+          "id": "unit-12-4-edst5448-educational-research",
+          "title": "EDST5448 - Educational Research",
+          "code": "EDST5448",
+          "status": "completed",
+          "start": "2025-09-08",
+          "end": "2025-11-21",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "Educational Research Unit Resources and Keywords",
+          "assessments": [
+            {
+              "id": "item-12-4-1-assessment-1-online-quiz",
+              "title": "Assessment 1: Online quiz",
+              "kind": "test",
+              "status": "completed",
+              "start": "2025-10-17T17:00:00.000+11:00",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "High Distinction Achieved in Educational Research Online Assessment",
+              "unitNumber": "EDST5448: Educational Research"
+            },
+            {
+              "id": "item-12-4-2-assessment-2-research-proposal",
+              "title": "Assessment 2: Research Proposal",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-11-27T17:00:00.000+11:00",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Cognitive and Motivational Profiles of Gifted Secondary Students",
+              "unitNumber": "EDST5448: Educational Research"
+            }
+          ]
+        },
+        {
+          "id": "unit-12-5-edst5806-creativity-and-giftedness",
+          "title": "EDST5806 - Creativity and Giftedness",
+          "code": "EDST5806",
+          "status": "completed",
+          "start": "2025-09-08",
+          "end": "2025-11-21",
+          "gpaPoints": 7,
+          "grade": "High Distinction",
+          "description": "Comprehensive Guide to Creativity, Gifted Education, and Pedagogical Strategies",
+          "assessments": [
+            {
+              "id": "item-12-5-1-response-paper-on-creativity-theories-for-gifted",
+              "title": "Response Paper on Creativity Theories for Gifted",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-10-15T17:00:00.000+11:00",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Response Paper on Creativity Theories for Gifted Education",
+              "unitNumber": "EDST5806: Creativity and Giftedness"
+            },
+            {
+              "id": "item-12-5-2-creative-approaches-for-teaching-dystopian",
+              "title": "Creative Approaches for Teaching Dystopian",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2025-11-24T17:00:00.000+11:00",
+              "end": "2025-11-24T17:00:00.000+11:00",
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Creative Approaches for Teaching Dystopian Literature in Year 10 English",
+              "unitNumber": "EDST5806: Creativity and Giftedness"
+            }
+          ]
+        },
+        {
+          "id": "unit-12-6-edst5802-identification-of-gifted-students",
+          "title": "EDST5802 - Identification of Gifted Students",
+          "code": "EDST5802",
+          "status": "completed",
+          "start": "2026-01-05",
+          "end": "2026-01-28",
+          "gpaPoints": 6,
+          "grade": "Distinction",
+          "description": "Comprehensive Guide to Identifying Gifted Students in Education",
+          "assessments": [
+            {
+              "id": "item-12-6-1-assessment-1-annotated-bibliography",
+              "title": "Assessment 1: Annotated Bibliography",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2026-01-14",
+              "end": null,
+              "gpaPoints": 6,
+              "grade": "Distinction",
+              "description": "Annotated Bibliography Guide for Gifted and Learning Disability Research",
+              "unitNumber": "EDST5802: Identification of Gifted Students"
+            },
+            {
+              "id": "item-12-6-2-assessment-2-identification-program",
+              "title": "Assessment 2: Identification Program",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2026-01-28",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Comprehensive Gifted Student Identification Program for School",
+              "unitNumber": "EDST5802: Identification of Gifted Students"
+            }
+          ]
+        },
+        {
+          "id": "unit-12-7-designing-effective-gifted-education-programs",
+          "title": "Designing Effective Gifted Education Programs",
+          "code": "EDST5803",
+          "status": "withdrawn",
+          "start": "2026-02-16",
+          "end": "2026-04-24",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Designing Effective Gifted Education Programs and Assessment Strategies",
+          "assessments": [
+            {
+              "id": "item-12-7-1-assessment-1-program-evaluation",
+              "title": "Assessment 1: Program Evaluation",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2026-03-15T13:00:00.000+11:00",
+              "end": "2026-03-15T13:00:00.000+11:00",
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Program Evaluation for Gifted Education Initiatives",
+              "unitNumber": "EDST5803: Developing Effective Programs for Gifted Students"
+            }
+          ]
+        },
+        {
+          "id": "unit-12-8-edst5321-motivation-in-educational-settings",
+          "title": "EDST5321 - Motivation in Educational Settings",
+          "code": "EDST5321",
+          "status": "completed",
+          "start": "2026-06-01",
+          "end": "2026-08-07",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Motivation Theory and Practice in Higher Education Settings",
+          "assessments": [
+            {
+              "id": "item-12-8-1-assessment-1-annotated-bibliography",
+              "title": "Assessment 1: Annotated Bibliography",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2026-07-25T23:00:00.000+10:00",
+              "end": "2026-07-25T23:00:00.000+10:00",
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Annotated Bibliography Assessment Overview and Guidelines",
+              "unitNumber": "EDST5321: Motivation in Educational Settings"
+            },
+            {
+              "id": "item-12-8-2-assessment-2-motivation-report",
+              "title": "Assessment 2: Motivation Report",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2026-08-15T13:59:00.000+00:00",
+              "end": null,
+              "gpaPoints": 5,
+              "grade": "Credit",
+              "description": "Motivation Report: Translating Theory into Educational Practice",
+              "unitNumber": "EDST5321: Motivation in Educational Settings"
+            }
+          ]
+        },
+        {
+          "id": "unit-12-9-edst5888-capstone-professional-inquiry-project",
+          "title": "EDST5888 - Capstone Professional Inquiry Project",
+          "code": "EDST5888",
+          "status": "completed",
+          "start": "2026-06-02",
+          "end": "2026-08-07",
+          "gpaPoints": null,
+          "grade": null,
+          "description": "Scoping Review Framework for Sustaining Gifted Education Leadership",
+          "assessments": [
+            {
+              "id": "item-12-9-1-project-proposal-term-1",
+              "title": "Project Proposal (Term 1)",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2026-03-02",
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Scoping Review Proposal for Sustainable Gifted Education Leadership",
+              "unitNumber": "EDST5888: Capstone Professional Inquiry Project"
+            },
+            {
+              "id": "item-12-9-2-edst5888-proposal-term-2",
+              "title": "EDST5888 Proposal (Term 2)",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2026-06-15T07:00:00.000+00:00",
+              "end": null,
+              "gpaPoints": 7,
+              "grade": "High Distinction",
+              "description": "Capstone Inquiry Proposal for Sustainable Gifted Education Leadership",
+              "unitNumber": "EDST5888: Capstone Professional Inquiry Project"
+            },
+            {
+              "id": "item-12-9-3-edst5888-report-term-2",
+              "title": "EDST5888 Report (Term 2)",
+              "kind": "assessment",
+              "status": "completed",
+              "start": "2026-08-10T07:00:00.000+00:00",
+              "end": null,
+              "gpaPoints": null,
+              "grade": null,
+              "description": "Capstone Report Overview and Submission Resources",
+              "unitNumber": "EDST5888: Capstone Professional Inquiry Project"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

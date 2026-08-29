@@ -26,6 +26,15 @@ describe("Knowledge Hub rail", () => {
     expect(main).toContain("data-open-chat");
   });
 
+  it("adds a university study Timeline next to Graph", () => {
+    expect(main).toContain('data-nav="timeline"');
+    expect(main).toContain("<span>Timeline</span>");
+    expect(main).toContain("renderTimeline");
+    expect(main).toContain("mountUniversityTimeline");
+    expect(css).toContain(".uni-tl");
+    expect(css).toContain(".gpa-chip");
+  });
+
   it("offers a quiet Clean up control beside Edit in the reader", () => {
     expect(main).toContain('class="btn btn--ghost reader__tidy" data-tidy type="button"');
     expect(main).toContain("Clean up");
