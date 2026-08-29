@@ -6,6 +6,8 @@ import { UnionFind } from "./showAllCommunities";
 export const SHOW_ALL_KNN = 5;
 export const SHOW_ALL_DEGREE_CAP = 16;
 const SMALL_TAG = 48;
+/** Extra neighbours sampled per note inside a huge tag — avoids O(n²) Jaccard scans. */
+const LARGE_TAG_SAMPLE = SHOW_ALL_KNN + 16;
 const RARE_TOKEN_DF = 16;
 
 export type ScoredPair = { a: number; b: number; score: number };
@@ -146,13 +148,15 @@ export function candidatePairs(
       }
       continue;
     }
-    for (const i of members) {
-      const ranked = members
-        .filter(j => j !== i)
-        .map(j => ({ j, score: jaccard(tokens[i]!, tokens[j]!) }))
-        .sort((a, b) => b.score - a.score || a.j - b.j)
-        .slice(0, SHOW_ALL_KNN + 4);
-      for (const item of ranked) addCandidate(candidates, i, item.j);
+    const take = Math.min(LARGE_TAG_SAMPLE, members.length - 1);
+    for (let i = 0; i < members.length; i++) {
+      const a = members[i]!;
+      for (let step = 1, picked = 0; picked < take && step < members.length; step++) {
+        const b = members[(i + step * 17) % members.length]!;
+        if (b === a) continue;
+        addCandidate(candidates, a, b);
+        picked += 1;
+      }
     }
   }
 
