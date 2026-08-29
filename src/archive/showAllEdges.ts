@@ -3,8 +3,8 @@ import type { PageManifestEntry } from "../domain/page";
 import type { GraphLinkDatum } from "./keywordGraph";
 import { UnionFind } from "./showAllCommunities";
 
-export const SHOW_ALL_KNN = 5;
-export const SHOW_ALL_DEGREE_CAP = 16;
+export const SHOW_ALL_KNN = 3;
+export const SHOW_ALL_DEGREE_CAP = 3;
 const SMALL_TAG = 48;
 /** Extra neighbours sampled per note inside a huge tag — avoids O(n²) Jaccard scans. */
 const LARGE_TAG_SAMPLE = SHOW_ALL_KNN + 16;
@@ -92,23 +92,17 @@ export function maximumSpanningTree(n: number, pairs: ScoredPair[]): ScoredPair[
     const root = uf.find(i);
     if (!reps.has(root)) reps.set(root, i);
   }
-  const members = [...reps.values()];
-  const anchor = members[0] ?? 0;
-  for (let i = 1; i < members.length; i++) {
-    tree.push({ a: anchor, b: members[i]!, score: 0.01 });
-  }
   return tree;
 }
 
-export function capDegree(pairs: ScoredPair[], protectedKeys: Set<string>, cap = SHOW_ALL_DEGREE_CAP) {
+export function capDegree(pairs: ScoredPair[], _protectedKeys: Set<string> = new Set(), cap = SHOW_ALL_DEGREE_CAP) {
   const degree = new Map<number, number>();
   const kept: ScoredPair[] = [];
   const ordered = [...pairs].sort((a, b) => b.score - a.score || a.a - b.a || a.b - b.b);
   for (const pair of ordered) {
-    const key = pairKey(pair.a, pair.b);
     const left = degree.get(pair.a) ?? 0;
     const right = degree.get(pair.b) ?? 0;
-    if (!protectedKeys.has(key) && (left >= cap || right >= cap)) continue;
+    if (left >= cap || right >= cap) continue;
     degree.set(pair.a, left + 1);
     degree.set(pair.b, right + 1);
     kept.push(pair);

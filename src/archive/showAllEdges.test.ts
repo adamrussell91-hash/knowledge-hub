@@ -31,20 +31,18 @@ describe("show all edge helpers", () => {
     expect(knn).not.toContainEqual({ a: 1, b: 2, score: 0.4 });
   });
 
-  it("builds a connected maximum spanning tree even when clusters do not overlap", () => {
+  it("builds a spanning tree only from real scored pairs", () => {
     const tree = maximumSpanningTree(4, [
       { a: 0, b: 1, score: 2 },
       { a: 2, b: 3, score: 2 },
     ]);
-    expect(tree).toHaveLength(3);
-    const uf = new Map<number, number>();
-    const find = (i: number): number => {
-      const next = uf.get(i) ?? i;
-      return next === i ? i : find(next);
-    };
-    for (let i = 0; i < 4; i++) uf.set(i, i);
-    for (const pair of tree) uf.set(find(pair.a), find(pair.b));
-    expect(new Set([0, 1, 2, 3].map(find)).size).toBe(1);
+    expect(tree).toHaveLength(2);
+    expect(tree).toEqual(
+      expect.arrayContaining([
+        { a: 0, b: 1, score: 2 },
+        { a: 2, b: 3, score: 2 },
+      ]),
+    );
   });
 
   it("does not enumerate every pair inside a huge shared tag", () => {
@@ -55,16 +53,17 @@ describe("show all edge helpers", () => {
     expect(candidates.size).toBeGreaterThanOrEqual(79);
   });
 
-  it("never drops protected backbone edges when capping degree", () => {
+  it("never lets a note exceed the degree cap, even for former backbone pairs", () => {
     const pairs = Array.from({ length: 40 }, (_, i) => ({ a: 0, b: i + 1, score: 40 - i }));
     const protectedKeys = new Set(pairs.slice(0, 5).map(pair => `0|${pair.b}`));
-    const kept = capDegree(pairs, protectedKeys, 8);
+    const kept = capDegree(pairs, protectedKeys, SHOW_ALL_DEGREE_CAP);
     const hubDegree = kept.filter(pair => pair.a === 0 || pair.b === 0).length;
-    expect(hubDegree).toBeLessThanOrEqual(SHOW_ALL_DEGREE_CAP);
-    expect(protectedKeys.size).toBe(5);
-    for (const key of protectedKeys) {
-      const [a, b] = key.split("|").map(Number);
-      expect(kept.some(pair => pair.a === a && pair.b === b)).toBe(true);
+    expect(hubDegree).toBe(SHOW_ALL_DEGREE_CAP);
+    const degree = new Map<number, number>();
+    for (const pair of kept) {
+      degree.set(pair.a, (degree.get(pair.a) ?? 0) + 1);
+      degree.set(pair.b, (degree.get(pair.b) ?? 0) + 1);
     }
+    expect(Math.max(...degree.values())).toBeLessThanOrEqual(SHOW_ALL_DEGREE_CAP);
   });
 });

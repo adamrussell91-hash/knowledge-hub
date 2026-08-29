@@ -1,13 +1,14 @@
-# Knowledge Graph Layout — Research Brief
+# Knowledge Graph Layout — Show All / Tags
 
-**Purpose:** spec for the Show All / Tags graph. The layout is not the problem. The edge set is.
+**Purpose:** spec for the Show All / Tags graph.
 
-**Target look:** dense, single connected mass; visible edges everywhere; node size scaled
-by connectedness; labels on the important nodes only; colour = detected community, not
-category.
+**Target look:** the twenty closed topic tags are the hubs. Notes sit with their
+tag. A note may link to at most **3 other notes**. Hub labels stay; note titles
+do not.
 
-**Failure mode this forbids:** ~20 evenly-spaced blobs of hundreds of dots with no edges
-inside them. That is a scatter plot of unconnected points pulled toward a per-tag centroid.
+**Failure mode this forbids:** a 15,000-edge similarity hairball with no places
+to stand, and dummy MST bridges that join unrelated notes just to make
+“1 component” look good.
 
 ---
 
@@ -15,40 +16,30 @@ inside them. That is a scatter plot of unconnected points pulled toward a per-ta
 
 | Metric | Target |
 |---|---|
-| Node count | same as tagged notes |
-| Edge count | 15,000–35,000 on a ~4,000-note vault |
-| Mean degree | 6–12 |
-| Median degree | 5–10 |
-| Orphans (degree 0) | 0 |
-| Connected components | **1** |
-| Largest component % | > 99% |
+| Hubs | the closed topic vocabulary present in the vault (≤ 20) |
+| Notes | one leaf per tagged note |
+| Note-to-note degree | **≤ 3** |
+| Note-to-note edge count | ≤ 1.5 × notes |
+| Tag cliques | never |
+| Forced MST join of leftover components | never |
+| Note titles on the canvas | never (hover tooltip only) |
 
-## 2. Edge sources (merged, never tag cliques)
+## 2. Edge sources
 
-1. **Explicit links** — `connected` / wikilinks when present on the manifest. Weight 1.0.
-2. **Lexical / semantic kNN** — title + excerpt + tags, top-k (8) per note, union-symmetrised.
-   Embeddings (`text-embedding-3-small`) are the preferred long-term scorer; the runtime
-   uses the same pipeline with a cached lexical stand-in so a 4,000-note vault stays
-   offline and incremental. Do not embed raw bodies.
-3. **Tags, not cliques** — IDF-weighted shared tags (`1 / log(1 + freq)`). Large tags
-   only contribute kNN, never all-pairs.
-4. **MST backbone** — maximum spanning tree over scored candidates, force-included.
-   This is what makes components = 1 and orphans = 0.
-5. **Degree cap ~30** — never drop MST edges.
+1. **Spoke** — note → each of its topic hubs. These are the geography.
+2. **Note–note** — IDF-weighted shared tags plus lexical kNN, **k = 3**, then a
+   hard degree cap of 3. No dummy 0.01 bridges. No all-pairs on a popular tag.
 
 ## 3. Layout
 
-- Seed one cloud, not per-tag islands.
-- Gravity toward the centre (`forceX` / `forceY`), not a tag centroid.
-- `forceManyBody().distanceMax` of a few hundred px so disconnected leftovers cannot
-  fly to opposite corners.
-- Colour = Louvain community. Size = `base + k * sqrt(degree)`. Labels = top nodes
-  per community, then more on zoom.
+- Seed notes around their primary tag hub.
+- Colour = that hub’s swatch.
+- Size = `base + k * sqrt(note-to-note degree)`.
+- Labels = topic hubs only.
 
 ## 4. Forbidden
 
 - Tag / category cliques
-- Tuning repulsion / pull to fix a connectivity problem
-- A single global similarity threshold with no per-node top-k
-- Labelling 4,000 nodes
-- Running ForceAtlas2 live on every page load as the only layout
+- A global “make it one component” MST
+- Labelling 4,000 notes
+- Treating “kinda similar” as an unbounded edge set

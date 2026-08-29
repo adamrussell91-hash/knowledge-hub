@@ -43,12 +43,7 @@ import {
   type GraphLinkDatum,
   type GraphNodeDatum,
 } from "./keywordGraph";
-import {
-  SHOW_ALL_SETTLE_DRAW_EVERY,
-  pickShowAllLinksToDraw,
-  rankShowAllLinks,
-  showAllDrawRings,
-} from "./showAllDraw";
+import { rankShowAllLinks, showAllDrawRings } from "./showAllDraw";
 import { applyShowAllFade, mergeShowAllModels, SHOW_ALL_FADE_MS } from "./showAllTransition";
 import { createShowAllSimulation, lockShowAllNodes, unlockShowAllNodes } from "./showAllSimulation";
 
@@ -186,7 +181,7 @@ export function mountForceGraph(
             scheduleDraw();
             return;
           }
-          if (fading || settleTicks % SHOW_ALL_SETTLE_DRAW_EVERY === 0) scheduleDraw();
+          scheduleDraw();
         });
       return sim;
     }
@@ -364,36 +359,17 @@ export function mountForceGraph(
     const showAll = options.variant === "showAll";
     const searching = Boolean(options.search.trim());
     const highlightLinks = Boolean(hover || selected || searching);
-    const linksToDraw = showAll
-      ? pickShowAllLinksToDraw(rankedShowAllLinks, view.k, {
-          keepExtra: highlightLinks
-            ? link => {
-                const { source, target } = linkEnds(link, map);
-                if (!source || !target) return false;
-                return linkDrawState(link, source, target, emphasis).active;
-              }
-            : undefined,
-          preferVisible: link => {
-            const { source, target } = linkEnds(link, map);
-            if (!source || !target || source.x == null || target.x == null || source.y == null || target.y == null) {
-              return false;
-            }
-            return onScreen(source.x, source.y) || onScreen(target.x, target.y);
-          },
-        })
-      : simLinks;
+    const linksToDraw = simLinks;
     const batchShowAll = showAll && !highlightLinks;
 
     if (batchShowAll) {
       ctx.beginPath();
       for (const link of linksToDraw) {
+        if (link.kind === "spoke") continue;
         const { source, target } = linkEnds(link, map);
         if (!source || !target || source.x == null || target.x == null || source.y == null || target.y == null) continue;
         if (source.departing || target.departing) continue;
-        const leaf = source.kind === "leaf" ? source : target.kind === "leaf" ? target : null;
-        const leafOnScreen = Boolean(leaf && onScreen(leaf.x ?? 0, leaf.y ?? 0));
-        if (!showAllLinkShouldDraw(link.kind, view.k, leafOnScreen, false)) continue;
-        if (link.kind !== "spoke" && !onScreen(source.x, source.y) && !onScreen(target.x, target.y)) continue;
+        if (!onScreen(source.x, source.y) && !onScreen(target.x, target.y)) continue;
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
       }
@@ -401,6 +377,31 @@ export function mountForceGraph(
       ctx.strokeStyle = "rgba(160, 160, 160, 0.7)";
       ctx.globalAlpha = overlapLinkAlpha();
       ctx.stroke();
+
+      const spokesByColor = new Map<string, Array<{ x1: number; y1: number; x2: number; y2: number }>>();
+      for (const link of linksToDraw) {
+        if (link.kind !== "spoke") continue;
+        const { source, target } = linkEnds(link, map);
+        if (!source || !target || source.x == null || target.x == null || source.y == null || target.y == null) continue;
+        if (source.departing || target.departing) continue;
+        const leaf = source.kind === "leaf" ? source : target.kind === "leaf" ? target : null;
+        const leafOnScreen = Boolean(leaf && onScreen(leaf.x ?? 0, leaf.y ?? 0));
+        if (!showAllLinkShouldDraw(link.kind, view.k, leafOnScreen, false)) continue;
+        const bucket = spokesByColor.get(link.color) ?? [];
+        bucket.push({ x1: source.x, y1: source.y, x2: target.x, y2: target.y });
+        spokesByColor.set(link.color, bucket);
+      }
+      applyShowAllStrandStroke(ctx, { active: false, viewK: view.k });
+      ctx.globalAlpha = SHOW_ALL_SPOKE_ALPHA;
+      for (const [color, segments] of spokesByColor) {
+        ctx.beginPath();
+        for (const segment of segments) {
+          ctx.moveTo(segment.x1, segment.y1);
+          ctx.lineTo(segment.x2, segment.y2);
+        }
+        ctx.strokeStyle = color;
+        ctx.stroke();
+      }
       ctx.globalAlpha = 1;
     }
 

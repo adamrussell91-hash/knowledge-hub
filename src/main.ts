@@ -56,7 +56,6 @@ import {
   tuningFromSlider,
   type GraphMount,
 } from "./archive/forceGraphBehavior";
-import { formatGraphMetrics, graphMetrics } from "./archive/graphMetrics";
 import { buildShowAllGraph } from "./archive/showAllGraph";
 import {
   SHOW_ALL_GROUPINGS,
@@ -659,9 +658,11 @@ function showAllMetaText() {
   if (showAllGrouping !== "tags") return showAllGroupingMeta(showAllGrouping);
   const model = showAllModel();
   const notes = model.nodes.filter(node => node.kind === "leaf").length;
+  const hubs = model.nodes.filter(node => node.kind === "major").length;
+  const noteLinks = model.links.filter(link => link.kind === "overlap" || link.kind === "backbone").length;
   const hidden = Math.max(0, entries.length - notes);
-  const connectivity = formatGraphMetrics(graphMetrics(model.nodes, model.links));
-  return hidden ? `${connectivity} · ${hidden} still untagged` : connectivity;
+  const line = `${hubs} topics · ${notes} notes · ${noteLinks} note links · at most 3 per note`;
+  return hidden ? `${line} · ${hidden} still untagged` : line;
 }
 
 function graphMetaText() {
