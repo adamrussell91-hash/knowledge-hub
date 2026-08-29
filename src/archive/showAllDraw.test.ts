@@ -54,10 +54,11 @@ describe("show all draw budget", () => {
     expect(picked).toContain(keep);
   });
 
-  it("never shows leaf titles and skips rings when zoomed out", () => {
+  it("shows leaf titles only in a selected neighborhood and skips rings when zoomed out", () => {
     const note = leaf("leaf:n1", { important: true, degree: 40 });
     expect(showAllLabelVisible(note, 1.8)).toBe(false);
     expect(showAllLabelVisible(note, 0.2, true)).toBe(false);
+    expect(showAllLabelVisible(note, 0.9, false, true)).toBe(true);
     expect(showAllDrawRings(0.16)).toBe(false);
     expect(showAllDrawRings(0.4)).toBe(true);
   });

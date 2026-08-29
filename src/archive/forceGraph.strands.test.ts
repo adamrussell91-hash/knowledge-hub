@@ -139,7 +139,7 @@ describe("Show All strand drawing", () => {
     expect(strands.every(stroke => Math.abs(stroke.lineWidth - expected) < 0.01)).toBe(true);
     expect(strands.every(stroke => stroke.dash.length === 0)).toBe(true);
     expect(strands.every(stroke => stroke.lineCap === "round")).toBe(true);
-    expect(recorded.paths.filter(path => path === "line").length).toBeGreaterThanOrEqual(5);
+    expect(recorded.paths.filter(path => path === "line").length).toBe(3);
     expect(recorded.paths).not.toContain("curve");
 
     stop();

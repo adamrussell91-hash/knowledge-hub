@@ -50,8 +50,13 @@ export function pickShowAllLinksToDraw(
   return picked;
 }
 
-export function showAllLabelVisible(node: GraphNodeDatum, viewK: number, hover = false): boolean {
-  if (node.kind === "leaf") return false;
+export function showAllLabelVisible(
+  node: GraphNodeDatum,
+  viewK: number,
+  hover = false,
+  neighborhood = false,
+): boolean {
+  if (node.kind === "leaf") return neighborhood;
   if (node.kind === "major") return true;
   if (hover) return viewK > 0.35;
   if ((node.degree ?? node.count ?? 0) >= 18) return viewK >= 0.28;

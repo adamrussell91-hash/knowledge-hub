@@ -43,6 +43,7 @@ import {
   type GraphLinkDatum,
   type GraphNodeDatum,
 } from "./keywordGraph";
+import { selectionCluster } from "./graphFocus";
 import { rankShowAllLinks, showAllDrawRings } from "./showAllDraw";
 import { applyShowAllFade, mergeShowAllModels, SHOW_ALL_FADE_MS } from "./showAllTransition";
 import { createShowAllSimulation, lockShowAllNodes, unlockShowAllNodes } from "./showAllSimulation";
@@ -344,7 +345,8 @@ export function mountForceGraph(
   };
 
   function drawArgs() {
-    return { query: options.search, nodes: simNodes, selected, hover };
+    const cluster = selectionCluster(simNodes, selected, simLinks);
+    return { query: options.search, nodes: simNodes, selected, hover, links: simLinks, cluster };
   }
 
   function draw() {
@@ -363,21 +365,6 @@ export function mountForceGraph(
     const batchShowAll = showAll && !highlightLinks;
 
     if (batchShowAll) {
-      ctx.beginPath();
-      for (const link of linksToDraw) {
-        if (link.kind === "spoke") continue;
-        const { source, target } = linkEnds(link, map);
-        if (!source || !target || source.x == null || target.x == null || source.y == null || target.y == null) continue;
-        if (source.departing || target.departing) continue;
-        if (!onScreen(source.x, source.y) && !onScreen(target.x, target.y)) continue;
-        ctx.moveTo(source.x, source.y);
-        ctx.lineTo(target.x, target.y);
-      }
-      applyShowAllStrandStroke(ctx, { active: false, viewK: view.k });
-      ctx.strokeStyle = "rgba(160, 160, 160, 0.7)";
-      ctx.globalAlpha = overlapLinkAlpha();
-      ctx.stroke();
-
       const spokesByColor = new Map<string, Array<{ x1: number; y1: number; x2: number; y2: number }>>();
       for (const link of linksToDraw) {
         if (link.kind !== "spoke") continue;
@@ -413,6 +400,7 @@ export function mountForceGraph(
       const leafOnScreen = Boolean(leaf && onScreen(leaf.x ?? 0, leaf.y ?? 0));
       const { active, dim } = linkDrawState(link, source, target, emphasis);
       const emphasized = active && !dim;
+      if (showAll && dim && !emphasized) continue;
       if (showAll && !showAllLinkShouldDraw(link.kind, view.k, leafOnScreen, emphasized)) continue;
       if (showAll && link.kind !== "spoke" && !emphasized && !onScreen(source.x, source.y) && !onScreen(target.x, target.y)) continue;
       const fade = Math.min(source.opacity ?? 1, target.opacity ?? 1);
@@ -487,7 +475,7 @@ export function mountForceGraph(
           ctx.strokeStyle = "#fff";
           ctx.stroke();
         }
-        if (showAllLabelVisible(node, view.k, hover === node)) {
+        if (showAllLabelVisible(node, view.k, hover === node, hot && node.kind === "leaf" && Boolean(selected))) {
           ctx.fillStyle = node.ink;
           ctx.globalAlpha = fade;
           ctx.font = `500 ${Math.max(10, 11 / Math.sqrt(view.k))}px Inter, ui-sans-serif, sans-serif`;
@@ -682,6 +670,10 @@ export function mountForceGraph(
           applyConstellationView(simNodes, null);
           restartSimulation();
         } else {
+          if (options.variant === "showAll") {
+            const fitted = fitViewToNodes(simNodes, width, height, 56, 0.08);
+            if (fitted) Object.assign(view, fitted);
+          }
           scheduleDraw();
         }
       }
@@ -741,12 +733,20 @@ export function mountForceGraph(
     if (action.kind === "selectHub") {
       selected = action.selected;
       onNoteSelect(null);
+      if (options.variant === "showAll" && action.selected) {
+        const framed = focusViewOnNode(node, width, height, 0.42);
+        if (framed) Object.assign(view, framed);
+      }
       scheduleDraw();
       return;
     }
     if (action.kind === "selectNote") {
       selected = action.selected;
       onNoteSelect(action.note);
+      if (options.variant === "showAll") {
+        const framed = focusViewOnNode(node, width, height, 1.05);
+        if (framed) Object.assign(view, framed);
+      }
       scheduleDraw();
     }
   });

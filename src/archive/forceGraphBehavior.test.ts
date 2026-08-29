@@ -157,6 +157,41 @@ describe("force graph search dimming", () => {
     });
   });
 
+  it("keeps a selected note's linked notes hot", () => {
+    const neighbor = node({ id: "leaf:n2", kind: "leaf", label: "Neighbor", pageId: "p2" });
+    const overlap: GraphLinkDatum = {
+      source: leaf.id,
+      target: neighbor.id,
+      kind: "overlap",
+      weight: 1,
+      color: "rgba(160, 160, 160, 0.7)",
+    };
+    const graph = [...nodes, neighbor];
+    expect(nodeDrawState(neighbor, { query: "", nodes: graph, selected: "Note 1", hover: null, links: [overlap] })).toEqual({
+      hot: true,
+      dim: false,
+    });
+    expect(linkDrawState(overlap, leaf, neighbor, { query: "", nodes: graph, selected: "Note 1", hover: null, links: [overlap] })).toEqual({
+      active: true,
+      dim: false,
+    });
+  });
+
+  it("does not light note-to-note edges when only a hub is selected", () => {
+    const neighbor = node({ id: "leaf:n2", kind: "leaf", label: "Neighbor", parentKeyword: "A", pageId: "p2" });
+    const overlap: GraphLinkDatum = {
+      source: leaf.id,
+      target: neighbor.id,
+      kind: "overlap",
+      weight: 1,
+      color: "rgba(160, 160, 160, 0.7)",
+    };
+    expect(linkDrawState(overlap, leaf, neighbor, { query: "", nodes: [...nodes, neighbor], selected: "A", hover: null })).toEqual({
+      active: false,
+      dim: true,
+    });
+  });
+
   it("keeps a selected note's spokes to its topic hubs", () => {
     const spoke: GraphLinkDatum = {
       source: "major:A",
@@ -192,7 +227,7 @@ describe("force graph chrome", () => {
     expect(nodeHoverTip(major)).toBe("A · 4 notes · click to see its notes");
     expect(nodeHoverTip({ ...major, expanded: true })).toBe("A · 4 notes · click to close");
     expect(nodeHoverTip(minor)).toBe("a1 · 1 note under A · click to see its notes");
-    expect(nodeHoverTip(leaf)).toBe("Note 1");
+    expect(nodeHoverTip(leaf)).toBe("Note 1 · click to see connected notes");
     expect(nodeHoverTip(major).toLowerCase()).not.toContain("double-click");
     expect(nodeHoverTip(minor).toLowerCase()).not.toContain("double-click");
   });
@@ -256,10 +291,11 @@ describe("force graph chrome", () => {
     expect(overlapLinkAlpha()).toBeLessThanOrEqual(0.35);
   });
 
-  it("never paints note names on the Show All map", () => {
+  it("paints note names only for the selected neighborhood", () => {
     expect(showAllLabelVisible({ ...leaf, important: true, degree: 20 }, 0.3)).toBe(false);
     expect(showAllLabelVisible({ ...leaf, important: true, degree: 20 }, 1.8, true)).toBe(false);
     expect(showAllLabelVisible({ ...leaf, important: false, degree: 2 }, 1.2)).toBe(false);
+    expect(showAllLabelVisible(leaf, 0.9, false, true)).toBe(true);
     expect(showAllLabelVisible(major, 0.16)).toBe(true);
   });
 
@@ -341,12 +377,14 @@ describe("show all draw budget", () => {
     expect(showAllStrandWidth()).toBe(SHOW_ALL_STRAND_WIDTH);
   });
 
-  it("draws overlap edges at any zoom and keeps spokes at the default Show All zoom", () => {
+  it("hides note-to-note edges until a note is hovered or selected", () => {
     expect(showAllLinkShouldDraw("spoke", 0.09, true)).toBe(false);
     expect(showAllLinkShouldDraw("spoke", 0.16, true)).toBe(true);
     expect(showAllLinkShouldDraw("spoke", 0.16, false)).toBe(false);
-    expect(showAllLinkShouldDraw("overlap", 0.02, true)).toBe(true);
-    expect(showAllLinkShouldDraw("backbone", 0.01, false)).toBe(true);
+    expect(showAllLinkShouldDraw("overlap", 0.02, true)).toBe(false);
+    expect(showAllLinkShouldDraw("overlap", 0.02, true, true)).toBe(true);
+    expect(showAllLinkShouldDraw("backbone", 0.01, false)).toBe(false);
+    expect(showAllLinkShouldDraw("backbone", 0.01, false, true)).toBe(true);
   });
 
   it("always draws a selected or search-hot spoke even when zoomed out or off-screen", () => {
