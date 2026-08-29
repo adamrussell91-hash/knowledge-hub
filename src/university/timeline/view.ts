@@ -100,9 +100,11 @@ export function gpaChipHtml(degrees: DegreeRecord[], includeUngraded: boolean, o
 }
 
 function degreeMeta(degree: DegreeRecord) {
-  const parts = [degree.institution, statusLabel(degree.status)];
+  const parts = [degree.institution];
   if (degree.status === "in-progress" && degree.end) {
     parts.push(`until ${formatDisplayDate(degree.end)}`);
+  } else {
+    parts.push(statusLabel(degree.status));
   }
   return parts.filter(Boolean).join(" · ");
 }
