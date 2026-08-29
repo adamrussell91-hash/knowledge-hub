@@ -81,7 +81,7 @@ describe("stamp origins", () => {
     ]);
   });
 
-  it("strips dropped degree labels and does not put them back", () => {
+  it("renames the Newcastle graduate certificate and does not restore the UNE diploma", () => {
     expect(
       applyStampedOrigins(
         page({
@@ -89,11 +89,15 @@ describe("stamp origins", () => {
           body: "Lecture.",
           origins: [
             { kind: "degree", label: "Transformational Leadership Certificate" },
+            { kind: "degree", label: "Graduate Diploma of Psychology" },
             { kind: "unit", label: "EDUC6119" },
           ],
         }),
       )?.origins,
-    ).toEqual([{ kind: "unit", label: "EDUC6119" }]);
+    ).toEqual([
+      { kind: "degree", label: "Graduate Certificate in Transformational Leadership" },
+      { kind: "unit", label: "EDUC6119" },
+    ]);
   });
 
   it("copies existing page pills onto a list row that never got them", () => {

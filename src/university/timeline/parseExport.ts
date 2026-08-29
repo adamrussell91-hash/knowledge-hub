@@ -17,7 +17,13 @@ const TITLE_OVERRIDES: Record<string, string> = {
     "Graduate Certificate in Child and Adolescent Welfare",
   "Graduate Certificate in Child and Adolescent|Victoria University":
     "Graduate Certificate in Child and Adolescent Mental Health",
+  "Advanced Insights in Cognitive Psychology|Flinders University":
+    "Master of Cognitive Psychology",
+  "Transformational Leadership Certificate|University of Newcastle":
+    "Graduate Certificate in Transformational Leadership",
 };
+
+const EXCLUDED_PROGRAMMES = new Set(["graduate diploma of psychology"]);
 
 function slug(parts: string[]) {
   return parts
@@ -71,8 +77,26 @@ function unitCode(name: string, unitNumber: string | null): string | null {
   if (unitNumber && /^[A-Z]{2,}\d/.test(unitNumber)) {
     return unitNumber.split(/[:\s]/)[0] ?? unitNumber;
   }
-  const match = name.match(/^([A-Z]{2,}\d[\w]*)\b/);
+  const match = name.match(/\b([A-Z]{2,}\d[\w]*)\b/);
   return match?.[1] ?? null;
+}
+
+function isExcludedProgramme(name: string) {
+  return EXCLUDED_PROGRAMMES.has(name.replace(/\s+/g, " ").trim().toLowerCase());
+}
+
+function degreeNumber(id: string) {
+  return id.match(/^degree-(\d+)/)?.[1] ?? "0";
+}
+
+function fillMissingUnitCodes(degrees: DegreeRecord[]) {
+  for (const degree of degrees) {
+    for (const unit of degree.units) {
+      if (unit.code) continue;
+      const fromAssessment = unit.assessments.find(item => item.unitNumber)?.unitNumber ?? null;
+      unit.code = unitCode(unit.title, fromAssessment);
+    }
+  }
 }
 
 function displayTitle(name: string, _description: string | null, institution: string | null) {
@@ -140,11 +164,18 @@ export function parseUniversityExport(markdown: string): UniversityCatalogue {
       const dates = parseDates(blank(props.Dates));
       const institution = parsePlaceName(blank(props.Place));
       currentDegree.title = displayTitle(blank(props.Name) ?? currentDegree.title, blank(props.Description), institution);
+      currentDegree.id = slug(["degree", degreeNumber(currentDegree.id), currentDegree.title]);
       currentDegree.institution = institution;
       currentDegree.status = parseStatus(blank(props.Status));
       currentDegree.start = dates.start;
       currentDegree.end = dates.end;
       currentDegree.description = blank(props.Description);
+      if (currentDegree.description && currentDegree.description !== currentDegree.title) {
+        const oldName = blank(props.Name);
+        if (oldName && currentDegree.title !== oldName) {
+          currentDegree.description = `${currentDegree.title} from ${institution ?? "the awarding university"}`;
+        }
+      }
       i = next;
       continue;
     }
@@ -194,5 +225,9 @@ export function parseUniversityExport(markdown: string): UniversityCatalogue {
     i += 1;
   }
 
-  return { generated, degrees };
+  fillMissingUnitCodes(degrees);
+  return {
+    generated,
+    degrees: degrees.filter(degree => !isExcludedProgramme(degree.title)),
+  };
 }

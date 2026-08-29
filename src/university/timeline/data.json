@@ -491,7 +491,7 @@
       ]
     },
     {
-      "id": "degree-4-graduate-certificate-in-child-and-adolescent",
+      "id": "degree-4-graduate-certificate-in-child-and-adolescent-welfare",
       "title": "Graduate Certificate in Child and Adolescent Welfare",
       "institution": "Charles Sturt University",
       "status": "completed",
@@ -550,18 +550,18 @@
       ]
     },
     {
-      "id": "degree-5-advanced-insights-in-cognitive-psychology",
-      "title": "Advanced Insights in Cognitive Psychology",
+      "id": "degree-5-master-of-cognitive-psychology",
+      "title": "Master of Cognitive Psychology",
       "institution": "Flinders University",
       "status": "completed",
       "start": "2020-01-01",
       "end": "2023-06-02",
-      "description": "Advanced Insights in Cognitive Psychology and Educational Methods",
+      "description": "Master of Cognitive Psychology from Flinders University",
       "units": [
         {
           "id": "unit-5-1-engaging-strategies-for-gifted-education",
           "title": "Engaging Strategies for Gifted Education",
-          "code": null,
+          "code": "EDUC9792",
           "status": "completed",
           "start": "2020-01-31",
           "end": "2020-06-30",
@@ -658,7 +658,7 @@
         {
           "id": "unit-5-7-academic-resources-and-assignments-for-educ9736",
           "title": "Academic Resources and Assignments for EDUC9736",
-          "code": null,
+          "code": "EDUC9736",
           "status": "completed",
           "start": "2023-01-31",
           "end": "2023-07-10",
@@ -670,156 +670,13 @@
         {
           "id": "unit-5-8-course-materials-and-resources-for-educ9735",
           "title": "Course Materials and Resources for EDUC9735",
-          "code": null,
+          "code": "EDUC9735",
           "status": "completed",
           "start": "2023-01-31",
           "end": "2023-07-10",
           "gpaPoints": 7,
           "grade": "High Distinction",
           "description": "Course Materials and Resources for EDUC9735 Research Design",
-          "assessments": []
-        }
-      ]
-    },
-    {
-      "id": "degree-6-graduate-diploma-of-psychology",
-      "title": "Graduate Diploma of Psychology",
-      "institution": "University of New England",
-      "status": "withdrawn",
-      "start": "2020-07-16",
-      "end": null,
-      "description": "Graduate Diploma in Psychology: Program Withdrawal Overview",
-      "units": [
-        {
-          "id": "unit-6-1-psyc101-introductory-psychology-1",
-          "title": "PSYC101 - Introductory Psychology 1",
-          "code": "PSYC101",
-          "status": "completed",
-          "start": "2018-02-26",
-          "end": "2018-06-08",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Foundations of Psychology: Insights and Connections",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-2-psyc202-research-methods-and-statistics",
-          "title": "PSYC202 - Research Methods and Statistics",
-          "code": "PSYC202",
-          "status": "withdrawn",
-          "start": "2018-03-05",
-          "end": "2018-06-09",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Research Methods and Statistics Course Overview",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-3-psyc102-introductory-psychology-2",
-          "title": "PSYC102 - Introductory Psychology 2",
-          "code": "PSYC102",
-          "status": "completed",
-          "start": "2018-06-25",
-          "end": "2018-10-12",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Exploring the Fundamentals of Psychology: A Comprehensive Overview",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-4-psyc102-introductory-psychology-2",
-          "title": "PSYC102 - Introductory Psychology 2",
-          "code": "PSYC102",
-          "status": "withdrawn",
-          "start": "2018-07-09",
-          "end": "2018-10-18",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Introduction to Psychology: Key Concepts and Foundations",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-5-psyc101-introductory-psychology-1",
-          "title": "PSYC101 - Introductory Psychology 1",
-          "code": "PSYC101",
-          "status": "withdrawn",
-          "start": "2019-03-04",
-          "end": "2019-05-31",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Introduction to Psychology: Exploring Human Behavior and Thought Processes",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-6-psyc206-developmental-and-social-psychology",
-          "title": "PSYC206 - Developmental and Social Psychology",
-          "code": "PSYC206",
-          "status": "completed",
-          "start": "2019-06-24",
-          "end": "2019-10-11",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Exploring Developmental and Social Psychology: Insights and Connections",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-7-psyc213-lifespan-developmental-psychology",
-          "title": "PSYC213 - Lifespan Developmental Psychology",
-          "code": "PSYC213",
-          "status": "withdrawn",
-          "start": "2019-07-08",
-          "end": "2019-10-14",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Understanding Human Development Across the Lifespan",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-8-psyc363-abnormal-psychology",
-          "title": "PSYC363 - Abnormal Psychology",
-          "code": "PSYC363",
-          "status": "completed",
-          "start": "2019-10-28",
-          "end": "2019-11-22",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Exploring the Complexities of Abnormal Psychology in PSYC363 Course",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-9-psyc206-cognitive-psychology",
-          "title": "PSYC206 - Cognitive Psychology",
-          "code": "PSYC206",
-          "status": "withdrawn",
-          "start": "2019-11-04",
-          "end": "2020-02-10",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Cognitive Psychology: An Overview of PSYC206 Course Experience",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-10-psyc363-abnormal-psychology",
-          "title": "PSYC363 - Abnormal Psychology",
-          "code": "PSYC363",
-          "status": "withdrawn",
-          "start": "2019-11-04",
-          "end": "2020-02-10",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Exploring the Complexities of Abnormal Psychology",
-          "assessments": []
-        },
-        {
-          "id": "unit-6-11-psy70010-introduction-to-research-methods",
-          "title": "PSY70010 - Introduction to Research Methods",
-          "code": "PSY70010",
-          "status": "withdrawn",
-          "start": "2020-07-16",
-          "end": "2020-08-30",
-          "gpaPoints": null,
-          "grade": null,
-          "description": "Introduction to Research Methods at Swinburne University",
           "assessments": []
         }
       ]
@@ -848,7 +705,7 @@
         {
           "id": "unit-7-2-neuroscience-insights",
           "title": "Neuroscience Insights",
-          "code": null,
+          "code": "EDED20516",
           "status": "completed",
           "start": "2022-01-31",
           "end": "2022-07-31",
@@ -898,7 +755,7 @@
         {
           "id": "unit-7-4-learning-and-memory-through-a-neuroscientific-lens",
           "title": "Learning and Memory Through a Neuroscientific Lens",
-          "code": null,
+          "code": "EDED20513",
           "status": "completed",
           "start": "2023-01-03",
           "end": "2023-08-29",
@@ -984,13 +841,13 @@
       ]
     },
     {
-      "id": "degree-8-transformational-leadership-certificate",
-      "title": "Transformational Leadership Certificate",
+      "id": "degree-8-graduate-certificate-in-transformational-leadership",
+      "title": "Graduate Certificate in Transformational Leadership",
       "institution": "University of Newcastle",
       "status": "completed",
       "start": "2021-08-01",
       "end": "2022-12-01",
-      "description": "Transformational Leadership Certificate: Structured Study Plan",
+      "description": "Graduate Certificate in Transformational Leadership from University of Newcastle",
       "units": [
         {
           "id": "unit-8-1-educ6119-leading-for-learning",
@@ -1019,7 +876,7 @@
         {
           "id": "unit-8-3-high-quality-learning-environments",
           "title": "High-Quality Learning Environments",
-          "code": null,
+          "code": "EDUC6117",
           "status": "completed",
           "start": "2022-01-31",
           "end": "2022-06-30",
@@ -1384,18 +1241,18 @@
       ]
     },
     {
-      "id": "degree-11-graduate-certificate-in-child-and-adolescent",
+      "id": "degree-11-graduate-certificate-in-child-and-adolescent-mental-health",
       "title": "Graduate Certificate in Child and Adolescent Mental Health",
       "institution": "Victoria University",
       "status": "completed",
       "start": "2024-07-01",
       "end": "2025-06-22",
-      "description": "Graduate Certificate in Child and Adolescent Mental Health Overview",
+      "description": "Graduate Certificate in Child and Adolescent Mental Health from Victoria University",
       "units": [
         {
           "id": "unit-11-1-engaging-and-assessing-children-and-adolescents",
           "title": "Engaging and Assessing Children and Adolescents",
-          "code": null,
+          "code": "HNO6015",
           "status": "completed",
           "start": "2024-07-01",
           "end": "2024-08-16",

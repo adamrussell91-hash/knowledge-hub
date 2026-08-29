@@ -17,19 +17,28 @@ export function normalizeOriginLabel(label: string) {
 }
 
 const DROPPED_ORIGIN_LABELS = new Set([
-  "transformational leadership certificate",
-  "advanced insights in cognitive psychology",
   "csp-eligible postgraduate degree",
   "trimester 1 2027 entry",
   "notebook cover",
+  "graduate diploma of psychology",
 ]);
+
+const ORIGIN_LABEL_ALIASES: Record<string, string> = {
+  "advanced insights in cognitive psychology": "Master of Cognitive Psychology",
+  "transformational leadership certificate": "Graduate Certificate in Transformational Leadership",
+};
 
 export function isDroppedOriginLabel(label: string) {
   return DROPPED_ORIGIN_LABELS.has(normalizeOriginLabel(label).toLowerCase());
 }
 
+function canonicalOriginLabel(label: string) {
+  const trimmed = normalizeOriginLabel(label);
+  return ORIGIN_LABEL_ALIASES[trimmed.toLowerCase()] ?? trimmed;
+}
+
 export function originKey(origin: Origin) {
-  return `${origin.kind}:${normalizeOriginLabel(origin.label).toLowerCase()}`;
+  return `${origin.kind}:${canonicalOriginLabel(origin.label).toLowerCase()}`;
 }
 
 export function pageOrigins(page: { origins?: Origin[] }) {
@@ -40,7 +49,7 @@ export function normalizeOrigins(origins: Origin[]) {
   const seen = new Set<string>();
   const out: Origin[] = [];
   for (const origin of origins) {
-    const label = normalizeOriginLabel(origin.label);
+    const label = canonicalOriginLabel(origin.label);
     if (!label || !isOriginKind(origin.kind) || isDroppedOriginLabel(label)) continue;
     const key = `${origin.kind}:${label.toLowerCase()}`;
     if (seen.has(key)) continue;
