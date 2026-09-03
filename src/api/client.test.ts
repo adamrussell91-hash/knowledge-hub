@@ -302,7 +302,7 @@ describe("api client", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: "p" }) }));
     await expect(tidyPage("p", "t0")).resolves.toEqual({ id: "p" });
     expect(fetch).toHaveBeenCalledWith(
-      "https://knowledge-api.adam-russell.com/api/tidy",
+      "/api/tidy",
       expect.objectContaining({ credentials: "include", method: "POST", body: JSON.stringify({ id: "p" }) }),
     );
   });

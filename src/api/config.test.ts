@@ -19,7 +19,7 @@ describe("resolveApiBase", () => {
     expect(PRODUCTION_API_BASE).toBe("https://api.adam-russell.com/api/knowledge");
   });
 
-  it("keeps leftover Clementine and media APIs on knowledge-api", () => {
+  it("keeps the leftover knowledge-api base for dual-write login until that site retires", () => {
     expect(resolveLegacyApiBase("knowledge-hub.adam-russell.com")).toBe(LEGACY_API_BASE);
     expect(LEGACY_API_BASE).toBe("https://knowledge-api.adam-russell.com/api");
   });
