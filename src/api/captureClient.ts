@@ -1,5 +1,5 @@
 import { USE_LOCAL_DATA } from "./client";
-import { API_BASE } from "./config";
+import { LEFTOVER_API_BASE } from "./config";
 
 export const CAPTURE_NEEDS_NETLIFY = "Capture needs the live API (netlify dev or production).";
 
@@ -10,7 +10,7 @@ export async function runCapture(
   if (options.localData ?? USE_LOCAL_DATA) {
     throw new Error(CAPTURE_NEEDS_NETLIFY);
   }
-  const response = await fetch(`${API_BASE}/capture`, {
+  const response = await fetch(`${LEFTOVER_API_BASE}/capture`, {
     credentials: "include",
     method: "POST",
     headers: { "Content-Type": "application/json" },

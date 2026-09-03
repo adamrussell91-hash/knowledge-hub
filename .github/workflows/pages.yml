@@ -18,7 +18,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      VITE_API_BASE: https://knowledge-api.adam-russell.com/api
+      VITE_API_BASE: https://api.adam-russell.com/api/knowledge
+      VITE_LEGACY_API_BASE: https://knowledge-api.adam-russell.com/api
     steps:
       - uses: actions/checkout@v4
 

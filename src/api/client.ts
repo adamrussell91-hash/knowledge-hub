@@ -1,28 +1,32 @@
 import type { Attachment, Page, PageManifestEntry } from "../domain/page";
 import type { ResearchResult } from "../research/schema";
-import { API_BASE, PRODUCTION_API_BASE } from "./config";
+import { API_BASE, LEGACY_API_BASE, LEFTOVER_API_BASE } from "./config";
+import { readApiError, searchHits, sessionAuthenticated, sessionTargets, unwrapApiPayload } from "./envelope";
 import { localGetPage, localListPages, localSearchPages } from "./localData";
 
 export const USE_LOCAL_DATA =
   import.meta.env.VITE_USE_LOCAL_DATA === "true" ||
   (Boolean(import.meta.env.DEV) && import.meta.env.MODE !== "test");
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+async function apiFetch<T>(path: string, init?: RequestInit, base: string = API_BASE): Promise<T> {
+  const response = await fetch(`${base}${path}`, {
     credentials: "include",
     ...init,
   });
-  if (!response.ok) {
-    let detail = `API error ${response.status}: ${path}`;
-    try {
-      const payload = (await response.json()) as { error?: string };
-      if (payload.error) detail = payload.error;
-    } catch {
-      /* keep status text */
-    }
-    throw new Error(detail);
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
   }
-  return response.json() as Promise<T>;
+  if (!response.ok) {
+    throw new Error(readApiError(payload, response.status, path));
+  }
+  return unwrapApiPayload<T>(payload);
+}
+
+function leftoverFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  return apiFetch<T>(path, init, LEFTOVER_API_BASE);
 }
 
 export const listPages = (): Promise<PageManifestEntry[]> =>
@@ -31,10 +35,12 @@ export const listPages = (): Promise<PageManifestEntry[]> =>
 export const getPage = (id: string): Promise<Page> =>
   USE_LOCAL_DATA ? localGetPage(id) : apiFetch<Page>(`/pages/${encodeURIComponent(id)}`);
 
-export const searchPages = (query: string): Promise<PageManifestEntry[]> =>
+export const searchPages = async (query: string): Promise<PageManifestEntry[]> =>
   USE_LOCAL_DATA
     ? localSearchPages(query)
-    : apiFetch<PageManifestEntry[]>(`/search?q=${encodeURIComponent(query)}`);
+    : searchHits(await apiFetch<PageManifestEntry[] | { hits?: PageManifestEntry[] }>(
+        `/search?q=${encodeURIComponent(query)}`,
+      ));
 
 export async function getAttachmentUrl(
   pageId: string,
@@ -43,7 +49,7 @@ export async function getAttachmentUrl(
   if (USE_LOCAL_DATA) {
     throw new Error("Signed downloads need the Netlify API — local preview shows the attachment UI only.");
   }
-  return apiFetch<{ url: string }>(
+  return leftoverFetch<{ url: string }>(
     `/attachments/${encodeURIComponent(pageId)}/${encodeURIComponent(attachmentId)}`,
   );
 }
@@ -56,8 +62,7 @@ export async function fetchSession(): Promise<boolean> {
   });
   if (!response.ok) return false;
   try {
-    const payload = (await response.json()) as { authenticated?: boolean };
-    return payload.authenticated === true;
+    return sessionAuthenticated(await response.json());
   } catch {
     return false;
   }
@@ -65,19 +70,28 @@ export async function fetchSession(): Promise<boolean> {
 
 export async function login(passphrase: string): Promise<boolean> {
   if (USE_LOCAL_DATA) return true;
-  const response = await fetch(`${API_BASE}/auth-login`, {
-    method: "POST",
-    credentials: "include",
-    cache: "no-store",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ passphrase }),
-  });
-  return response.ok;
+  const body = JSON.stringify({ passphrase });
+  const results = await Promise.all(
+    sessionTargets(API_BASE, LEFTOVER_API_BASE, "/auth-login").map(url =>
+      fetch(url, {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body,
+      }).catch(() => ({ ok: false })),
+    ),
+  );
+  return results[0]?.ok === true;
 }
 
 export async function logout(): Promise<void> {
   if (USE_LOCAL_DATA) return;
-  await fetch(`${API_BASE}/auth-logout`, { method: "POST", credentials: "include" });
+  await Promise.all(
+    sessionTargets(API_BASE, LEFTOVER_API_BASE, "/auth-logout").map(url =>
+      fetch(url, { method: "POST", credentials: "include" }).catch(() => undefined),
+    ),
+  );
 }
 
 export type CoachMessage = { role: "user" | "assistant"; content: string };
@@ -93,7 +107,7 @@ export async function runCoach(input: {
   workingThesis?: string;
   draft?: string;
 }): Promise<CoachResult> {
-  return apiFetch<CoachResult>("/clementine-coach", {
+  return leftoverFetch<CoachResult>("/clementine-coach", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -140,7 +154,7 @@ export type ChatPhase = {
 };
 
 async function postChat(input: ChatRequest) {
-  return apiFetch<ChatResponse>("/clementine-chat", {
+  return leftoverFetch<ChatResponse>("/clementine-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -226,7 +240,7 @@ export const PODCAST_NEEDS_NETLIFY = "Podcast needs the Netlify API";
 
 function podcastPost<T>(path: string, body: unknown) {
   if (USE_LOCAL_DATA) throw new Error(PODCAST_NEEDS_NETLIFY);
-  return apiFetch<T>(path, {
+  return leftoverFetch<T>(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -247,12 +261,12 @@ export function nextPodcastEpisode(seriesId: string) {
 
 export function listPodcasts() {
   if (USE_LOCAL_DATA) throw new Error(PODCAST_NEEDS_NETLIFY);
-  return apiFetch("/podcast");
+  return leftoverFetch("/podcast");
 }
 
 export function getPodcast(episodeId: string) {
   if (USE_LOCAL_DATA) throw new Error(PODCAST_NEEDS_NETLIFY);
-  return apiFetch(`/podcast/${encodeURIComponent(episodeId)}`);
+  return leftoverFetch(`/podcast/${encodeURIComponent(episodeId)}`);
 }
 
 export function interruptPodcast(episodeId: string, body: unknown) {
@@ -265,7 +279,7 @@ export function answerPodcastQuiz(episodeId: string, body: unknown) {
 
 export function getPodcastAudioUrl(episodeId: string, turnId: string) {
   if (USE_LOCAL_DATA) throw new Error(PODCAST_NEEDS_NETLIFY);
-  return apiFetch<{ url: string }>(
+  return leftoverFetch<{ url: string }>(
     `/podcast/${encodeURIComponent(episodeId)}/audio/${encodeURIComponent(turnId)}`,
   );
 }
@@ -282,7 +296,7 @@ export async function savePage(page: Page): Promise<Page> {
 }
 
 export function tidyEndpoint(localData: boolean) {
-  return localData ? "/local-data/tidy" : `${PRODUCTION_API_BASE}/tidy`;
+  return localData ? "/local-data/tidy" : `${LEGACY_API_BASE}/tidy`;
 }
 
 async function readTidyError(response: Response) {
@@ -341,7 +355,7 @@ export async function signAttachment(
   if (USE_LOCAL_DATA) {
     throw new Error("Uploads need the live API (netlify dev or production).");
   }
-  return apiFetch<{ put_url: string; attachment: Attachment }>("/attachments-sign", {
+  return leftoverFetch<{ put_url: string; attachment: Attachment }>("/attachments-sign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
