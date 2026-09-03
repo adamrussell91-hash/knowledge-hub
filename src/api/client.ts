@@ -1,7 +1,7 @@
 import type { Attachment, Page, PageManifestEntry } from "../domain/page";
 import type { ResearchResult } from "../research/schema";
-import { API_BASE, LEFTOVER_API_BASE } from "./config";
-import { readApiError, searchHits, sessionAuthenticated, sessionTargets, unwrapApiPayload } from "./envelope";
+import { API_BASE } from "./config";
+import { readApiError, searchHits, sessionAuthenticated, unwrapApiPayload } from "./envelope";
 import { localGetPage, localListPages, localSearchPages } from "./localData";
 
 export const USE_LOCAL_DATA =
@@ -70,28 +70,19 @@ export async function fetchSession(): Promise<boolean> {
 
 export async function login(passphrase: string): Promise<boolean> {
   if (USE_LOCAL_DATA) return true;
-  const body = JSON.stringify({ passphrase });
-  const results = await Promise.all(
-    sessionTargets(API_BASE, LEFTOVER_API_BASE, "/auth-login").map(url =>
-      fetch(url, {
-        method: "POST",
-        credentials: "include",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-        body,
-      }).catch(() => ({ ok: false })),
-    ),
-  );
-  return results[0]?.ok === true;
+  const response = await fetch(`${API_BASE}/auth-login`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ passphrase }),
+  }).catch(() => ({ ok: false }));
+  return response.ok === true;
 }
 
 export async function logout(): Promise<void> {
   if (USE_LOCAL_DATA) return;
-  await Promise.all(
-    sessionTargets(API_BASE, LEFTOVER_API_BASE, "/auth-logout").map(url =>
-      fetch(url, { method: "POST", credentials: "include" }).catch(() => undefined),
-    ),
-  );
+  await fetch(`${API_BASE}/auth-logout`, { method: "POST", credentials: "include" }).catch(() => undefined);
 }
 
 export type CoachMessage = { role: "user" | "assistant"; content: string };

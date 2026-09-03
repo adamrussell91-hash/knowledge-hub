@@ -19,7 +19,7 @@ describe("resolveApiBase", () => {
     expect(PRODUCTION_API_BASE).toBe("https://api.adam-russell.com/api/knowledge");
   });
 
-  it("keeps the leftover knowledge-api base for dual-write login until that site retires", () => {
+  it("keeps the leftover knowledge-api base listed but clients no longer call it", () => {
     expect(resolveLegacyApiBase("knowledge-hub.adam-russell.com")).toBe(LEGACY_API_BASE);
     expect(LEGACY_API_BASE).toBe("https://knowledge-api.adam-russell.com/api");
   });
