@@ -2,14 +2,21 @@ import { USE_LOCAL_DATA } from "./client";
 import { API_BASE } from "./config";
 import { loadLocalQuiz, persistLocalQuiz } from "../quiz/localStore";
 import type { DumpSnapshot, QuizEdge, QuizItem, QuizScheduleEntry, QuizStore } from "../quiz/schema";
+import { readApiError, unwrapApiPayload } from "./envelope";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
     ...init,
   });
-  if (!response.ok) throw new Error(`API error ${response.status}: ${path}`);
-  return response.json() as Promise<T>;
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) throw new Error(readApiError(payload, response.status, path));
+  return unwrapApiPayload<T>(payload);
 }
 
 export async function getQuizSchedule(): Promise<QuizStore> {

@@ -28,6 +28,7 @@ describe("GitHub Pages deploy", () => {
     );
     expect(workflow).toContain("actions/deploy-pages");
     expect(workflow).toContain("VITE_API_BASE");
+    expect(workflow).toContain("https://api.adam-russell.com/api/knowledge");
     expect(workflow).toContain("knowledge-api.adam-russell.com");
   });
 });

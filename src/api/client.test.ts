@@ -37,6 +37,25 @@ describe("api client", () => {
     );
   });
 
+  it("unwraps Life { ok, data } page lists", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, data: [{ id: "p" }] }) }),
+    );
+    await expect(listPages()).resolves.toEqual([{ id: "p" }]);
+  });
+
+  it("reads a Life session envelope", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true, data: { authenticated: true, expiresAt: "2026-09-01T00:00:00Z" } }),
+      }),
+    );
+    await expect(fetchSession()).resolves.toBe(true);
+  });
+
   it("gets a page", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: "p" }) }));
     await expect(getPage("p")).resolves.toEqual({ id: "p" });

@@ -1,6 +1,6 @@
 import type { PendingProposal } from "../curator/schema";
 import { USE_LOCAL_DATA } from "./client";
-import { API_BASE } from "./config";
+import { LEFTOVER_API_BASE } from "./config";
 
 export { USE_LOCAL_DATA };
 
@@ -9,7 +9,7 @@ export const WIKI_NEEDS_NETLIFY = "Wiki proposals need the live API (netlify dev
 export type CuratorAction = "approve" | "dismiss" | "approve-all" | "dismiss-all" | "run";
 
 async function wikiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${LEFTOVER_API_BASE}${path}`, {
     credentials: "include",
     ...init,
   });
