@@ -37,6 +37,19 @@ describe("api client", () => {
     );
   });
 
+  it("unwraps a Life coach envelope", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true, data: { reply: "State the claim.", research: { findings: [] } } }),
+      }),
+    );
+    await expect(
+      runCoach({ messages: [{ role: "user", content: "Help" }], workingThesis: "A claim" }),
+    ).resolves.toMatchObject({ reply: "State the claim." });
+  });
+
   it("unwraps Life { ok, data } page lists", async () => {
     vi.stubGlobal(
       "fetch",

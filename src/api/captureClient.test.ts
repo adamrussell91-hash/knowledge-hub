@@ -16,6 +16,14 @@ describe("runCapture", () => {
     expect(JSON.stringify(init.headers)).not.toMatch(/x-research-kernel-secret/i);
   });
 
+  it("unwraps a Life capture envelope", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, data: { text: "spoken" } }) }),
+    );
+    await expect(runCapture("notes/page_hub_aa/voice.webm")).resolves.toEqual({ text: "spoken" });
+  });
+
   it("throws in local data mode without fetching", async () => {
     const fetchImpl = vi.fn();
     vi.stubGlobal("fetch", fetchImpl);

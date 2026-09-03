@@ -49,7 +49,7 @@ export async function getAttachmentUrl(
   if (USE_LOCAL_DATA) {
     throw new Error("Signed downloads need the Netlify API — local preview shows the attachment UI only.");
   }
-  return leftoverFetch<{ url: string }>(
+  return apiFetch<{ url: string }>(
     `/attachments/${encodeURIComponent(pageId)}/${encodeURIComponent(attachmentId)}`,
   );
 }
@@ -107,7 +107,7 @@ export async function runCoach(input: {
   workingThesis?: string;
   draft?: string;
 }): Promise<CoachResult> {
-  return leftoverFetch<CoachResult>("/clementine-coach", {
+  return apiFetch<CoachResult>("/clementine-coach", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -154,7 +154,7 @@ export type ChatPhase = {
 };
 
 async function postChat(input: ChatRequest) {
-  return leftoverFetch<ChatResponse>("/clementine-chat", {
+  return apiFetch<ChatResponse>("/clementine-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -355,7 +355,7 @@ export async function signAttachment(
   if (USE_LOCAL_DATA) {
     throw new Error("Uploads need the live API (netlify dev or production).");
   }
-  return leftoverFetch<{ put_url: string; attachment: Attachment }>("/attachments-sign", {
+  return apiFetch<{ put_url: string; attachment: Attachment }>("/attachments-sign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
