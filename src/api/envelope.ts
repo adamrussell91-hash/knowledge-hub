@@ -32,7 +32,5 @@ export function sessionAuthenticated(payload: unknown): boolean {
 }
 
 export function sessionTargets(apiBase: string, leftoverBase: string, path: "/auth-login" | "/auth-logout"): string[] {
-  const targets = [`${apiBase}${path}`];
-  if (leftoverBase !== apiBase) targets.push(`${leftoverBase}${path}`);
-  return targets;
+  return [`${apiBase}${path}`];
 }

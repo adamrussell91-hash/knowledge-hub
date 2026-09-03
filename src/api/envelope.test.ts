@@ -19,7 +19,7 @@ describe("envelope", () => {
     expect(sessionAuthenticated({ authenticated: false })).toBe(false);
   });
 
-  it("only dual-writes leftover auth when the hosts differ", () => {
+  it("only signs in on the umbrella Knowledge prefix", () => {
     expect(sessionTargets("/api", "/api", "/auth-login")).toEqual(["/api/auth-login"]);
     expect(
       sessionTargets(
@@ -27,10 +27,7 @@ describe("envelope", () => {
         "https://knowledge-api.adam-russell.com/api",
         "/auth-login",
       ),
-    ).toEqual([
-      "https://api.adam-russell.com/api/knowledge/auth-login",
-      "https://knowledge-api.adam-russell.com/api/auth-login",
-    ]);
+    ).toEqual(["https://api.adam-russell.com/api/knowledge/auth-login"]);
   });
 
   it("reads Life error.message and Knowledge error strings", () => {
