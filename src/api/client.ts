@@ -1,6 +1,6 @@
 import type { Attachment, Page, PageManifestEntry } from "../domain/page";
 import type { ResearchResult } from "../research/schema";
-import { API_BASE, LEGACY_API_BASE, LEFTOVER_API_BASE } from "./config";
+import { API_BASE, LEFTOVER_API_BASE } from "./config";
 import { readApiError, searchHits, sessionAuthenticated, sessionTargets, unwrapApiPayload } from "./envelope";
 import { localGetPage, localListPages, localSearchPages } from "./localData";
 
@@ -26,7 +26,7 @@ async function apiFetch<T>(path: string, init?: RequestInit, base: string = API_
 }
 
 function leftoverFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  return apiFetch<T>(path, init, LEFTOVER_API_BASE);
+  return apiFetch<T>(path, init);
 }
 
 export const listPages = (): Promise<PageManifestEntry[]> =>
@@ -296,17 +296,15 @@ export async function savePage(page: Page): Promise<Page> {
 }
 
 export function tidyEndpoint(localData: boolean) {
-  return localData ? "/local-data/tidy" : `${LEGACY_API_BASE}/tidy`;
+  return localData ? "/local-data/tidy" : `${API_BASE}/tidy`;
 }
 
 async function readTidyError(response: Response) {
-  let detail = `Tidy failed (${response.status})`;
   try {
-    detail = ((await response.json()) as { error?: string }).error ?? detail;
+    return readApiError(await response.json(), response.status, "/tidy");
   } catch {
-    /* retain status */
+    return `Tidy failed (${response.status})`;
   }
-  return detail;
 }
 
 async function pageIfAlreadyTidied(id: string, previousUpdatedAt: string) {
@@ -338,7 +336,7 @@ export async function tidyPage(id: string, previousUpdatedAt?: string): Promise<
     throw new Error("Clean up is still running. Refresh the note in a few seconds.");
   }
   if (!response.ok) throw new Error(await readTidyError(response));
-  return response.json() as Promise<Page>;
+  return unwrapApiPayload<Page>(await response.json());
 }
 
 export type SignAttachmentInput = {

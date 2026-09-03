@@ -7,7 +7,7 @@ describe("wiki client", () => {
   it("lists pending proposals", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ pending: [{ id: "a||b" }] }) }),
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, data: { pending: [{ id: "a||b" }] } }) }),
     );
     await expect(listCuratorPending()).resolves.toEqual([{ id: "a||b" }]);
     expect(fetch).toHaveBeenCalledWith(
@@ -17,7 +17,7 @@ describe("wiki client", () => {
   });
 
   it("posts approve and run actions", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ pending: [] }) }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, data: { pending: [] } }) }));
     await expect(curatorAction("approve", "a||b")).resolves.toEqual({ pending: [] });
     const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe("POST");
@@ -31,7 +31,7 @@ describe("wiki client", () => {
       vi.fn().mockResolvedValue({
         ok: false,
         status: 502,
-        json: async () => ({ error: "workflow dispatch failed 404" }),
+        json: async () => ({ ok: false, error: { message: "workflow dispatch failed 404" } }),
       }),
     );
     await expect(listCuratorPending()).rejects.toThrow("workflow dispatch failed 404");
