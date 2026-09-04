@@ -17,24 +17,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      VITE_API_BASE: https://api.adam-russell.com/api/knowledge
-      VITE_LEGACY_API_BASE: https://knowledge-api.adam-russell.com/api
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-
+      - run: cp redirect/index.html redirect/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: redirect
 
   deploy:
     needs: build
